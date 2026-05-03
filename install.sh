@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="https://github.com/klimentij/klimki.git"
-BRANCH="os-prep"
+REPO_URL="https://github.com/klimentij/klimkit.git"
+BRANCH="main"
 CHECKOUT="$HOME/klimkit"
 BIN_DIR="$HOME/.local/bin"
 UV_VERSION="0.8.3"

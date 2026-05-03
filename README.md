@@ -16,7 +16,7 @@ and install paths are `klimkit`.
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/klimentij/klimki/os-prep/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/klimentij/klimkit/main/install.sh | bash
 ```
 
 Supported targets are macOS, Linux, and WSL2. Native Windows is not supported;
