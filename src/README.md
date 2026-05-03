@@ -11,4 +11,3 @@ Core operator surfaces:
 Additional local tools:
 
 - `src/klimkit/analysis/`: maintained analysis helpers
-- `src/klimkit/cc_connect/`: optional Telegram bot runtime wrapper

@@ -42,7 +42,6 @@ class InstallConfig:
     live_sync_enabled: bool
     switchboard_agent_enabled: bool
     switchboard_enabled: bool
-    cc_connect_enabled: bool
     configure_services: bool
     install_code_server_if_missing: bool
     tailscale_serve_enabled: bool
@@ -127,7 +126,6 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
         live_sync_enabled=False,
         switchboard_agent_enabled=False,
         switchboard_enabled=server_enabled,
-        cc_connect_enabled=False,
         configure_services=True,
         install_code_server_if_missing=client_enabled,
         tailscale_serve_enabled=True,
@@ -153,7 +151,6 @@ def with_role(config: InstallConfig, profile: str) -> InstallConfig:
         supervisor_enabled=role.supervisor_enabled,
         live_sync_enabled=role.live_sync_enabled,
         switchboard_enabled=role.switchboard_enabled,
-        cc_connect_enabled=role.cc_connect_enabled,
         install_code_server_if_missing=role.install_code_server_if_missing,
     )
 
@@ -175,7 +172,6 @@ def render_config(config: InstallConfig) -> str:
             f"code_server = {str(config.code_server_enabled).lower()}",
             f"supervisor = {str(config.supervisor_enabled).lower()}",
             f"switchboard = {str(config.switchboard_enabled).lower()}",
-            f"cc_connect = {str(config.cc_connect_enabled).lower()}",
             "",
             "[workers]",
             f"live_sync = {str(config.live_sync_enabled).lower()}",
@@ -304,7 +300,6 @@ def parse_config(raw: str) -> InstallConfig:
             workers.get("switchboard_agent"), False
         ),
         switchboard_enabled=_bool(components.get("switchboard"), server_enabled),
-        cc_connect_enabled=_bool(components.get("cc_connect"), False),
         configure_services=_bool(services.get("configure"), True),
         install_code_server_if_missing=_bool(
             code_server.get("install_if_missing"), client_enabled
@@ -484,25 +479,6 @@ def build_plan(
             )
         )
 
-    if config.cc_connect_enabled:
-        cc_connect_actions = _dir_actions(
-            "cc-connect",
-            repo / "templates" / "cc-connect" / "home",
-            home / ".cc-connect",
-            "cc-connect config",
-            component="cc-connect",
-        )
-        actions.extend(
-            Action(
-                **{
-                    **action.__dict__,
-                    "kind": "ensure_file",
-                    "mode": CONFIG_MODE if action.target.name == "config.toml" else action.mode,
-                }
-            )
-            for action in cc_connect_actions
-        )
-
     if config.code_server_enabled:
         actions.append(
             _file_action(
@@ -602,17 +578,38 @@ def render_launchd_plist(config: InstallConfig, *, config_path: Path = KLIMKIT_C
     return _template_text(template, config, config_path=config_path)
 
 
-def format_plan(actions: list[Action], *, config_path: Path = KLIMKIT_CONFIG_FILE) -> str:
-    lines = ["Klimkit setup preview", f"Config: {config_path.expanduser()}", f"Manifest: {KLIMKIT_MANIFEST_FILE}", ""]
+def _ansi(text: str, code: str, *, color: bool) -> str:
+    if not color:
+        return text
+    return f"\033[{code}m{text}\033[0m"
+
+
+def _ansi_cell(text: str, width: int, code: str, *, color: bool) -> str:
+    return _ansi(f"{text:<{width}}", code, color=color)
+
+
+def format_plan(actions: list[Action], *, config_path: Path = KLIMKIT_CONFIG_FILE, color: bool = False) -> str:
+    lines = [
+        _ansi("Klimkit Setup Preview", "1;38;2;126;240;175", color=color),
+        "",
+        f"  {'config':<9} {config_path.expanduser()}",
+        f"  {'manifest':<9} {KLIMKIT_MANIFEST_FILE}",
+        "",
+        _ansi("Plan", "1;38;2;166;200;182", color=color),
+    ]
     for action in actions:
         if action.kind == "run_command":
-            lines.append(f"- run {action.description}: {' '.join(action.command)}")
+            lines.append(f"  {_ansi_cell('run', 7, '38;2;244;188;103', color=color)} {action.description}")
+            lines.append(f"          $ {' '.join(action.command)}")
         elif action.kind == "manual_step":
-            lines.append(f"- manual {action.description}: {action.target}")
+            lines.append(f"  {_ansi_cell('manual', 7, '38;2;240;123;95', color=color)} {action.description}")
+            lines.append(f"          -> {action.target}")
         elif action.kind == "ensure_file":
-            lines.append(f"- ensure {action.description}: {action.target}")
+            lines.append(f"  {_ansi_cell('ensure', 7, '38;2;119;199;255', color=color)} {action.description}")
+            lines.append(f"          -> {action.target}")
         else:
-            lines.append(f"- write {action.description}: {action.target}")
+            lines.append(f"  {_ansi_cell('write', 7, '38;2;126;240;175', color=color)} {action.description}")
+            lines.append(f"          -> {action.target}")
     return "\n".join(lines) + "\n"
 
 
@@ -648,7 +645,6 @@ def _default_delete_roots(home: Path | None = None) -> tuple[Path, ...]:
         home / ".config" / "klimkit",
         home / ".config" / "code-server",
         home / ".local" / "share" / "code-server" / "User",
-        home / ".cc-connect",
         home / ".config" / "systemd" / "user" / "klimkit.service",
         home / "Library" / "LaunchAgents" / "com.klim.klimkit.plist",
     )

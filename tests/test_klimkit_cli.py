@@ -77,7 +77,7 @@ class KlimkitCliTests(unittest.TestCase):
             build_plan_mock.assert_called_once()
             self.assertTrue(build_plan_mock.call_args.kwargs["skip_services"])
             apply_plan_mock.assert_called_once_with([])
-            self.assertIn("Applied actions: 0", stdout.getvalue())
+            self.assertIn("actions    0", stdout.getvalue())
 
     def test_uninstall_without_confirmation_flag_uninstalls(self) -> None:
         stdout = io.StringIO()
@@ -87,7 +87,7 @@ class KlimkitCliTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         uninstall_mock.assert_called_once_with()
-        self.assertIn("Removed files: 3", stdout.getvalue())
+        self.assertIn("removed    3", stdout.getvalue())
 
     def test_pull_refuses_missing_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -132,7 +132,7 @@ class KlimkitCliTests(unittest.TestCase):
             build_plan_mock.assert_called_once()
             self.assertTrue(build_plan_mock.call_args.kwargs["skip_services"])
             apply_plan_mock.assert_called_once_with([])
-            self.assertIn("Applied actions: 0", stdout.getvalue())
+            self.assertIn("actions    0", stdout.getvalue())
 
     def test_setup_creates_config_without_applying_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -144,7 +144,7 @@ class KlimkitCliTests(unittest.TestCase):
 
             self.assertEqual(result, 0)
             self.assertTrue(config_path.exists())
-            self.assertIn("No changes applied", stdout.getvalue())
+            self.assertIn("Config prepared; no files were applied.", stdout.getvalue())
             config = parse_config(config_path.read_text(encoding="utf-8"))
             self.assertTrue(config.client_enabled)
             self.assertTrue(config.server_enabled)
@@ -174,7 +174,7 @@ class KlimkitCliTests(unittest.TestCase):
 
             self.assertEqual(result, 0)
             self.assertIn("(updated)", stdout.getvalue())
-            self.assertIn("write Switchboard TOML config", stdout.getvalue())
+            self.assertIn("Switchboard TOML config", stdout.getvalue())
             config = parse_config(config_path.read_text(encoding="utf-8"))
             self.assertTrue(config.server_enabled)
 

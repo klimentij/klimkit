@@ -3,6 +3,13 @@ set -euo pipefail
 
 payload="$(cat)"
 
+TELEGRAM_ENV="${KLIMKIT_TELEGRAM_ENV:-$HOME/.config/klimkit/telegram.env}"
+if [[ -f "$TELEGRAM_ENV" ]]; then
+  # shellcheck disable=SC1090
+  source "$TELEGRAM_ENV"
+fi
+
+TELEGRAM_ENABLED="${KLIMKIT_TELEGRAM_ENABLED:-false}"
 BOT_TOKEN="${KLIMKIT_TELEGRAM_BOT_TOKEN:-${TELEGRAM_BOT_TOKEN:-}}"
 CHAT_ID="${KLIMKIT_TELEGRAM_CHAT_ID:-${TELEGRAM_CHAT_ID:-}}"
 
@@ -311,7 +318,8 @@ print("true" if data.get("disable_web_page_preview") else "false")
 '
 )"
 
-if [[ -n "$notification" && -n "$BOT_TOKEN" && -n "$CHAT_ID" ]] && command -v curl >/dev/null 2>&1; then
+telegram_enabled_lc="${TELEGRAM_ENABLED,,}"
+if [[ "$telegram_enabled_lc" =~ ^(1|true|yes|on)$ && -n "$notification" && -n "$BOT_TOKEN" && -n "$CHAT_ID" ]] && command -v curl >/dev/null 2>&1; then
   curl_args=(
     -fsS --retry 2 --max-time 10
     -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \

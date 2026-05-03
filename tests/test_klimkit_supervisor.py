@@ -23,7 +23,6 @@ class KlimkitSupervisorTests(unittest.TestCase):
             fetch_ref="origin/main",
             switchboard_agent_enabled=True,
             manage_switchboard=True,
-            manage_cc_connect=True,
         )
         events: list[str] = []
 
@@ -58,7 +57,6 @@ class KlimkitSupervisorTests(unittest.TestCase):
             fetch_ref="origin/main",
             switchboard_agent_enabled=True,
             manage_switchboard=True,
-            manage_cc_connect=True,
             switchboard_agent_config_path=Path("/tmp/private-agent.toml"),
         )
         agent_config = mock.Mock()
@@ -121,7 +119,6 @@ class KlimkitSupervisorTests(unittest.TestCase):
 
         self.assertEqual(config.profile, "server")
         self.assertTrue(config.manage_switchboard)
-        self.assertFalse(config.manage_cc_connect)
         self.assertFalse(config.live_sync_enabled)
 
     def test_load_machine_config_uses_local_switchboard_agent_config_path(self) -> None:
@@ -162,7 +159,6 @@ class KlimkitSupervisorTests(unittest.TestCase):
             fetch_ref="origin/main",
             switchboard_agent_enabled=False,
             manage_switchboard=True,
-            manage_cc_connect=False,
             switchboard_config_path=Path("/tmp/private-switchboard.toml"),
         )
 

@@ -34,7 +34,6 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertEqual(parsed.repo_root, Path("/tmp/klimkit"))
         self.assertTrue(parsed.switchboard_enabled)
         self.assertFalse(parsed.live_sync_enabled)
-        self.assertFalse(parsed.cc_connect_enabled)
         self.assertTrue(parsed.install_code_server_if_missing)
         self.assertEqual(parsed.switchboard_config_path.name, "switchboard.toml")
 
@@ -87,7 +86,6 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertTrue(config.client_enabled)
         self.assertTrue(config.server_enabled)
         self.assertTrue(config.switchboard_enabled)
-        self.assertFalse(config.cc_connect_enabled)
 
     def test_server_plan_writes_sensitive_configs_private(self) -> None:
         config = replace(default_config(), repo_root=ROOT)
@@ -97,15 +95,6 @@ class KlimkitInstallTests(unittest.TestCase):
         switchboard = next(action for action in actions if action.id == "switchboard-config")
         self.assertEqual(switchboard.mode, 0o600)
         self.assertIn("auth_token", switchboard.content or "")
-
-    def test_cc_connect_config_is_create_if_missing(self) -> None:
-        config = replace(default_config(), repo_root=ROOT, cc_connect_enabled=True)
-
-        actions = build_plan(config, skip_services=True)
-
-        cc_connect = next(action for action in actions if action.target.name == "config.toml" and action.component == "cc-connect")
-        self.assertEqual(cc_connect.kind, "ensure_file")
-        self.assertEqual(cc_connect.mode, 0o600)
 
     def test_switchboard_agent_config_uses_private_backend_settings(self) -> None:
         config = replace(

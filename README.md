@@ -180,12 +180,7 @@ codex = true
 code_server = true
 supervisor = true
 switchboard = true
-cc_connect = false
 ```
-
-`cc_connect` is off by default because it needs a Telegram bot token, chat/admin
-ids, and the cc-connect binary. Turn it on only after the private config is in
-place.
 
 Older configs with `[machine] profile = "client"` or `profile = "server"` still
 load. New configs use `components.client` and `components.server` instead.
@@ -219,48 +214,26 @@ Generated Switchboard server config:
 Klimkit rewrites this from `klimkit.toml` during `kk apply`, so edit
 `klimkit.toml` rather than this generated file.
 
-cc-connect Telegram config:
+Optional Telegram notifications:
 
 ```text
-~/.cc-connect/config.toml
+~/.config/klimkit/telegram.env
 ```
 
-Set Telegram secrets there:
-
-```toml
-[[projects]]
-admin_from = "<telegram-user-id>"
-
-[[projects.platforms]]
-type = "telegram"
-
-[projects.platforms.options]
-allow_from = "<telegram-user-id-or-chat-id>"
-token = "<telegram-bot-token>"
-```
-
-When `components.cc_connect = true`, Klimkit creates missing cc-connect config
-files from blank templates, but it does not overwrite existing cc-connect files.
-This keeps real Telegram secrets local.
-
-Install the bundled cc-connect binary before enabling that component:
+Telegram is disabled by default. The Codex stop hook always writes local
+Switchboard events, but it sends Telegram messages only when this local file
+explicitly enables them:
 
 ```bash
-~/klimkit/src/klimkit/cc_connect/install.sh
+KLIMKIT_TELEGRAM_ENABLED=true
+KLIMKIT_TELEGRAM_BOT_TOKEN=<telegram-bot-token>
+KLIMKIT_TELEGRAM_CHAT_ID=<telegram-chat-id>
 ```
 
-Then set:
-
-```toml
-[components]
-cc_connect = true
-```
-
-and apply:
+Keep this file mode private:
 
 ```bash
-kk preview
-kk apply
+chmod 600 ~/.config/klimkit/telegram.env
 ```
 
 ## Important Paths
@@ -277,7 +250,6 @@ Klimkit writes only the paths represented in the preview and manifest.
 ~/.codex/
 ~/.config/code-server/
 ~/.local/share/code-server/User/
-~/.cc-connect/
 ```
 
 Switchboard server DB:
@@ -344,7 +316,6 @@ packs/codex/                 Codex AGENTS/config/hooks/agents/skills pack
 templates/code-server/       code-server config and user settings
 templates/systemd/user/      Linux user service template
 templates/launchd/           macOS LaunchAgent template
-templates/cc-connect/        optional cc-connect defaults
 tests/                       unittest suite
 install.sh                   one-line installer entrypoint
 ```

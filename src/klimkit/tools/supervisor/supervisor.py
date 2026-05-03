@@ -63,7 +63,6 @@ class SupervisorConfig:
     fetch_ref: str
     switchboard_agent_enabled: bool
     manage_switchboard: bool
-    manage_cc_connect: bool
     switchboard_config_path: Path = KLIMKIT_SWITCHBOARD_CONFIG_FILE
     switchboard_agent_config_path: Path = KLIMKIT_SWITCHBOARD_AGENT_CONFIG_FILE
 
@@ -135,7 +134,6 @@ def load_machine_config(path: Path) -> SupervisorConfig:
             "client": True,
             "server": True,
             "switchboard": False,
-            "cc_connect": False,
         },
         "switchboard": {
             "config_path": str(path.expanduser().parent / "switchboard.toml"),
@@ -171,7 +169,6 @@ def load_machine_config(path: Path) -> SupervisorConfig:
     repo_root = Path(str(nested("machine", "repo_root"))).expanduser()
     component_defaults = {
         "switchboard": server_enabled,
-        "cc_connect": False,
     }
 
     return SupervisorConfig(
@@ -183,7 +180,6 @@ def load_machine_config(path: Path) -> SupervisorConfig:
         fetch_ref=str(nested("live_sync", "fetch_ref")).strip() or "origin/main",
         switchboard_agent_enabled=bool(nested("workers", "switchboard_agent")),
         manage_switchboard=bool(component_config.get("switchboard", component_defaults["switchboard"])),
-        manage_cc_connect=bool(component_config.get("cc_connect", component_defaults["cc_connect"])),
         switchboard_config_path=Path(str(nested("switchboard", "config_path"))).expanduser(),
         switchboard_agent_config_path=Path(str(nested("switchboard", "agent_config_path"))).expanduser(),
     )
@@ -210,7 +206,6 @@ def write_machine_config(path: Path, *, profile: str, repo_root: Path) -> None:
                 "[components]",
                 f"client = {'false' if profile == 'server-only' else 'true'}",
                 f"server = {'false' if profile in {'client', 'client-only'} else 'true'}",
-                "cc_connect = false",
                 "",
                 "[switchboard]",
                 f'config_path = "{path.parent / "switchboard.toml"}"',
@@ -422,15 +417,6 @@ def ensure_central_processes(
                 config.repo_root,
             )
         )
-    if config.manage_cc_connect:
-        specs.append(
-            (
-                "cc-connect",
-                [str(config.repo_root / "src" / "klimkit" / "cc_connect" / "run.sh")],
-                config.repo_root / "src" / "klimkit" / "cc_connect",
-            )
-        )
-
     for name, command, cwd in specs:
         managed = processes.get(name)
         if managed is not None and managed.process.poll() is None:
@@ -483,7 +469,7 @@ def daemon_loop(config: SupervisorConfig) -> int:
 
     while not stop:
         now = time.time()
-        if config.manage_switchboard or config.manage_cc_connect:
+        if config.manage_switchboard:
             run_supervisor_step("central", lambda: ensure_central_processes(config, processes))
 
         if config.live_sync_enabled and now >= next_live_sync_at:

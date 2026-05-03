@@ -23,27 +23,85 @@ EXAMPLES = """examples:
 """
 
 
-WELCOME = """Klimkit
-Agentic engineering across machines, under control.
-
-Config: {config}
-Manifest: {manifest}
-
-Start here:
-  kk setup           # create config and show the plan
-  kk setup --client-only
-                     # create a second-VM/client-only config
-  kk preview         # show what would change
-  kk apply           # write managed files and services
-  kk doctor          # diagnose local setup
-  kk serve           # run Switchboard
-  kk update          # pull the latest checkout
-  kk pull            # pull current branch and apply this VM
-"""
+PALETTE = {
+    "accent": "38;2;126;240;175",
+    "accent_strong": "38;2;237;255;245",
+    "muted": "38;2;111;141;126",
+    "muted_strong": "38;2;166;200;182",
+    "warn": "38;2;244;188;103",
+    "error": "38;2;255;90;107",
+    "ok": "38;2;141;220;104",
+}
 
 
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
+
+
+def _color_enabled(stream: object | None = None) -> bool:
+    stream = stream or sys.stdout
+    is_tty = getattr(stream, "isatty", lambda: False)
+    return bool(is_tty()) and "KLIMKIT_NO_COLOR" not in os.environ
+
+
+def _paint(text: str, style: str = "accent", *, stream: object | None = None) -> str:
+    if not _color_enabled(stream):
+        return text
+    code = PALETTE.get(style, style)
+    return f"\033[{code}m{text}\033[0m"
+
+
+def _cell(text: str, width: int, style: str) -> str:
+    return _paint(f"{text:<{width}}", style)
+
+
+def _header(title: str, subtitle: str = "") -> str:
+    parts = [_paint("Klimkit", "accent"), _paint("/", "muted"), _paint(title, "accent_strong")]
+    lines = [" ".join(parts)]
+    if subtitle:
+        lines.append(_paint(subtitle, "muted_strong"))
+    return "\n".join(lines)
+
+
+def _section(title: str) -> str:
+    return _paint(title, "muted_strong")
+
+
+def _kv(label: str, value: object) -> str:
+    return f"  {_cell(label.lower(), 10, 'muted')} {value}"
+
+
+def _command_row(command: str, description: str) -> str:
+    return f"  {_cell(command, 24, 'accent')} {description}"
+
+
+def _status(label: str, message: str, style: str = "ok") -> str:
+    return f"  {_cell(label, 10, style)} {message}"
+
+
+def _error(message: str) -> str:
+    return f"{_paint('error', 'error', stream=sys.stderr)} {message}"
+
+
+def _format_welcome() -> str:
+    lines = [
+        _header("operator kit", "Agentic engineering across machines, under control."),
+        "",
+        _section("Paths"),
+        _kv("config", KLIMKIT_CONFIG_FILE),
+        _kv("manifest", KLIMKIT_MANIFEST_FILE),
+        "",
+        _section("Start Here"),
+        _command_row("kk setup", "create config and show the plan"),
+        _command_row("kk setup --client-only", "create a second-VM/client-only config"),
+        _command_row("kk preview", "show what would change"),
+        _command_row("kk apply", "write managed files and services"),
+        _command_row("kk doctor", "diagnose local setup"),
+        _command_row("kk serve", "run Switchboard"),
+        _command_row("kk update", "pull the checkout only"),
+        _command_row("kk pull", "pull current branch and apply this VM"),
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def _prog_name() -> str:
@@ -237,19 +295,23 @@ def cmd_setup(args: argparse.Namespace) -> int:
         updated = True
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
     suffix = " (created)" if created else " (updated)" if updated else ""
-    print(f"Config: {args.config.expanduser()}" + suffix)
-    print(format_plan(actions, config_path=args.config), end="")
-    print("No changes applied. Run `kk apply` to apply this plan.")
+    print(_header("setup", "Config prepared; no files were applied."))
+    print(_kv("config", f"{args.config.expanduser()}{suffix}"))
+    print()
+    print(format_plan(actions, config_path=args.config, color=_color_enabled()), end="")
+    print()
+    print(_section("Next"))
+    print(_command_row("kk apply", "apply this plan"))
     return 0
 
 
 def cmd_preview(args: argparse.Namespace) -> int:
     if not args.config.expanduser().exists():
-        print("Config is missing; run `kk setup` first.", file=sys.stderr)
+        print(_error("Config is missing; run `kk setup` first."), file=sys.stderr)
         return 1
     config = load_config(args.config)
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
-    print(format_plan(actions, config_path=args.config), end="")
+    print(format_plan(actions, config_path=args.config, color=_color_enabled()), end="")
     return 0
 
 
@@ -257,25 +319,32 @@ def cmd_apply(args: argparse.Namespace) -> int:
     config, _ = ensure_config(args.config, profile="first-vm")
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
     manifest = apply_plan(actions)
-    print(f"Applied actions: {len(manifest['actions'])}")
-    print(f"Manifest: {KLIMKIT_MANIFEST_FILE}")
+    print(_header("apply", "Local plan applied."))
+    print(_kv("actions", len(manifest["actions"])))
+    print(_kv("manifest", KLIMKIT_MANIFEST_FILE))
     return 0
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
     status = 0
-    print(f"Repo: {OPS_REPO_ROOT}")
-    print(f"Config: {args.config.expanduser()}")
-    print(f"Manifest: {KLIMKIT_MANIFEST_FILE}")
+    print(_header("doctor", "Local Klimkit health check."))
+    print(_section("Paths"))
+    print(_kv("repo", OPS_REPO_ROOT))
+    print(_kv("config", args.config.expanduser()))
+    print(_kv("manifest", KLIMKIT_MANIFEST_FILE))
+    print()
+    print(_section("Checks"))
     if not args.config.expanduser().exists():
-        print("Config: missing; run `kk setup`")
+        print(_status("missing", "config; run `kk setup`", "warn"))
         status = 1
     else:
         load_config(args.config)
-        print("Config: ok")
-    print(f"uv: {shutil.which('uv') or 'missing'}")
-    print(f"git: {shutil.which('git') or 'missing'}")
-    if shutil.which("uv") is None:
+        print(_status("ok", "config"))
+    uv_path = shutil.which("uv")
+    git_path = shutil.which("git")
+    print(_status("ok" if uv_path else "missing", f"uv: {uv_path or 'missing'}", "ok" if uv_path else "warn"))
+    print(_status("ok" if git_path else "missing", f"git: {git_path or 'missing'}", "ok" if git_path else "warn"))
+    if uv_path is None:
         status = 1
     return status
 
@@ -297,27 +366,29 @@ def cmd_update(args: argparse.Namespace) -> int:
     try:
         summary = update_checkout()
     except RuntimeError as exc:
-        print(f"Update failed: {exc}", file=sys.stderr)
+        print(_error(f"Update failed: {exc}"), file=sys.stderr)
         return 1
-    print(f"Updated Klimkit checkout: {summary}.")
+    print(_header("update", "Checkout fast-forwarded."))
+    print(_kv("checkout", summary))
     return 0
 
 
 def cmd_pull(args: argparse.Namespace) -> int:
     if not args.config.expanduser().exists():
-        print("Config is missing; run `kk setup` first.", file=sys.stderr)
+        print(_error("Config is missing; run `kk setup` first."), file=sys.stderr)
         return 1
     try:
         summary = update_checkout()
     except RuntimeError as exc:
-        print(f"Pull failed: {exc}", file=sys.stderr)
+        print(_error(f"Pull failed: {exc}"), file=sys.stderr)
         return 1
     config = load_config(args.config)
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
     manifest = apply_plan(actions)
-    print(f"Updated Klimkit checkout: {summary}.")
-    print(f"Applied actions: {len(manifest['actions'])}")
-    print(f"Manifest: {KLIMKIT_MANIFEST_FILE}")
+    print(_header("pull", "Checkout updated and local plan applied."))
+    print(_kv("checkout", summary))
+    print(_kv("actions", len(manifest["actions"])))
+    print(_kv("manifest", KLIMKIT_MANIFEST_FILE))
     return 0
 
 
@@ -334,7 +405,8 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 def cmd_uninstall(args: argparse.Namespace) -> int:
     removed = uninstall_from_manifest()
-    print(f"Removed files: {removed}")
+    print(_header("uninstall", "Manifest-owned files removed."))
+    print(_kv("removed", removed))
     return 0
 
 
@@ -342,7 +414,7 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
     if not argv:
-        print(WELCOME.format(config=KLIMKIT_CONFIG_FILE, manifest=KLIMKIT_MANIFEST_FILE))
+        print(_format_welcome())
         return 0
     args = build_parser().parse_args(argv)
     commands = {
