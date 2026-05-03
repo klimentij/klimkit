@@ -15,11 +15,11 @@ EXAMPLES = """examples:
   kk setup
   kk setup --client-only
   kk preview
-  kk apply --yes
+  kk apply
   kk doctor
   kk serve
   kk update
-  kk quick
+  kk pull
 """
 
 
@@ -34,11 +34,11 @@ Start here:
   kk setup --client-only
                      # create a second-VM/client-only config
   kk preview         # show what would change
-  kk apply --yes     # write managed files and services
+  kk apply           # write managed files and services
   kk doctor          # diagnose local setup
   kk serve           # run Switchboard
   kk update          # pull the latest checkout
-  kk quick           # pull current branch and apply this VM
+  kk pull            # pull current branch and apply this VM
 """
 
 
@@ -98,7 +98,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Initial role for new configs. Kept for compatibility; prefer --client-only for second VMs.",
     )
-    setup.add_argument("--yes", action="store_true", help="Apply the generated plan after setup.")
     setup.add_argument("--skip-services", action="store_true", help="Do not start or enable services.")
 
     _add_command(
@@ -114,9 +113,8 @@ def build_parser() -> argparse.ArgumentParser:
         "apply",
         help="Apply the install plan.",
         description="Apply the current TOML plan, writing backups and the install manifest.",
-        examples="  kk apply --yes\n  kk apply --yes --skip-services",
+        examples="  kk apply\n  kk apply --skip-services",
     )
-    apply.add_argument("--yes", action="store_true", help="Required confirmation for noninteractive apply.")
     apply.add_argument("--skip-services", action="store_true", help="Do not start or enable services.")
 
     _add_command(
@@ -148,17 +146,17 @@ def build_parser() -> argparse.ArgumentParser:
         examples="  kk update",
     )
 
-    quick = _add_command(
+    pull = _add_command(
         subparsers,
-        "quick",
+        "pull",
         help="Pull the current branch and apply the local config.",
         description=(
             "Fast-forward the current Klimkit checkout from its Git upstream, then apply the "
             "existing local TOML config. Intended for updating another VM after you push changes."
         ),
-        examples="  kk quick\n  kk quick --skip-services",
+        examples="  kk pull\n  kk pull --skip-services",
     )
-    quick.add_argument("--skip-services", action="store_true", help="Do not start or enable services.")
+    pull.add_argument("--skip-services", action="store_true", help="Do not start or enable services.")
 
     serve = _add_command(
         subparsers,
@@ -175,9 +173,8 @@ def build_parser() -> argparse.ArgumentParser:
         "uninstall",
         help="Remove files owned by the Klimkit install manifest.",
         description="Remove only files recorded in the Klimkit install manifest.",
-        examples="  kk uninstall --yes",
+        examples="  kk uninstall",
     )
-    uninstall.add_argument("--yes", action="store_true", help="Required confirmation for uninstall.")
     return parser
 
 
@@ -208,7 +205,7 @@ def update_checkout() -> str:
     if dirty.stdout.strip():
         raise RuntimeError(
             "Refusing to pull with local changes in the Klimkit checkout. "
-            "Commit or stash them first, or run `kk apply --yes` to apply the local checkout without pulling."
+            "Commit or stash them first, or run `kk apply` to apply the local checkout without pulling."
         )
     branch = subprocess_run(["git", "branch", "--show-current"], cwd=OPS_REPO_ROOT).stdout.strip()
     if not branch:
@@ -242,12 +239,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
     suffix = " (created)" if created else " (updated)" if updated else ""
     print(f"Config: {args.config.expanduser()}" + suffix)
     print(format_plan(actions, config_path=args.config), end="")
-    if args.yes:
-        manifest = apply_plan(actions)
-        print(f"Applied actions: {len(manifest['actions'])}")
-        print(f"Manifest: {KLIMKIT_MANIFEST_FILE}")
-    else:
-        print("No changes applied. Run `kk apply --yes` to apply this plan.")
+    print("No changes applied. Run `kk apply` to apply this plan.")
     return 0
 
 
@@ -262,9 +254,6 @@ def cmd_preview(args: argparse.Namespace) -> int:
 
 
 def cmd_apply(args: argparse.Namespace) -> int:
-    if not args.yes:
-        print("Refusing to apply without --yes.", file=sys.stderr)
-        return 2
     config, _ = ensure_config(args.config, profile="first-vm")
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
     manifest = apply_plan(actions)
@@ -314,14 +303,14 @@ def cmd_update(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_quick(args: argparse.Namespace) -> int:
+def cmd_pull(args: argparse.Namespace) -> int:
     if not args.config.expanduser().exists():
         print("Config is missing; run `kk setup` first.", file=sys.stderr)
         return 1
     try:
         summary = update_checkout()
     except RuntimeError as exc:
-        print(f"Quick update failed: {exc}", file=sys.stderr)
+        print(f"Pull failed: {exc}", file=sys.stderr)
         return 1
     config = load_config(args.config)
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
@@ -344,9 +333,6 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 
 def cmd_uninstall(args: argparse.Namespace) -> int:
-    if not args.yes:
-        print("Refusing to uninstall without --yes.", file=sys.stderr)
-        return 2
     removed = uninstall_from_manifest()
     print(f"Removed files: {removed}")
     return 0
@@ -367,7 +353,7 @@ def main(argv: list[str] | None = None) -> int:
         "daemon": cmd_daemon,
         "sync-live": cmd_sync_live,
         "update": cmd_update,
-        "quick": cmd_quick,
+        "pull": cmd_pull,
         "serve": cmd_serve,
         "uninstall": cmd_uninstall,
     }

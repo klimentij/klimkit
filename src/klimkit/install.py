@@ -162,7 +162,7 @@ def render_config(config: InstallConfig) -> str:
     return "\n".join(
         [
             "# Klimkit setup config.",
-            "# Edit this file, then run `kk preview` or `kk apply --yes`.",
+            "# Edit this file, then run `kk preview` or `kk apply`.",
             "# Most machines only need components.client and components.server.",
             "",
             "[machine]",

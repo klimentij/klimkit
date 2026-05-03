@@ -18,11 +18,11 @@ class KlimkitCliTests(unittest.TestCase):
 
         help_text = parser.format_help()
 
-        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "quick", "serve", "uninstall"]:
+        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "pull", "serve", "uninstall"]:
             self.assertIn(command, help_text)
 
     def test_each_command_help_has_examples(self) -> None:
-        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "quick", "serve", "uninstall"]:
+        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "pull", "serve", "uninstall"]:
             stdout = io.StringIO()
             with self.subTest(command=command), redirect_stdout(stdout), self.assertRaises(SystemExit) as raised:
                 cli.build_parser().parse_args([command, "--help"])
@@ -45,9 +45,9 @@ class KlimkitCliTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertIn("Agentic engineering across machines, under control.", stdout.getvalue())
         self.assertIn("kk setup", stdout.getvalue())
-        self.assertIn("kk apply --yes", stdout.getvalue())
+        self.assertIn("kk apply", stdout.getvalue())
         self.assertIn("kk update", stdout.getvalue())
-        self.assertIn("kk quick", stdout.getvalue())
+        self.assertIn("kk pull", stdout.getvalue())
 
     def test_preview_refuses_to_create_missing_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -61,19 +61,47 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertFalse(config_path.exists())
             self.assertIn("Config is missing", stderr.getvalue())
 
-    def test_quick_refuses_missing_config(self) -> None:
+    def test_apply_without_confirmation_flag_applies_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "klimkit.toml"
+            stdout = io.StringIO()
+
+            with (
+                redirect_stdout(stdout),
+                mock.patch.object(cli, "build_plan", return_value=[]) as build_plan_mock,
+                mock.patch.object(cli, "apply_plan", return_value={"actions": []}) as apply_plan_mock,
+            ):
+                result = cli.main(["--config", str(config_path), "apply", "--skip-services"])
+
+            self.assertEqual(result, 0)
+            build_plan_mock.assert_called_once()
+            self.assertTrue(build_plan_mock.call_args.kwargs["skip_services"])
+            apply_plan_mock.assert_called_once_with([])
+            self.assertIn("Applied actions: 0", stdout.getvalue())
+
+    def test_uninstall_without_confirmation_flag_uninstalls(self) -> None:
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout), mock.patch.object(cli, "uninstall_from_manifest", return_value=3) as uninstall_mock:
+            result = cli.main(["uninstall"])
+
+        self.assertEqual(result, 0)
+        uninstall_mock.assert_called_once_with()
+        self.assertIn("Removed files: 3", stdout.getvalue())
+
+    def test_pull_refuses_missing_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "klimkit.toml"
             stderr = io.StringIO()
 
             with redirect_stderr(stderr):
-                result = cli.main(["--config", str(config_path), "quick"])
+                result = cli.main(["--config", str(config_path), "pull"])
 
             self.assertEqual(result, 1)
             self.assertFalse(config_path.exists())
             self.assertIn("Config is missing", stderr.getvalue())
 
-    def test_quick_updates_from_git_upstream_and_applies(self) -> None:
+    def test_pull_updates_from_git_upstream_and_applies(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "klimkit.toml"
             config_path.write_text("[components]\nclient = true\nserver = false\n", encoding="utf-8")
@@ -96,7 +124,7 @@ class KlimkitCliTests(unittest.TestCase):
                 mock.patch.object(cli, "build_plan", return_value=[]) as build_plan_mock,
                 mock.patch.object(cli, "apply_plan", return_value={"actions": []}) as apply_plan_mock,
             ):
-                result = cli.main(["--config", str(config_path), "quick", "--skip-services"])
+                result = cli.main(["--config", str(config_path), "pull", "--skip-services"])
 
             self.assertEqual(result, 0)
             self.assertIn(["git", "fetch", "origin", "main"], git_calls)

@@ -43,7 +43,7 @@ On the VM where you are editing:
 ```bash
 ./install.sh       # refresh the kk launcher from this local checkout
 kk preview         # inspect what the local checkout would write
-kk apply --yes     # apply local changes to the current VM
+kk apply           # apply local changes to the current VM
 ```
 
 The installer does not pull over an existing checkout. First install clones the
@@ -61,13 +61,13 @@ git push
 Then run this on the other VM:
 
 ```bash
-kk quick
+kk pull
 ```
 
-`kk quick` fast-forwards the current branch from its Git upstream and then runs
-the same apply path as `kk apply --yes`. It refuses to pull over local changes,
+`kk pull` fast-forwards the current branch from its Git upstream and then runs
+the same apply path as `kk apply`. It refuses to pull over local changes,
 so a VM with its own edits must commit, stash, or apply its local checkout
-directly with `kk apply --yes`.
+directly with `kk apply`.
 
 There is no automatic cross-VM sync by default. `[workers] live_sync = false`
 keeps the supervisor from periodically fetching Git and copying Codex assets
@@ -90,7 +90,7 @@ Switchboard server.
 ```bash
 kk setup           # create ~/.config/klimkit/klimkit.toml and show the plan
 kk preview         # review planned files and service actions
-kk apply --yes     # write files and enable/restart the supervisor service
+kk apply           # write files and enable/restart the supervisor service
 kk doctor          # check config, repo, uv, and git
 ```
 
@@ -148,7 +148,7 @@ If the first VM uses a Switchboard token, put the same token in
 
 ```bash
 kk preview
-kk apply --yes
+kk apply
 ```
 
 Klimkit generates the client agent config at:
@@ -260,7 +260,7 @@ and apply:
 
 ```bash
 kk preview
-kk apply --yes
+kk apply
 ```
 
 ## Important Paths
@@ -316,11 +316,11 @@ kk setup --client-only
 kk setup --server-only
                    # central service VM without local client assets
 kk preview         # render planned file writes, syncs, installs, and services
-kk apply --yes     # apply the plan, write backups, and write the manifest
+kk apply           # apply the plan, write backups, and write the manifest
 kk doctor          # diagnose config, repo, uv, and git
 kk serve           # run Switchboard in the foreground
 kk update          # fast-forward the current checkout
-kk quick           # fast-forward current branch, then apply this VM
+kk pull            # fast-forward current branch, then apply this VM
 ```
 
 Services are enabled only when you apply the plan. During testing or inspection,
@@ -328,7 +328,7 @@ skip service operations:
 
 ```bash
 kk setup --skip-services
-kk apply --yes --skip-services
+kk apply --skip-services
 ```
 
 Client VMs install code-server by default when it is missing. Review the

@@ -16,7 +16,7 @@ Agentic engineering across machines, under control.
 Configuration and apply are intentionally handled by kk after installation.
 
 First run clones the repo. Later runs use the existing local checkout exactly as-is,
-including uncommitted edits. Use kk update or kk quick when you explicitly want to
+including uncommitted edits. Use kk update or kk pull when you explicitly want to
 pull from Git.
 EOF
 }
@@ -156,8 +156,8 @@ Common commands:
   kk setup --client-only
                      # second VM: client=true, server=false
   kk preview         # show the install plan
-  kk apply --yes     # apply managed files and services
+  kk apply           # apply managed files and services
   kk doctor          # diagnose local setup
-  kk quick           # pull current branch and apply on this VM
+  kk pull            # pull current branch and apply on this VM
   kk serve           # run Switchboard
 EOF

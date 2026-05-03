@@ -14,7 +14,7 @@ The machine-local config lives at `~/.config/klimkit/klimkit.toml`.
 Install and start it through:
 
 ```bash
-kk apply --yes
+kk apply
 ```
 
-The managed Linux user unit is generated from `templates/systemd/user/klimkit.service`. On macOS, `kk apply --yes` writes `~/Library/LaunchAgents/com.klim.klimkit.plist`.
+The managed Linux user unit is generated from `templates/systemd/user/klimkit.service`. On macOS, `kk apply` writes `~/Library/LaunchAgents/com.klim.klimkit.plist`.
