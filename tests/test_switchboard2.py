@@ -99,6 +99,13 @@ def start_capture_server() -> RunningCaptureServer:
     return RunningCaptureServer(server, thread)
 
 
+def same_origin_headers(running: RunningServer) -> dict[str, str]:
+    return {
+        "Content-Type": "application/json",
+        "Origin": f"http://127.0.0.1:{running.server.server_address[1]}",
+    }
+
+
 class Switchboard2Tests(unittest.TestCase):
     def test_non_loopback_server_requires_auth_token(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -675,8 +682,13 @@ class Switchboard2Tests(unittest.TestCase):
                 workspace = Path(tmpdir) / "created" / "repo"
                 req = request.Request(
                     running.base_url + "/api/local-workspaces/bootstrap",
-                    data=json.dumps({"cwd": str(workspace)}).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
+                    data=json.dumps(
+                        {
+                            "cwd": str(workspace),
+                            "codex_command": "touch /tmp/klimkit-bootstrap-injected",
+                        }
+                    ).encode("utf-8"),
+                    headers=same_origin_headers(running),
                     method="POST",
                 )
                 with request.urlopen(req, timeout=5) as response:
@@ -692,6 +704,8 @@ class Switchboard2Tests(unittest.TestCase):
                 self.assertEqual(klimkit_tasks[0]["runOptions"]["runOn"], "folderOpen")
                 self.assertIn("check_for_update_on_startup=false", klimkit_tasks[0]["command"])
                 self.assertIn("--dangerously-bypass-approvals-and-sandbox", klimkit_tasks[0]["command"])
+                self.assertIn(str(workspace), klimkit_tasks[0]["command"])
+                self.assertNotIn("klimkit-bootstrap-injected", klimkit_tasks[0]["command"])
                 self.assertEqual(settings["task.allowAutomaticTasks"], "on")
                 self.assertEqual(settings["workbench.startupEditor"], "none")
                 self.assertFalse(settings["security.workspace.trust.enabled"])
@@ -705,7 +719,7 @@ class Switchboard2Tests(unittest.TestCase):
                 req = request.Request(
                     running.base_url + "/api/local-workspaces/bootstrap",
                     data=json.dumps({"cwd": "relative/path"}).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
+                    headers=same_origin_headers(running),
                     method="POST",
                 )
                 with self.assertRaises(error.HTTPError) as raised:
@@ -714,6 +728,35 @@ class Switchboard2Tests(unittest.TestCase):
                 payload = json.loads(raised.exception.read().decode("utf-8"))
                 self.assertEqual(payload["status"], "error")
                 self.assertIn("absolute path", payload["error"])
+            finally:
+                running.close()
+
+    def test_local_workspace_bootstrap_requires_same_origin_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir)))
+            try:
+                workspace = Path(tmpdir) / "cross-site" / "repo"
+                cross_site = request.Request(
+                    running.base_url + "/api/local-workspaces/bootstrap",
+                    data=json.dumps({"cwd": str(workspace)}).encode("utf-8"),
+                    headers={"Content-Type": "application/json", "Origin": "https://example.invalid"},
+                    method="POST",
+                )
+                with self.assertRaises(error.HTTPError) as cross_site_error:
+                    request.urlopen(cross_site, timeout=5)
+                self.assertEqual(cross_site_error.exception.code, 403)
+                self.assertFalse((workspace / ".vscode" / "tasks.json").exists())
+
+                text_plain = request.Request(
+                    running.base_url + "/api/local-workspaces/bootstrap",
+                    data=json.dumps({"cwd": str(workspace)}).encode("utf-8"),
+                    headers={"Content-Type": "text/plain", "Origin": same_origin_headers(running)["Origin"]},
+                    method="POST",
+                )
+                with self.assertRaises(error.HTTPError) as text_plain_error:
+                    request.urlopen(text_plain, timeout=5)
+                self.assertEqual(text_plain_error.exception.code, 415)
+                self.assertFalse((workspace / ".vscode" / "tasks.json").exists())
             finally:
                 running.close()
 

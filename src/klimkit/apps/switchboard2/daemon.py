@@ -348,12 +348,11 @@ def build_codex_command(cwd: Path) -> str:
     )
 
 
-def build_codex_task(cwd: Path, codex_command: str = "") -> dict[str, Any]:
-    command = codex_command.strip() or build_codex_command(cwd)
+def build_codex_task(cwd: Path) -> dict[str, Any]:
     return {
         "label": LOCAL_CODEX_TASK_LABEL,
         "type": "shell",
-        "command": command,
+        "command": build_codex_command(cwd),
         "problemMatcher": [],
         "presentation": {
             "echo": True,
@@ -368,13 +367,13 @@ def build_codex_task(cwd: Path, codex_command: str = "") -> dict[str, Any]:
     }
 
 
-def merge_klimkit_task(tasks_payload: dict[str, Any], cwd: Path, codex_command: str = "") -> dict[str, Any]:
+def merge_klimkit_task(tasks_payload: dict[str, Any], cwd: Path) -> dict[str, Any]:
     merged = dict(tasks_payload)
     merged["version"] = str(merged.get("version") or "2.0.0")
     tasks = merged.get("tasks")
     if not isinstance(tasks, list):
         tasks = []
-    task = build_codex_task(cwd, codex_command)
+    task = build_codex_task(cwd)
     merged["tasks"] = [
         existing
         for existing in tasks
@@ -1766,7 +1765,6 @@ class Switchboard2App:
         vscode_dir = cwd / ".vscode"
         vscode_dir.mkdir(parents=True, exist_ok=True)
 
-        codex_command = str(payload.get("codex_command") or "").strip()
         tasks_path = vscode_dir / "tasks.json"
         tasks_payload: dict[str, Any] = {}
         if tasks_path.exists():
@@ -1774,7 +1772,7 @@ class Switchboard2App:
             if not isinstance(loaded_tasks, dict):
                 raise ValueError(f"{tasks_path} must contain a JSON object")
             tasks_payload = loaded_tasks
-        merged_tasks = merge_klimkit_task(tasks_payload, cwd, codex_command)
+        merged_tasks = merge_klimkit_task(tasks_payload, cwd)
         tasks_path.write_text(json.dumps(merged_tasks, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
         settings_path = vscode_dir / "settings.json"
@@ -2206,7 +2204,7 @@ class Switchboard2Handler(BaseHTTPRequestHandler):
                 )
             return self._send_json({"status": "ok", "workspace": workspace})
         if normalized == "/api/local-workspaces/bootstrap":
-            if not self._authorize_api_request():
+            if not self._authorize_local_write_request():
                 return
             payload = self._read_json_body_or_respond()
             if payload is None:
@@ -2218,11 +2216,52 @@ class Switchboard2Handler(BaseHTTPRequestHandler):
             return self._send_json(result)
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
+    def _authorize_local_write_request(self) -> bool:
+        if not self._authorize_api_request():
+            return False
+        if not self._request_has_json_content_type():
+            self._send_json(
+                {"status": "error", "error": "expected application/json content type"},
+                status=HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+            )
+            return False
+        token = self.app.config.backend_auth_token
+        if token and self._presented_token() == token and self.headers.get("X-Switchboard2-Token"):
+            return True
+        if self._is_same_origin_request():
+            return True
+        self._send_json(
+            {"status": "error", "error": "same-origin request required"},
+            status=HTTPStatus.FORBIDDEN,
+        )
+        return False
+
     def _authorize_api_request(self) -> bool:
         if self._is_authorized():
             return True
         self._send_json({"status": "error", "error": "unauthorized"}, status=HTTPStatus.UNAUTHORIZED)
         return False
+
+    def _request_has_json_content_type(self) -> bool:
+        content_type = str(self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+        return content_type == "application/json"
+
+    def _is_same_origin_request(self) -> bool:
+        expected = self._request_origin()
+        origin = str(self.headers.get("Origin") or "").strip()
+        if origin and origin.lower() != "null":
+            return normalized_origin(origin) == expected
+        referer = str(self.headers.get("Referer") or "").strip()
+        if referer:
+            return normalized_origin(referer) == expected
+        return False
+
+    def _request_origin(self) -> str:
+        host = str(self.headers.get("Host") or "").strip()
+        if not host:
+            host = f"{self.app.config.host}:{self.app.config.port}"
+        scheme = "https" if isinstance(self.connection, ssl.SSLSocket) else "http"
+        return f"{scheme}://{host.lower()}"
 
     def _handle_stream(self) -> None:
         subscriber = self.app.broadcaster.subscribe()
@@ -2390,6 +2429,13 @@ def build_auth_cookie(token: str, base_path: str) -> str:
     cookie[AUTH_COOKIE_NAME]["httponly"] = True
     cookie[AUTH_COOKIE_NAME]["samesite"] = "Strict"
     return cookie.output(header="", sep="").strip()
+
+
+def normalized_origin(value: str) -> str:
+    parsed = urlparse(value)
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
 
 
 def validate_server_auth_config(config: AppConfig) -> None:

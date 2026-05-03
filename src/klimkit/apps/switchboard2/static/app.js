@@ -273,7 +273,6 @@ async function bootstrapLocalWorkspace(workspace) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cwd: workspace.cwd,
-        codex_command: codexCommand(workspace),
       }),
     });
     if (!response.ok) {
