@@ -6,6 +6,7 @@ These cropped PNGs come from the May 3, 2026 Klimkit brandbook source images.
 - `klimkit-icon-mint.png`: transparent mint icon for dark surfaces
 - `klimkit-lockup-ink.png`: transparent lockup with the current slogan for README and light surfaces
 - `klimkit-lockup-mint.png`: transparent lockup with the current slogan for dark surfaces
+- `klimkit-readme-hero.png`: black-background GitHub README hero with the current title and slogan
 
 The Switchboard PWA icons in `src/klimkit/apps/switchboard2/static/icons/` are
 derived from the mint icon on a dark square background for mask-safe rendering.

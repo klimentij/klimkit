@@ -1,17 +1,11 @@
 # Klimkit
 
-Agentic engineering across machines, under control.
-
-![Klimkit wordmark](assets/brand/klimkit-lockup-ink.png)
+![Klimkit. Agentic engineering across machines, under control.](assets/brand/klimkit-readme-hero.png)
 
 Klimkit is a Python operator kit for setting up Codex-oriented machines without a
 TUI or prompt-driven wizard. The install script only installs the command. The
 `kk` command then shows where config lives, how to preview changes, and how to
 apply them when you are ready.
-
-The checkout may still live in the old `klimki` repository while the GitHub repo
-rename is pending. The product surface, commands, config paths, service names,
-and install paths are `klimkit`.
 
 ## Quick Install
 

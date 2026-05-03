@@ -9,6 +9,7 @@ import json
 import os
 import queue
 import re
+import shlex
 import socket
 import sqlite3
 import ssl
@@ -19,7 +20,7 @@ import time
 import traceback
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer as BaseThreadingHTTPServer
 from http.cookies import SimpleCookie
 from pathlib import Path
 from typing import Any
@@ -71,6 +72,18 @@ TRIVIAL_MESSAGES = {
     "stopped.",
 }
 ACTIVE_STATES = {"starting", "planning", "working", "needs_input", "awaiting_approval"}
+LOCAL_CODEX_TASK_LABEL = "Klimkit: Start Codex"
+
+
+class ThreadingHTTPServer(BaseThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (BrokenPipeError, ConnectionResetError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
 
 
 @dataclass(frozen=True)
@@ -326,6 +339,62 @@ def build_code_server_url(identity: MachineIdentity, cwd: str) -> str:
     if not identity.dns_name or not cwd:
         return ""
     return f"https://{identity.dns_name}/?folder={parse.quote(cwd, safe='/')}"
+
+
+def build_codex_command(cwd: Path) -> str:
+    return (
+        "codex -c check_for_update_on_startup=false "
+        f"--dangerously-bypass-approvals-and-sandbox -C {shlex.quote(str(cwd))}"
+    )
+
+
+def build_codex_task(cwd: Path, codex_command: str = "") -> dict[str, Any]:
+    command = codex_command.strip() or build_codex_command(cwd)
+    return {
+        "label": LOCAL_CODEX_TASK_LABEL,
+        "type": "shell",
+        "command": command,
+        "problemMatcher": [],
+        "presentation": {
+            "echo": True,
+            "focus": True,
+            "panel": "dedicated",
+            "reveal": "always",
+            "showReuseMessage": False,
+        },
+        "runOptions": {
+            "runOn": "folderOpen",
+        },
+    }
+
+
+def merge_klimkit_task(tasks_payload: dict[str, Any], cwd: Path, codex_command: str = "") -> dict[str, Any]:
+    merged = dict(tasks_payload)
+    merged["version"] = str(merged.get("version") or "2.0.0")
+    tasks = merged.get("tasks")
+    if not isinstance(tasks, list):
+        tasks = []
+    task = build_codex_task(cwd, codex_command)
+    merged["tasks"] = [
+        existing
+        for existing in tasks
+        if not (isinstance(existing, dict) and existing.get("label") == LOCAL_CODEX_TASK_LABEL)
+    ]
+    merged["tasks"].append(task)
+    return merged
+
+
+def merge_json_file(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    existing: dict[str, Any] = {}
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{path} is not valid JSON") from exc
+        if not isinstance(loaded, dict):
+            raise ValueError(f"{path} must contain a JSON object")
+        existing = loaded
+    return {**existing, **payload}
 
 
 def is_recent(value: str, max_age_seconds: int) -> bool:
@@ -1683,6 +1752,50 @@ class Switchboard2App:
         self.broadcaster.publish_invalidate("acknowledge")
         return workspace
 
+    def bootstrap_local_workspace(self, payload: dict[str, Any]) -> dict[str, Any]:
+        cwd_text = str(payload.get("cwd") or "").strip()
+        if not cwd_text:
+            raise ValueError("expected cwd:string")
+        cwd = Path(cwd_text).expanduser()
+        if not cwd.is_absolute():
+            raise ValueError("cwd must be an absolute path")
+        if cwd.exists() and not cwd.is_dir():
+            raise ValueError("cwd exists but is not a directory")
+
+        cwd.mkdir(parents=True, exist_ok=True)
+        vscode_dir = cwd / ".vscode"
+        vscode_dir.mkdir(parents=True, exist_ok=True)
+
+        codex_command = str(payload.get("codex_command") or "").strip()
+        tasks_path = vscode_dir / "tasks.json"
+        tasks_payload: dict[str, Any] = {}
+        if tasks_path.exists():
+            loaded_tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
+            if not isinstance(loaded_tasks, dict):
+                raise ValueError(f"{tasks_path} must contain a JSON object")
+            tasks_payload = loaded_tasks
+        merged_tasks = merge_klimkit_task(tasks_payload, cwd, codex_command)
+        tasks_path.write_text(json.dumps(merged_tasks, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
+        settings_path = vscode_dir / "settings.json"
+        settings_payload = merge_json_file(
+            settings_path,
+            {
+                "security.workspace.trust.enabled": False,
+                "task.allowAutomaticTasks": "on",
+                "workbench.startupEditor": "none",
+            },
+        )
+        settings_path.write_text(json.dumps(settings_payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
+        return {
+            "status": "ok",
+            "cwd": str(cwd),
+            "tasks_path": str(tasks_path),
+            "settings_path": str(settings_path),
+            "task_label": LOCAL_CODEX_TASK_LABEL,
+        }
+
     def start_background_workers(self) -> None:
         if self.config.collector_enabled:
             self._collector_thread = threading.Thread(
@@ -2092,6 +2205,17 @@ class Switchboard2Handler(BaseHTTPRequestHandler):
                     status=HTTPStatus.NOT_FOUND,
                 )
             return self._send_json({"status": "ok", "workspace": workspace})
+        if normalized == "/api/local-workspaces/bootstrap":
+            if not self._authorize_api_request():
+                return
+            payload = self._read_json_body_or_respond()
+            if payload is None:
+                return
+            try:
+                result = self.app.bootstrap_local_workspace(payload)
+            except ValueError as exc:
+                return self._send_json({"status": "error", "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return self._send_json(result)
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def _authorize_api_request(self) -> bool:

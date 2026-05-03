@@ -1,1 +1,5 @@
-{}
+{
+  "security.workspace.trust.enabled": false,
+  "task.allowAutomaticTasks": "on",
+  "workbench.startupEditor": "none"
+}

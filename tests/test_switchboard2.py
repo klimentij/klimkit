@@ -668,6 +668,55 @@ class Switchboard2Tests(unittest.TestCase):
             finally:
                 running.close()
 
+    def test_local_workspace_bootstrap_writes_codex_task_and_settings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir)))
+            try:
+                workspace = Path(tmpdir) / "created" / "repo"
+                req = request.Request(
+                    running.base_url + "/api/local-workspaces/bootstrap",
+                    data=json.dumps({"cwd": str(workspace)}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with request.urlopen(req, timeout=5) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+
+                self.assertEqual(payload["status"], "ok")
+                tasks = json.loads((workspace / ".vscode" / "tasks.json").read_text(encoding="utf-8"))
+                settings = json.loads((workspace / ".vscode" / "settings.json").read_text(encoding="utf-8"))
+                klimkit_tasks = [
+                    task for task in tasks["tasks"] if task.get("label") == MODULE.LOCAL_CODEX_TASK_LABEL
+                ]
+                self.assertEqual(len(klimkit_tasks), 1)
+                self.assertEqual(klimkit_tasks[0]["runOptions"]["runOn"], "folderOpen")
+                self.assertIn("check_for_update_on_startup=false", klimkit_tasks[0]["command"])
+                self.assertIn("--dangerously-bypass-approvals-and-sandbox", klimkit_tasks[0]["command"])
+                self.assertEqual(settings["task.allowAutomaticTasks"], "on")
+                self.assertEqual(settings["workbench.startupEditor"], "none")
+                self.assertFalse(settings["security.workspace.trust.enabled"])
+            finally:
+                running.close()
+
+    def test_local_workspace_bootstrap_rejects_relative_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir)))
+            try:
+                req = request.Request(
+                    running.base_url + "/api/local-workspaces/bootstrap",
+                    data=json.dumps({"cwd": "relative/path"}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(req, timeout=5)
+                self.assertEqual(raised.exception.code, 400)
+                payload = json.loads(raised.exception.read().decode("utf-8"))
+                self.assertEqual(payload["status"], "error")
+                self.assertIn("absolute path", payload["error"])
+            finally:
+                running.close()
+
     def test_events_batch_endpoint_ingests_forwarded_satellite_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             running = start_server(build_config(Path(tmpdir)))
@@ -1073,8 +1122,14 @@ class Switchboard2Tests(unittest.TestCase):
         self.assertIn("LOCAL_WORKSPACE_SEQUENCE_KEY", script)
         self.assertNotIn("activate(existing.id", script)
         self.assertIn("Create fresh tab for new folder path", script)
+        self.assertIn("buildLocalCodeServerUrl", script)
+        self.assertIn("bootstrapLocalWorkspace", script)
+        self.assertIn("check_for_update_on_startup=false", script)
         self.assertIn("resolveNotificationTargetWorkspace", script)
-        self.assertIn("preloadNonArchivedFrames", script)
+        self.assertIn("syncLoadedFrames", script)
+        self.assertIn("MAX_LOADED_FRAMES", script)
+        self.assertNotIn("preloadNonArchivedFrames", script)
+        self.assertNotIn("!machine || !machine.machine_dns || !folder", script)
         self.assertIn("buildWindowTitle", script)
         self.assertIn("syncDocumentTitle", script)
         self.assertIn("notificationStatusForWorkspace", script)

@@ -4,6 +4,7 @@ const streamUrl = "./api/stream";
 const archiveUrl = "./api/workspaces/archive";
 const archiveBatchUrl = "./api/workspaces/archive-batch";
 const acknowledgeUrl = "./api/workspaces/acknowledge";
+const localWorkspaceBootstrapUrl = "./api/local-workspaces/bootstrap";
 
 const tabStrip = document.querySelector("#tab-strip");
 const frameDeck = document.querySelector("#frame-deck");
@@ -41,9 +42,12 @@ const LOCAL_WORKSPACES_KEY = "switchboard-local-workspaces";
 const LOCAL_WORKSPACE_SEQUENCE_KEY = "switchboard-local-workspace-sequence";
 const CATALOG_FILTERS_KEY = "switchboard-catalog-filters";
 const TAB_RENDER_BATCH = 20;
+const MAX_LOADED_FRAMES = 3;
 const POLL_INTERVAL_MS = 10000;
 const UI_VERSION_POLL_INTERVAL_MS = 3000;
 const FOLDER_SUGGESTION_LIMIT = 10;
+const HOT_FRAME_STATES = new Set(["new", "starting", "planning", "working", "needs_input", "awaiting_approval"]);
+const CODEX_LAUNCH_FLAGS = "-c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox";
 const APP_INSTANCE_KEY = "__switchboardAppInstance";
 const APP_GENERATION_KEY = "__switchboardAppGeneration";
 const APP_POLL_TIMER_KEY = "__switchboardPollTimer";
@@ -144,7 +148,7 @@ function sanitizeLocalWorkspaces(entries) {
         machine_dns: machineDns,
         cwd,
         folder_name: folderName,
-        code_server_url: String(entry.code_server_url || buildCodeServerUrl(machineDns, cwd)).trim(),
+        code_server_url: String(entry.code_server_url || buildWorkspaceCodeServerUrl(machineDns, cwd)).trim(),
         same_origin_helper_url: "",
         title: title || folderName,
         latest_user_message: "",
@@ -215,6 +219,28 @@ function buildCodeServerUrl(machineDns, cwd) {
   return url.toString();
 }
 
+function isLoopbackHostname(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  return host === "localhost" || host === "::1" || host === "[::1]" || host.startsWith("127.");
+}
+
+function buildLocalCodeServerUrl(cwd) {
+  if (!cwd) {
+    return "";
+  }
+  const hostname = window.location.hostname || "127.0.0.1";
+  const escapedHost = hostname.includes(":") && !hostname.startsWith("[") ? `[${hostname}]` : hostname;
+  const localPort = isLoopbackHostname(hostname) ? ":8080" : "";
+  const protocol = isLoopbackHostname(hostname) ? "http:" : window.location.protocol || "https:";
+  const url = new URL(`${protocol}//${escapedHost}${localPort}/`);
+  url.searchParams.set("folder", cwd);
+  return url.toString();
+}
+
+function buildWorkspaceCodeServerUrl(machineDns, cwd) {
+  return buildCodeServerUrl(machineDns, cwd) || buildLocalCodeServerUrl(cwd);
+}
+
 function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
 }
@@ -222,19 +248,40 @@ function shellQuote(value) {
 function codexResumeCommand(workspace) {
   const sessionId = String(workspace?.session_id || "").trim();
   return sessionId
-    ? `codex resume ${shellQuote(sessionId)} --dangerously-bypass-approvals-and-sandbox`
+    ? `codex ${CODEX_LAUNCH_FLAGS} resume ${shellQuote(sessionId)}`
     : "";
 }
 
 function codexLaunchCommand(workspace) {
   const cwd = String(workspace?.cwd || "").trim();
   return cwd
-    ? `codex --dangerously-bypass-approvals-and-sandbox -C ${shellQuote(cwd)}`
-    : "codex --dangerously-bypass-approvals-and-sandbox";
+    ? `codex ${CODEX_LAUNCH_FLAGS} -C ${shellQuote(cwd)}`
+    : `codex ${CODEX_LAUNCH_FLAGS}`;
 }
 
 function codexCommand(workspace) {
   return codexResumeCommand(workspace) || codexLaunchCommand(workspace);
+}
+
+async function bootstrapLocalWorkspace(workspace) {
+  if (!workspace?.is_local || !workspace.cwd) {
+    return;
+  }
+  try {
+    const response = await fetch(localWorkspaceBootstrapUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cwd: workspace.cwd,
+        codex_command: codexCommand(workspace),
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`bootstrap failed with HTTP ${response.status}`);
+    }
+  } catch (error) {
+    console.warn("Failed to prepare local code-server workspace", error);
+  }
 }
 
 async function copyTextToClipboard(text) {
@@ -935,7 +982,7 @@ function renderShell(workspaces) {
   } else {
     syncDocumentTitle();
   }
-  preloadNonArchivedFrames(workspaces);
+  syncLoadedFrames(workspaces);
   maybeNotify(workspaces);
 }
 
@@ -1120,7 +1167,7 @@ function ensureFrameLoaded(workspace) {
     return;
   }
   const panel = ui.panels.get(workspace.id);
-  if (!panel) {
+  if (!panel || !workspace.code_server_url) {
     return;
   }
   const iframe = panel.querySelector(".workspace-frame");
@@ -1129,30 +1176,52 @@ function ensureFrameLoaded(workspace) {
   ui.loadedFrames.add(workspace.id);
 }
 
-function preloadNonArchivedFrames(workspaces) {
-  const pending = workspaces.filter((workspace) => !workspace.archived && !ui.loadedFrames.has(workspace.id));
-  if (!pending.length) {
-    return;
+function unloadFrame(workspaceId) {
+  const panel = ui.panels.get(workspaceId);
+  const iframe = panel?.querySelector(".workspace-frame");
+  if (iframe) {
+    iframe.src = "about:blank";
+    iframe.removeAttribute("src");
+    iframe.title = "";
   }
-  const generation = appGeneration;
-  const schedule = window.requestIdleCallback
-    ? (callback) => window.requestIdleCallback(callback, { timeout: 1200 })
-    : (callback) => window.setTimeout(callback, 0);
-  const loadNext = (index) => {
-    if (window[APP_GENERATION_KEY] !== generation) {
-      return;
+  panel?.classList.remove("is-ready");
+  ui.loadedFrames.delete(workspaceId);
+}
+
+function desiredLoadedWorkspaceIds(workspaces) {
+  const desired = new Set();
+  const activeWorkspace = getWorkspaceById(ui.activeId);
+  if (activeWorkspace) {
+    desired.add(activeWorkspace.id);
+  }
+  for (const workspace of workspaces) {
+    if (desired.size >= MAX_LOADED_FRAMES) {
+      break;
     }
-    const workspace = pending[index];
-    if (!workspace) {
-      return;
+    if (workspace.archived || desired.has(workspace.id)) {
+      continue;
+    }
+    if (HOT_FRAME_STATES.has(deriveDisplayStatus(workspace))) {
+      desired.add(workspace.id);
+    }
+  }
+  return desired;
+}
+
+function syncLoadedFrames(workspaces) {
+  const desired = desiredLoadedWorkspaceIds(workspaces);
+  for (const workspaceId of [...ui.loadedFrames]) {
+    if (!desired.has(workspaceId)) {
+      unloadFrame(workspaceId);
+    }
+  }
+  for (const workspace of workspaces) {
+    if (!desired.has(workspace.id) || ui.loadedFrames.has(workspace.id)) {
+      continue;
     }
     ensurePanel(workspace);
     ensureFrameLoaded(workspace);
-    if (index + 1 < pending.length) {
-      schedule(() => loadNext(index + 1));
-    }
-  };
-  loadNext(0);
+  }
 }
 
 function activateAdjacent(offset) {
@@ -1588,7 +1657,7 @@ function openFolderPicker() {
 
 function renderNewWorkspaceView() {
   const machineOptions = ui.machines
-    .filter((machine) => machine.machine_dns)
+    .filter((machine) => machine.machine)
     .map((machine) => ({
       value: machine.machine,
       label: machine.online ? machine.machine : `${machine.machine} (offline)`,
@@ -1667,10 +1736,10 @@ function addLocalWorkspace(machine, folder) {
     id: createLocalWorkspaceId(machine.machine, normalizedFolder),
     session_id: "",
     machine: machine.machine,
-    machine_dns: machine.machine_dns,
+    machine_dns: String(machine.machine_dns || "").trim(),
     cwd: normalizedFolder,
     folder_name: folderName,
-    code_server_url: buildCodeServerUrl(machine.machine_dns, normalizedFolder),
+    code_server_url: buildWorkspaceCodeServerUrl(machine.machine_dns, normalizedFolder),
     same_origin_helper_url: "",
     title: folderName,
     branch: "workspace",
@@ -1696,8 +1765,8 @@ async function handleNewWorkspaceSubmit(event) {
   event.preventDefault();
   const machine = ui.machines.find((entry) => entry.machine === newWorkspaceMachine.value);
   const folder = normalizePath(newWorkspaceFolder.value);
-  if (!machine || !machine.machine_dns || !folder) {
-    newWorkspaceHint.textContent = "Pick a machine with a reachable DNS name and provide an absolute folder path.";
+  if (!machine || !folder) {
+    newWorkspaceHint.textContent = "Pick a machine and provide an absolute folder path.";
     return;
   }
   if (!isAbsolutePath(folder)) {
@@ -1706,6 +1775,7 @@ async function handleNewWorkspaceSubmit(event) {
     return;
   }
   const workspace = addLocalWorkspace(machine, folder);
+  await bootstrapLocalWorkspace(workspace);
   renderState({ workspaces: ui.serverWorkspaces, machines: ui.machines });
   activate(workspace.id, { acknowledge: false, focusTab: true });
   closeDrawer();

@@ -227,6 +227,23 @@ class KlimkitInstallTests(unittest.TestCase):
                 for token in private_tokens:
                     self.assertNotIn(token, text, f"{token} leaked in {path}")
 
+    def test_codex_skill_descriptions_stay_within_cli_limit(self) -> None:
+        for path in (ROOT / "packs" / "codex" / "skills").rglob("SKILL.md"):
+            lines = path.read_text(encoding="utf-8").splitlines()
+            if not lines or lines[0] != "---":
+                self.fail(f"{path} is missing YAML frontmatter")
+            try:
+                end = lines.index("---", 1)
+            except ValueError:
+                self.fail(f"{path} has unterminated YAML frontmatter")
+            description = ""
+            for line in lines[1:end]:
+                if line.startswith("description:"):
+                    description = line.split(":", 1)[1].strip().strip('"').strip("'")
+                    break
+            self.assertTrue(description, f"{path} is missing a description")
+            self.assertLessEqual(len(description), 500, f"{path} description exceeds Codex CLI limit")
+
 
 if __name__ == "__main__":
     unittest.main()
