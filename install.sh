@@ -11,9 +11,13 @@ usage() {
   cat <<'EOF'
 Usage: install.sh
 
-Installs Klimkit into ~/klimkit and writes kk/klimkit launchers into ~/.local/bin.
+Installs or refreshes Klimkit from ~/klimkit and writes the kk launcher into ~/.local/bin.
 Agentic engineering across machines, under control.
 Configuration and apply are intentionally handled by kk after installation.
+
+First run clones the repo. Later runs use the existing local checkout exactly as-is,
+including uncommitted edits. Use kk update or kk quick when you explicitly want to
+pull from Git.
 EOF
 }
 
@@ -109,14 +113,7 @@ if ! have_cmd uv; then
 fi
 
 if [[ -d "$CHECKOUT/.git" ]]; then
-  if ! git -C "$CHECKOUT" diff --quiet || ! git -C "$CHECKOUT" diff --cached --quiet; then
-    printf 'Checkout has local changes: %s\n' "$CHECKOUT" >&2
-    printf 'Resolve them, then rerun the installer.\n' >&2
-    exit 1
-  fi
-  git -C "$CHECKOUT" fetch origin "$BRANCH"
-  git -C "$CHECKOUT" checkout "$BRANCH"
-  git -C "$CHECKOUT" pull --ff-only origin "$BRANCH"
+  printf 'Using existing local checkout: %s\n' "$CHECKOUT"
 else
   mkdir -p "$(dirname "$CHECKOUT")"
   git clone --branch "$BRANCH" "$REPO_URL" "$CHECKOUT"
@@ -155,9 +152,12 @@ Next:
   kk                 # show config and setup instructions
 
 Common commands:
-  kk setup           # create ~/.config/klimkit/klimkit.toml
+  kk setup           # first VM: client=true, server=true
+  kk setup --client-only
+                     # second VM: client=true, server=false
   kk preview         # show the install plan
   kk apply --yes     # apply managed files and services
   kk doctor          # diagnose local setup
+  kk quick           # pull current branch and apply on this VM
   kk serve           # run Switchboard
 EOF

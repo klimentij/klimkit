@@ -52,8 +52,8 @@ const APP_INSTANCE_KEY = "__switchboardAppInstance";
 const APP_GENERATION_KEY = "__switchboardAppGeneration";
 const APP_POLL_TIMER_KEY = "__switchboardPollTimer";
 const APP_POLL_SEQUENCE_KEY = "__switchboardPollSequence";
-const APP_STREAM_KEY = "__switchboard2EventSource";
-const APP_UI_VERSION_TIMER_KEY = "__switchboard2UiVersionTimer";
+const APP_STREAM_KEY = "__switchboardEventSource";
+const APP_UI_VERSION_TIMER_KEY = "__switchboardUiVersionTimer";
 
 const ui = {
   activeId: loadJson("switchboard-active-id", null),
@@ -590,6 +590,10 @@ function visibleTabWorkspaces(workspaces) {
   return workspaces.filter((workspace, index) => index < ui.visibleTabCount);
 }
 
+function activeUnarchivedTabCount(workspaces = ui.workspaces) {
+  return workspaces.filter((workspace) => !workspace.archived).length;
+}
+
 function revealMoreTabs() {
   if (ui.visibleTabCount >= ui.workspaces.length) {
     return;
@@ -1064,7 +1068,7 @@ function maybeNotify(workspaces) {
         requireInteraction: eventStatus === "needs_input" || eventStatus === "awaiting_approval" || eventStatus === "error",
       });
     } catch (error) {
-      console.warn("Failed to show Switchboard2 notification", error);
+      console.warn("Failed to show Switchboard notification", error);
       continue;
     }
 
@@ -1693,14 +1697,19 @@ function renderNewWorkspaceView() {
 }
 
 function renderDrawer() {
-  catalogCount.textContent = String(ui.workspaces.length);
+  const activeCount = activeUnarchivedTabCount();
+  catalogCount.textContent = String(activeCount);
+  catalogToggle.setAttribute(
+    "aria-label",
+    `Open workspace catalog, ${activeCount} active unarchived tabs`,
+  );
   if (!ui.drawerOpen) {
     return;
   }
   const tableScrollTop = catalogTableShell ? catalogTableShell.scrollTop : 0;
 
-  drawerEyebrow.textContent = "Workspace Catalog";
-  drawerTitle.textContent = "All tabs";
+  drawerTitle.textContent = "Klimkit Switchboard";
+  drawerEyebrow.textContent = "All tabs";
 
   syncSelectOptions(
     catalogMachineFilter,

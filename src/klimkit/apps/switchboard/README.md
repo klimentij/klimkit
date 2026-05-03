@@ -7,13 +7,13 @@ Klimkit Switchboard is the current Codex work dashboard and event backend.
 Run locally:
 
 ```bash
-klimkit serve
+kk serve
 ```
 
 Default URL:
 
 ```text
-http://127.0.0.1:4721/switchboard2/
+http://127.0.0.1:4721/switchboard/
 ```
 
 Security boundary:

@@ -21,6 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover
 from klimkit.paths import (
     KLIMKIT_CONFIG_FILE,
     KLIMKIT_STATE_DIR,
+    KLIMKIT_SWITCHBOARD_AGENT_CONFIG_FILE,
     KLIMKIT_SWITCHBOARD_CONFIG_FILE,
     OPS_REPO_ROOT,
 )
@@ -61,9 +62,10 @@ class SupervisorConfig:
     live_sync_interval_seconds: int
     fetch_ref: str
     switchboard_agent_enabled: bool
-    manage_switchboard2: bool
+    manage_switchboard: bool
     manage_cc_connect: bool
     switchboard_config_path: Path = KLIMKIT_SWITCHBOARD_CONFIG_FILE
+    switchboard_agent_config_path: Path = KLIMKIT_SWITCHBOARD_AGENT_CONFIG_FILE
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -80,7 +82,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     sync_live_parser = subparsers.add_parser(
         "sync-live-once",
-        help="Fetch origin and sync only live-managed prompts/config into $HOME once.",
+        help="Manually fetch origin and sync only live-managed prompts/config into $HOME once.",
     )
     sync_live_parser.add_argument(
         "--config",
@@ -101,9 +103,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     write_config_parser.add_argument(
         "--profile",
-        choices=("client", "server"),
-        default="client",
-        help="Machine role. Use server only on the central host.",
+        choices=("client", "server", "first-vm", "client-only", "server-only"),
+        default="first-vm",
+        help="Machine role. Use client-only for second VMs.",
     )
     write_config_parser.add_argument(
         "--repo-root",
@@ -117,25 +119,27 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def load_machine_config(path: Path) -> SupervisorConfig:
     defaults = {
         "machine": {
-            "profile": "client",
+            "profile": "first-vm",
             "repo_root": str(OPS_REPO_ROOT),
         },
         "live_sync": {
-            "enabled": True,
+            "enabled": False,
             "interval_seconds": 60,
             "fetch_ref": "origin/main",
         },
         "workers": {
-            "live_sync": True,
+            "live_sync": False,
             "switchboard_agent": False,
         },
         "components": {
-            "switchboard2": False,
+            "client": True,
+            "server": True,
             "switchboard": False,
             "cc_connect": False,
         },
         "switchboard": {
-            "config_path": str(path.expanduser().parent / "switchboard2.toml"),
+            "config_path": str(path.expanduser().parent / "switchboard.toml"),
+            "agent_config_path": str(path.expanduser().parent / "switchboard-agent.toml"),
         },
     }
 
@@ -146,17 +150,29 @@ def load_machine_config(path: Path) -> SupervisorConfig:
     def nested(section: str, key: str) -> Any:
         return raw.get(section, {}).get(key, defaults[section][key])
 
-    profile = str(nested("machine", "profile")).strip().lower() or "client"
-    if profile not in {"client", "server"}:
-        raise ValueError(f"Unsupported machine.profile: {profile}")
+    component_config = {**raw.get("central", {}), **raw.get("components", {})}
+    legacy_profile = str(nested("machine", "profile")).strip().lower().replace("_", "-") or "first-vm"
+    if legacy_profile in {"client", "client-only", "second-vm", "second"}:
+        default_client_enabled = True
+        default_server_enabled = False
+    elif legacy_profile in {"server-only", "central-only"}:
+        default_client_enabled = False
+        default_server_enabled = True
+    elif legacy_profile in {"server", "first-vm"}:
+        default_client_enabled = True
+        default_server_enabled = True
+    else:
+        raise ValueError(f"Unsupported machine.profile: {legacy_profile}")
+
+    client_enabled = bool(component_config.get("client", default_client_enabled))
+    server_enabled = bool(component_config.get("server", default_server_enabled))
+    profile = "server" if server_enabled else "client" if client_enabled else "custom"
 
     repo_root = Path(str(nested("machine", "repo_root"))).expanduser()
     component_defaults = {
-        "switchboard2": profile == "server",
-        "switchboard": profile == "server",
-        "cc_connect": profile == "server",
+        "switchboard": server_enabled,
+        "cc_connect": False,
     }
-    component_config = {**raw.get("central", {}), **raw.get("components", {})}
 
     return SupervisorConfig(
         profile=profile,
@@ -166,14 +182,10 @@ def load_machine_config(path: Path) -> SupervisorConfig:
         live_sync_interval_seconds=max(15, int(nested("live_sync", "interval_seconds"))),
         fetch_ref=str(nested("live_sync", "fetch_ref")).strip() or "origin/main",
         switchboard_agent_enabled=bool(nested("workers", "switchboard_agent")),
-        manage_switchboard2=bool(
-            component_config.get(
-                "switchboard2",
-                component_config.get("switchboard", component_defaults["switchboard2"]),
-            )
-        ),
+        manage_switchboard=bool(component_config.get("switchboard", component_defaults["switchboard"])),
         manage_cc_connect=bool(component_config.get("cc_connect", component_defaults["cc_connect"])),
         switchboard_config_path=Path(str(nested("switchboard", "config_path"))).expanduser(),
+        switchboard_agent_config_path=Path(str(nested("switchboard", "agent_config_path"))).expanduser(),
     )
 
 
@@ -184,24 +196,26 @@ def write_machine_config(path: Path, *, profile: str, repo_root: Path) -> None:
         "\n".join(
             [
                 "[machine]",
-                f'profile = "{profile}"',
                 f'repo_root = "{repo_root.expanduser()}"',
                 "",
                 "[live_sync]",
-                "enabled = true",
+                "enabled = false",
                 "interval_seconds = 60",
                 'fetch_ref = "origin/main"',
                 "",
                 "[workers]",
-                "live_sync = true",
+                "live_sync = false",
                 "switchboard_agent = false",
                 "",
                 "[components]",
-                f"switchboard = {'true' if profile == 'server' else 'false'}",
-                f"cc_connect = {'true' if profile == 'server' else 'false'}",
+                f"client = {'false' if profile == 'server-only' else 'true'}",
+                f"server = {'false' if profile in {'client', 'client-only'} else 'true'}",
+                "cc_connect = false",
                 "",
                 "[switchboard]",
-                f'config_path = "{path.parent / "switchboard2.toml"}"',
+                f'config_path = "{path.parent / "switchboard.toml"}"',
+                f'agent_config_path = "{path.parent / "switchboard-agent.toml"}"',
+                'backend_url = ""',
                 "",
             ]
         ),
@@ -360,8 +374,7 @@ def sync_live_managed_paths(config: SupervisorConfig, state: dict[str, Any]) -> 
 
 def run_switchboard_agent_once(config: SupervisorConfig) -> str:
     global _SWITCHBOARD_HELPER_SERVER
-    config_path = config.repo_root / "src" / "klimkit" / "tools" / "switchboard_agent" / "switchboard-agent.toml"
-    agent_config = load_switchboard_config(config_path)
+    agent_config = load_switchboard_config(config.switchboard_agent_config_path)
     if agent_config.helper_enabled and _SWITCHBOARD_HELPER_SERVER is None:
         _SWITCHBOARD_HELPER_SERVER = start_switchboard_helper_server(agent_config)
     conn = init_switchboard_db(agent_config.state_dir)
@@ -401,10 +414,10 @@ def ensure_central_processes(
     common_env = os.environ.copy()
 
     specs = []
-    if config.manage_switchboard2:
+    if config.manage_switchboard:
         specs.append(
             (
-                "switchboard2",
+                "switchboard",
                 [str(config.repo_root / "klimkit"), "serve", "--config", str(config.switchboard_config_path)],
                 config.repo_root,
             )
@@ -470,7 +483,7 @@ def daemon_loop(config: SupervisorConfig) -> int:
 
     while not stop:
         now = time.time()
-        if config.profile == "server":
+        if config.manage_switchboard or config.manage_cc_connect:
             run_supervisor_step("central", lambda: ensure_central_processes(config, processes))
 
         if config.live_sync_enabled and now >= next_live_sync_at:
@@ -486,9 +499,7 @@ def daemon_loop(config: SupervisorConfig) -> int:
             )
             if switchboard_summary is not None:
                 print(switchboard_summary, flush=True)
-                switchboard_config = load_switchboard_config(
-                    config.repo_root / "src" / "klimkit" / "tools" / "switchboard_agent" / "switchboard-agent.toml"
-                )
+                switchboard_config = load_switchboard_config(config.switchboard_agent_config_path)
                 next_switchboard_report_at = now + switchboard_config.interval_seconds
 
         time.sleep(5)

@@ -57,6 +57,18 @@ iframe {
   font: inherit;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .app-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -84,78 +96,14 @@ iframe {
 
 .strip-toolbar {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: stretch;
   min-height: var(--strip-row-height);
-}
-
-.strip-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.48rem;
-  min-height: var(--strip-row-height);
-  padding: 0 0.78rem 0 0.58rem;
-  border-right: 1px solid rgba(126, 226, 176, 0.14);
-  background:
-    linear-gradient(180deg, rgba(8, 14, 18, 0.99), rgba(6, 10, 13, 0.99)),
-    linear-gradient(90deg, rgba(126, 226, 176, 0.07), transparent 72%);
-  white-space: nowrap;
-}
-
-.strip-brand-mark {
-  width: 1.38rem;
-  height: 1.38rem;
-  object-fit: contain;
-}
-
-.strip-brand-copy {
-  display: grid;
-  gap: 0.03rem;
-  min-width: 0;
-}
-
-.strip-brand-text {
-  color: var(--accent-strong);
-  font-size: 0.58rem;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.strip-brand-slogan {
-  color: var(--muted-strong);
-  font-size: 0.42rem;
-  letter-spacing: 0.02em;
-  max-width: 20rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@media (max-width: 960px) {
-  .strip-brand-slogan {
-    max-width: 12rem;
-    font-size: 0.38rem;
-  }
 }
 
 @media (max-width: 640px) {
   .strip-toolbar {
     grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: auto auto;
-  }
-
-  .strip-brand {
-    grid-column: 1 / -1;
-    min-height: 2rem;
-    border-bottom: 1px solid rgba(126, 226, 176, 0.12);
-  }
-
-  .strip-brand-slogan {
-    max-width: none;
-    white-space: normal;
-    font-size: 0.34rem;
-    line-height: 1.15;
   }
 }
 
@@ -171,8 +119,8 @@ iframe {
 }
 
 .strip-action-button--catalog {
-  min-width: 3rem;
-  padding-inline: 0.48rem;
+  min-width: 3.95rem;
+  padding-inline: 0.44rem;
 }
 
 .strip-action-button {
@@ -219,9 +167,16 @@ iframe {
 }
 
 .strip-action-icon,
+.strip-action-logo,
 .strip-action-count,
 .strip-action-label {
   pointer-events: none;
+}
+
+.strip-action-logo {
+  width: 1.45rem;
+  height: 1.45rem;
+  object-fit: contain;
 }
 
 .strip-action-icon {
@@ -677,15 +632,29 @@ iframe {
 
 .workspace-drawer-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1rem 0.8rem;
   border-bottom: 1px solid rgba(126, 226, 176, 0.12);
 }
 
+.workspace-drawer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.72rem;
+  min-width: 0;
+}
+
+.workspace-drawer-logo {
+  width: 2.35rem;
+  height: 2.35rem;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
 .workspace-drawer-eyebrow {
-  margin: 0 0 0.24rem;
+  margin: 0.22rem 0 0;
   color: var(--muted);
   font-size: 0.52rem;
   letter-spacing: 0.12em;

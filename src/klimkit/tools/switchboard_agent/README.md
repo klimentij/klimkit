@@ -2,11 +2,11 @@
 
 Legacy helper that summarizes Codex rollout files and can forward snapshots to a Switchboard backend.
 
-Default config:
+Local config:
 
-- `src/klimkit/tools/switchboard_agent/switchboard-agent.toml`
+- `~/.config/klimkit/switchboard-agent.toml`
 - state: `~/.local/state/klimkit/switchboard-agent/state.sqlite3`
-- backend URL: blank until configured
+- backend URL: set from `switchboard.backend_url` in `~/.config/klimkit/klimkit.toml`
 
 Run manually:
 

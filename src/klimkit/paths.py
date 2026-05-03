@@ -18,7 +18,10 @@ KLIMKIT_CONFIG_FILE = Path(
     os.environ.get("KLIMKIT_CONFIG", str(KLIMKIT_CONFIG_DIR / "klimkit.toml"))
 ).expanduser()
 KLIMKIT_SWITCHBOARD_CONFIG_FILE = Path(
-    os.environ.get("KLIMKIT_SWITCHBOARD_CONFIG", str(KLIMKIT_CONFIG_DIR / "switchboard2.toml"))
+    os.environ.get("KLIMKIT_SWITCHBOARD_CONFIG", str(KLIMKIT_CONFIG_DIR / "switchboard.toml"))
+).expanduser()
+KLIMKIT_SWITCHBOARD_AGENT_CONFIG_FILE = Path(
+    os.environ.get("KLIMKIT_SWITCHBOARD_AGENT_CONFIG", str(KLIMKIT_CONFIG_DIR / "switchboard-agent.toml"))
 ).expanduser()
 KLIMKIT_MANIFEST_FILE = KLIMKIT_STATE_DIR / "install" / "manifest.json"
 

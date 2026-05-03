@@ -1,4 +1,4 @@
-# Switchboard2 Spec
+# Switchboard Spec
 
 Author: Codex
 Date: 2026-04-17
@@ -6,7 +6,7 @@ Status: Draft for review
 
 ## Purpose
 
-Build a new Switchboard backend from scratch under `src/klimkit/apps/switchboard2`, while keeping the current visual UI model.
+Build a new Switchboard backend from scratch under `src/klimkit/apps/switchboard`, while keeping the current visual UI model.
 
 The new system must optimize for:
 
@@ -79,7 +79,7 @@ Observed state-bearing details:
 
 - `response_item.function_call.name == "request_user_input"` already appears and is enough to model waiting-for-user state.
 - `turn_context.approval_policy` appears in historical sessions, so approval mode is visible in raw data.
-- Historical Codex traces on this machine include event names such as `exec_approval_request`, `apply_patch_approval_request`, `plan_delta`, and `plan_update`. I have not yet seen those in the current CLI rollout files here, so Switchboard2 must support them as optional event kinds rather than assuming they always exist.
+- Historical Codex traces on this machine include event names such as `exec_approval_request`, `apply_patch_approval_request`, `plan_delta`, and `plan_update`. I have not yet seen those in the current CLI rollout files here, so Switchboard must support them as optional event kinds rather than assuming they always exist.
 
 Implication:
 
@@ -99,7 +99,7 @@ Current failures are architectural, not cosmetic.
 6. It has no explicit sync health state.
 7. The HTTP ingest path accepts a whole JSON blob and fails badly on truncation.
 
-Switchboard2 will remove all of those assumptions.
+Switchboard will remove all of those assumptions.
 
 ## Product Goals
 
@@ -121,7 +121,7 @@ Switchboard2 will remove all of those assumptions.
 
 ## Security Baseline
 
-Switchboard2 does not need a full user system in v1, but it also cannot treat tailnet reachability as sufficient protection.
+Switchboard does not need a full user system in v1, but it also cannot treat tailnet reachability as sufficient protection.
 
 Minimum security baseline:
 
@@ -144,7 +144,7 @@ Minimum security baseline:
 
 ## High-Level Architecture
 
-Switchboard2 has four runtime parts.
+Switchboard has four runtime parts.
 
 ### 1. Local collector
 
@@ -197,13 +197,13 @@ For other VMs later:
 
 - a tiny local collector on each VM
 - tails that VM's Codex files
-- forwards normalized events to the primary Switchboard2 server on `server` over Tailscale
+- forwards normalized events to the primary Switchboard server on `server` over Tailscale
 
 This keeps remote memory and CPU minimal and avoids shipping giant snapshots across machines.
 
 Topology decision:
 
-- every VM runs the same Switchboard2 daemon
+- every VM runs the same Switchboard daemon
 - non-`server` VMs act as collectors/forwarders
 - `server` acts as the central backend, projection store, SSE server, and UI host
 - v1 does not require automatic leader election or active-active replication
@@ -212,7 +212,7 @@ Topology decision:
 
 Use one SQLite file, for example:
 
-- `~/.local/state/klimkit/switchboard2/state.sqlite3`
+- `~/.local/state/klimkit/switchboard/state.sqlite3`
 
 Tables:
 
@@ -425,15 +425,15 @@ This is the direct fix for "move left when state changes".
 
 Polling is not the primary mechanism.
 
-Switchboard2 exposes:
+Switchboard exposes:
 
-- `GET /switchboard2/api/state`
-- `GET /switchboard2/api/catalog?limit=20&cursor=...`
-- `GET /switchboard2/api/active?limit=20&cursor=...`
-- `GET /switchboard2/api/stream`
-- `POST /switchboard2/api/archive`
-- `POST /switchboard2/api/unarchive`
-- `POST /switchboard2/api/events`
+- `GET /switchboard/api/state`
+- `GET /switchboard/api/catalog?limit=20&cursor=...`
+- `GET /switchboard/api/active?limit=20&cursor=...`
+- `GET /switchboard/api/stream`
+- `POST /switchboard/api/archive`
+- `POST /switchboard/api/unarchive`
+- `POST /switchboard/api/events`
 
 ### SSE stream
 
@@ -526,7 +526,7 @@ Do not let hook-only data override newer rollout truth.
 
 Remote satellites send compact normalized events to:
 
-- `POST /switchboard2/api/events`
+- `POST /switchboard/api/events`
 
 Requirements:
 
@@ -534,7 +534,7 @@ Requirements:
 - signed or restricted by Tailscale network boundary in v1
 - append-only
 - projection updated on ingest
-- expected default target is the Switchboard2 backend running on `server`
+- expected default target is the Switchboard backend running on `server`
 
 Do not accept giant remote snapshots.
 
@@ -561,7 +561,7 @@ Do not accept giant remote snapshots.
 
 First implementation goal is not a new frontend. It is a new backend that can feed the current UI.
 
-Therefore Switchboard2 should expose a compatibility shape matching the current board as closely as possible:
+Therefore Switchboard should expose a compatibility shape matching the current board as closely as possible:
 
 - top active sessions
 - catalog pagination
@@ -647,9 +647,9 @@ Store them without crashing, then let projection ignore or later learn them.
 
 Expose:
 
-- `GET /switchboard2/api/health`
-- `GET /switchboard2/api/debug/session/<id>`
-- `GET /switchboard2/api/debug/machine/<id>`
+- `GET /switchboard/api/health`
+- `GET /switchboard/api/debug/session/<id>`
+- `GET /switchboard/api/debug/machine/<id>`
 
 Metrics to surface:
 
@@ -662,7 +662,7 @@ Metrics to surface:
 
 ## Proposed Code Layout
 
-Initial layout under `src/klimkit/apps/switchboard2`:
+Initial layout under `src/klimkit/apps/switchboard`:
 
 - `spec.md`
 - `README.md`

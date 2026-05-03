@@ -22,7 +22,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
             live_sync_interval_seconds=60,
             fetch_ref="origin/main",
             switchboard_agent_enabled=True,
-            manage_switchboard2=True,
+            manage_switchboard=True,
             manage_cc_connect=True,
         )
         events: list[str] = []
@@ -57,8 +57,9 @@ class KlimkitSupervisorTests(unittest.TestCase):
             live_sync_interval_seconds=60,
             fetch_ref="origin/main",
             switchboard_agent_enabled=True,
-            manage_switchboard2=True,
+            manage_switchboard=True,
             manage_cc_connect=True,
+            switchboard_agent_config_path=Path("/tmp/private-agent.toml"),
         )
         agent_config = mock.Mock()
         agent_config.state_dir = Path("/tmp/agent-state")
@@ -66,7 +67,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
 
         with (
             mock.patch.object(MODULE, "_SWITCHBOARD_HELPER_SERVER", None),
-            mock.patch.object(MODULE, "load_switchboard_config", return_value=agent_config),
+            mock.patch.object(MODULE, "load_switchboard_config", return_value=agent_config) as load_config_mock,
             mock.patch.object(MODULE, "start_switchboard_helper_server", return_value=object()) as helper_mock,
             mock.patch.object(MODULE, "init_switchboard_db", return_value=mock.Mock()) as db_mock,
             mock.patch.object(MODULE, "run_switchboard_report", return_value=True),
@@ -75,6 +76,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
             result = MODULE.run_switchboard_agent_once(config)
 
         helper_mock.assert_called_once_with(agent_config)
+        load_config_mock.assert_called_once_with(Path("/tmp/private-agent.toml"))
         conn.close.assert_called_once()
         self.assertEqual(result, "switchboard-agent: reported snapshot")
 
@@ -97,8 +99,58 @@ class KlimkitSupervisorTests(unittest.TestCase):
 
             config = MODULE.load_machine_config(config_path)
 
-        self.assertTrue(config.manage_switchboard2)
-        self.assertEqual(config.switchboard_config_path, config_path.parent / "switchboard2.toml")
+        self.assertTrue(config.manage_switchboard)
+        self.assertEqual(config.switchboard_config_path, config_path.parent / "switchboard.toml")
+
+    def test_load_machine_config_uses_component_server_without_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "machine.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[components]",
+                        "client = true",
+                        "server = true",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = MODULE.load_machine_config(config_path)
+
+        self.assertEqual(config.profile, "server")
+        self.assertTrue(config.manage_switchboard)
+        self.assertFalse(config.manage_cc_connect)
+        self.assertFalse(config.live_sync_enabled)
+
+    def test_load_machine_config_uses_local_switchboard_agent_config_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "machine.toml"
+            agent_config_path = Path(tmpdir) / "private-agent.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[components]",
+                        "client = true",
+                        "server = false",
+                        "",
+                        "[workers]",
+                        "switchboard_agent = true",
+                        "",
+                        "[switchboard]",
+                        f'agent_config_path = "{agent_config_path}"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = MODULE.load_machine_config(config_path)
+
+        self.assertEqual(config.profile, "client")
+        self.assertTrue(config.switchboard_agent_enabled)
+        self.assertEqual(config.switchboard_agent_config_path, agent_config_path)
 
     def test_ensure_central_processes_uses_local_switchboard_config(self) -> None:
         config = MODULE.SupervisorConfig(
@@ -109,7 +161,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
             live_sync_interval_seconds=60,
             fetch_ref="origin/main",
             switchboard_agent_enabled=False,
-            manage_switchboard2=True,
+            manage_switchboard=True,
             manage_cc_connect=False,
             switchboard_config_path=Path("/tmp/private-switchboard.toml"),
         )

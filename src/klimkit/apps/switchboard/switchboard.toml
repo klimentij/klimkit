@@ -1,5 +1,5 @@
 [paths]
-state_dir = "~/.local/state/klimkit/switchboard2"
+state_dir = "~/.local/state/klimkit/switchboard"
 sessions_root = "~/.codex/sessions"
 session_index = "~/.codex/session_index.jsonl"
 hooks_events = "~/.codex/switchboard/events.jsonl"
@@ -8,7 +8,7 @@ hooks_events = "~/.codex/switchboard/events.jsonl"
 enabled = true
 host = "127.0.0.1"
 port = 4721
-base_path = "/switchboard2"
+base_path = "/switchboard"
 
 [backend]
 base_url = ""

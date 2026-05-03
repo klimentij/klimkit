@@ -103,7 +103,7 @@ class SessionSummary:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Publish local Codex session state to the central Switchboard2 backend."
+        description="Publish local Codex session state to the central Switchboard backend."
     )
     parser.add_argument(
         "--config",
@@ -672,7 +672,7 @@ def post_snapshot(config: AgentConfig, snapshot: dict[str, Any]) -> dict[str, An
     endpoint = config.backend_url + "/api/agent-snapshot"
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     if config.backend_auth_token:
-        headers["X-Switchboard2-Token"] = config.backend_auth_token
+        headers["X-Switchboard-Token"] = config.backend_auth_token
     req = request.Request(
         endpoint,
         data=body,

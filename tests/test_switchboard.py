@@ -6,10 +6,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib import error, request
 
-from klimkit.apps.switchboard2 import daemon as MODULE
+from klimkit.apps.switchboard import daemon as MODULE
 
 
-def build_config(state_dir: Path, *, base_path: str = "/switchboard2", port: int = 0) -> object:
+def build_config(state_dir: Path, *, base_path: str = "/switchboard", port: int = 0) -> object:
     return MODULE.AppConfig(
         state_dir=state_dir,
         sessions_root=state_dir / "sessions",
@@ -82,8 +82,8 @@ class RunningCaptureServer:
 
 
 def start_server(config: object) -> RunningServer:
-    app = MODULE.Switchboard2App(config)
-    server = MODULE.ThreadingHTTPServer((config.host, config.port), MODULE.Switchboard2Handler)
+    app = MODULE.SwitchboardApp(config)
+    server = MODULE.ThreadingHTTPServer((config.host, config.port), MODULE.SwitchboardHandler)
     server.app = app
     app._server = server
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -106,7 +106,7 @@ def same_origin_headers(running: RunningServer) -> dict[str, str]:
     }
 
 
-class Switchboard2Tests(unittest.TestCase):
+class SwitchboardTests(unittest.TestCase):
     def test_non_loopback_server_requires_auth_token(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config = build_config(Path(tmpdir))
@@ -851,7 +851,7 @@ class Switchboard2Tests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            app = MODULE.Switchboard2App(config)
+            app = MODULE.SwitchboardApp(config)
             try:
                 changed = app.collect_once()
                 self.assertTrue(changed)
@@ -874,7 +874,7 @@ class Switchboard2Tests(unittest.TestCase):
                 **{
                     **base.__dict__,
                     "server_enabled": False,
-                    "backend_url": "http://127.0.0.1:9999/switchboard2",
+                    "backend_url": "http://127.0.0.1:9999/switchboard",
                 }
             )
             config.hooks_events_path.parent.mkdir(parents=True, exist_ok=True)
@@ -898,7 +898,7 @@ class Switchboard2Tests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            app = MODULE.Switchboard2App(config)
+            app = MODULE.SwitchboardApp(config)
             try:
                 changed = app.collect_once()
                 self.assertTrue(changed)
@@ -1047,11 +1047,11 @@ class Switchboard2Tests(unittest.TestCase):
                     **{
                         **config.__dict__,
                         "server_enabled": False,
-                        "backend_url": capture.base_url + "/switchboard2",
+                        "backend_url": capture.base_url + "/switchboard",
                         "backend_auth_token": "secret-token",
                     }
                 )
-                app = MODULE.Switchboard2App(config)
+                app = MODULE.SwitchboardApp(config)
                 try:
                     app._post_event_batch(
                         [
@@ -1071,8 +1071,8 @@ class Switchboard2Tests(unittest.TestCase):
 
                 self.assertEqual(len(CaptureHandler.requests), 1)
                 captured = CaptureHandler.requests[0]
-                self.assertEqual(captured["path"], "/switchboard2/api/events/batch")
-                self.assertEqual(captured["headers"]["X-Switchboard2-Token"], "secret-token")
+                self.assertEqual(captured["path"], "/switchboard/api/events/batch")
+                self.assertEqual(captured["headers"]["X-Switchboard-Token"], "secret-token")
                 body = json.loads(str(captured["body"]))
                 self.assertEqual(body["events"][0]["machine"], "satellite")
             finally:
@@ -1090,7 +1090,7 @@ class Switchboard2Tests(unittest.TestCase):
 
                 authorized = request.Request(
                     running.base_url + "/api/state",
-                    headers={"X-Switchboard2-Token": "secret-token"},
+                    headers={"X-Switchboard-Token": "secret-token"},
                     method="GET",
                 )
                 with request.urlopen(authorized, timeout=5) as response:
@@ -1117,11 +1117,11 @@ class Switchboard2Tests(unittest.TestCase):
                     manifest = json.loads(response.read().decode("utf-8"))
                 self.assertEqual(manifest["start_url"], "./")
                 self.assertEqual(manifest["scope"], "./")
-                self.assertTrue(all(not icon["src"].startswith("/switchboard2/") for icon in manifest["icons"]))
+                self.assertTrue(all(not icon["src"].startswith("/switchboard/") for icon in manifest["icons"]))
 
                 with request.urlopen(running.base_url + "/service-worker.js", timeout=5) as response:
                     worker = response.read().decode("utf-8")
-                self.assertNotIn('"/switchboard2/', worker)
+                self.assertNotIn('"/switchboard/', worker)
                 self.assertIn("pathWithinScope", worker)
             finally:
                 running.close()
@@ -1157,7 +1157,7 @@ class Switchboard2Tests(unittest.TestCase):
             / "src"
             / "klimkit"
             / "apps"
-            / "switchboard2"
+            / "switchboard"
             / "static"
             / "app.js"
         ).read_text(encoding="utf-8")
@@ -1181,7 +1181,7 @@ class Switchboard2Tests(unittest.TestCase):
         self.assertIn("reconcileLocalWorkspaces", script)
         self.assertIn("findServerWorkspaceForLocal", script)
         self.assertIn('tag: signature', script)
-        self.assertIn('console.warn("Failed to show Switchboard2 notification"', script)
+        self.assertIn('console.warn("Failed to show Switchboard notification"', script)
         self.assertIn('panel.setAttribute("aria-hidden", String(!active))', script)
         self.assertIn("ensurePanel(workspace);", script)
         self.assertIn("workspace.archived || !workspace.needs_attention", script)

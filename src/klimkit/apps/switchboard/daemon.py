@@ -33,11 +33,11 @@ except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib
 
 
-DEFAULT_CONFIG_PATH = Path(__file__).with_name("switchboard2.toml")
+DEFAULT_CONFIG_PATH = Path(__file__).with_name("switchboard.toml")
 STATIC_DIR = Path(__file__).with_name("static")
 CACHE_VERSION = 2
-DEFAULT_BASE_PATH = "/switchboard2"
-AUTH_COOKIE_NAME = "switchboard2_token"
+DEFAULT_BASE_PATH = "/switchboard"
+AUTH_COOKIE_NAME = "switchboard_token"
 MAX_JSON_BODY_BYTES = 1024 * 1024
 MAX_SSE_SUBSCRIBERS = 16
 SOCKET_TIMEOUT_SECONDS = 15
@@ -152,13 +152,13 @@ class SessionSummary:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Switchboard2 daemon: collector + backend + UI host."
+        description="Switchboard daemon: collector + backend + UI host."
     )
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path(os.environ.get("SWITCHBOARD2_CONFIG", DEFAULT_CONFIG_PATH)),
-        help="Path to the switchboard2 TOML config.",
+        default=Path(os.environ.get("SWITCHBOARD_CONFIG", DEFAULT_CONFIG_PATH)),
+        help="Path to the switchboard TOML config.",
     )
     parser.add_argument(
         "--print-projections",
@@ -171,7 +171,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def load_config(path: Path) -> AppConfig:
     defaults = {
         "paths": {
-            "state_dir": str(Path.home() / ".local" / "state" / "klimkit" / "switchboard2"),
+            "state_dir": str(Path.home() / ".local" / "state" / "klimkit" / "switchboard"),
             "sessions_root": str(Path.home() / ".codex" / "sessions"),
             "session_index": str(Path.home() / ".codex" / "session_index.jsonl"),
             "hooks_events": str(Path.home() / ".codex" / "switchboard" / "events.jsonl"),
@@ -928,7 +928,7 @@ class StateStore:
     def __init__(self, state_dir: Path) -> None:
         self.state_dir = state_dir
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        self.db_path = self.state_dir / "switchboard2.sqlite3"
+        self.db_path = self.state_dir / "switchboard.sqlite3"
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
@@ -1684,7 +1684,7 @@ class StateStore:
         }
 
 
-class Switchboard2App:
+class SwitchboardApp:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         self.identity = detect_machine_identity(config)
@@ -1798,14 +1798,14 @@ class Switchboard2App:
         if self.config.collector_enabled:
             self._collector_thread = threading.Thread(
                 target=self._collector_loop,
-                name="switchboard2-collector",
+                name="switchboard-collector",
                 daemon=True,
             )
             self._collector_thread.start()
         if self.config.backend_url:
             self._sender_thread = threading.Thread(
                 target=self._sender_loop,
-                name="switchboard2-sender",
+                name="switchboard-sender",
                 daemon=True,
             )
             self._sender_thread.start()
@@ -1909,7 +1909,7 @@ class Switchboard2App:
             "Accept": "application/json",
         }
         if self.config.backend_auth_token:
-            headers["X-Switchboard2-Token"] = self.config.backend_auth_token
+            headers["X-Switchboard-Token"] = self.config.backend_auth_token
         req = request.Request(endpoint, data=body, headers=headers, method="POST")
         with request.urlopen(req, timeout=self.config.backend_timeout_seconds) as response:
             if response.status not in (HTTPStatus.OK, HTTPStatus.ACCEPTED):
@@ -2051,11 +2051,11 @@ class Switchboard2App:
         }
 
 
-class Switchboard2Handler(BaseHTTPRequestHandler):
-    server_version = "Switchboard2HTTP/1.0"
+class SwitchboardHandler(BaseHTTPRequestHandler):
+    server_version = "SwitchboardHTTP/1.0"
 
     @property
-    def app(self) -> Switchboard2App:
+    def app(self) -> SwitchboardApp:
         return self.server.app  # type: ignore[attr-defined]
 
     def setup(self) -> None:
@@ -2226,7 +2226,7 @@ class Switchboard2Handler(BaseHTTPRequestHandler):
             )
             return False
         token = self.app.config.backend_auth_token
-        if token and self._presented_token() == token and self.headers.get("X-Switchboard2-Token"):
+        if token and self._presented_token() == token and self.headers.get("X-Switchboard-Token"):
             return True
         if self._is_same_origin_request():
             return True
@@ -2336,7 +2336,7 @@ class Switchboard2Handler(BaseHTTPRequestHandler):
         return is_loopback_host(self.client_address[0])
 
     def _presented_token(self) -> str:
-        header_token = str(self.headers.get("X-Switchboard2-Token", "")).strip()
+        header_token = str(self.headers.get("X-Switchboard-Token", "")).strip()
         if header_token:
             return header_token
         cookie_header = self.headers.get("Cookie", "")
@@ -2454,6 +2454,7 @@ def guess_content_type(suffix: str) -> str:
         ".js": "text/javascript; charset=utf-8",
         ".json": "application/json; charset=utf-8",
         ".webmanifest": "application/manifest+json; charset=utf-8",
+        ".ico": "image/x-icon",
         ".png": "image/png",
         ".svg": "image/svg+xml",
     }.get(suffix, "application/octet-stream")
@@ -2471,9 +2472,9 @@ def current_ui_version() -> str:
     return str(latest)
 
 
-def serve_forever(app: Switchboard2App) -> None:
+def serve_forever(app: SwitchboardApp) -> None:
     validate_server_auth_config(app.config)
-    server = ThreadingHTTPServer((app.config.host, app.config.port), Switchboard2Handler)
+    server = ThreadingHTTPServer((app.config.host, app.config.port), SwitchboardHandler)
     scheme = "http"
     if path_is_configured(app.config.tls_cert_file) and path_is_configured(app.config.tls_key_file):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -2486,7 +2487,7 @@ def serve_forever(app: Switchboard2App) -> None:
     server.app = app  # type: ignore[attr-defined]
     app._server = server
     print(
-        f"switchboard2: serving on {scheme}://{app.config.host}:{app.config.port}{app.config.base_path}/",
+        f"switchboard: serving on {scheme}://{app.config.host}:{app.config.port}{app.config.base_path}/",
         flush=True,
     )
     server.serve_forever()
@@ -2495,7 +2496,7 @@ def serve_forever(app: Switchboard2App) -> None:
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
     config = load_config(args.config.expanduser())
-    app = Switchboard2App(config)
+    app = SwitchboardApp(config)
     try:
         if args.print_projections:
             projections = app._load_local_projections()
@@ -2510,10 +2511,10 @@ def main(argv: list[str]) -> int:
     except KeyboardInterrupt:
         return 0
     except error.URLError as exc:
-        print(f"switchboard2 error: {exc}", file=sys.stderr, flush=True)
+        print(f"switchboard error: {exc}", file=sys.stderr, flush=True)
         return 1
     except ValueError as exc:
-        print(f"switchboard2 error: {exc}", file=sys.stderr, flush=True)
+        print(f"switchboard error: {exc}", file=sys.stderr, flush=True)
         return 1
     finally:
         app.close()
