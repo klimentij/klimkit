@@ -1,0 +1,16 @@
+[Unit]
+Description=Klimkit operator supervisor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__REPO_ROOT__
+Environment=KLIMKIT_CONFIG=__CONFIG_FILE__
+Environment=KLIMKIT_REPO_ROOT=__REPO_ROOT__
+ExecStart=__REPO_ROOT__/klimkit daemon
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

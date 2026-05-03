@@ -1,0 +1,5 @@
+{
+  "targets": {
+    "klimkit": "https://your-host.tailnet.ts.net/?folder=/absolute/workspace/path"
+  }
+}

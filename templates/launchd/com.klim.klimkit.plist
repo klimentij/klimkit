@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.klim.klimkit</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__UV_BIN__</string>
+    <string>run</string>
+    <string>--project</string>
+    <string>__REPO_ROOT__</string>
+    <string>klimkit</string>
+    <string>daemon</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>KLIMKIT_CONFIG</key>
+    <string>__CONFIG_FILE__</string>
+    <key>KLIMKIT_REPO_ROOT</key>
+    <string>__REPO_ROOT__</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>__STATE_DIR__/supervisor/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>__STATE_DIR__/supervisor/launchd.err.log</string>
+</dict>
+</plist>

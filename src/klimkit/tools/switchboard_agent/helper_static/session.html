@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Codex Session Helper</title>
+    <link rel="stylesheet" href="./session.css" />
+  </head>
+  <body>
+    <main class="helper-shell">
+      <header class="hero">
+        <p class="eyebrow">Same-Origin Helper</p>
+        <h1 id="headline">Preparing workspace handoff</h1>
+        <p id="summary" class="summary">This page opens the requested code-server workspace and routes Codex to the target session.</p>
+      </header>
+
+      <section class="panel">
+        <dl class="facts">
+          <div>
+            <dt>Folder</dt>
+            <dd id="fact-folder">-</dd>
+          </div>
+          <div>
+            <dt>Session</dt>
+            <dd id="fact-session">-</dd>
+          </div>
+          <div>
+            <dt>Title</dt>
+            <dd id="fact-title">-</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd><span id="status-pill" class="status-pill status-pending">Running</span></dd>
+          </div>
+        </dl>
+
+        <div class="actions">
+          <a id="workspace-link" class="link-button" target="switchboard-workspace" rel="noreferrer">Open workspace</a>
+          <button id="retry-button" type="button">Retry</button>
+        </div>
+
+        <ol id="log-list" class="log-list"></ol>
+      </section>
+    </main>
+
+    <script type="module" src="./session.js"></script>
+  </body>
+</html>

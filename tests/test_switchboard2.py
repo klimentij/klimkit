@@ -1,0 +1,1097 @@
+import json
+import tempfile
+import threading
+import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib import error, request
+
+from klimkit.apps.switchboard2 import daemon as MODULE
+
+
+def build_config(state_dir: Path, *, base_path: str = "/switchboard2", port: int = 0) -> object:
+    return MODULE.AppConfig(
+        state_dir=state_dir,
+        sessions_root=state_dir / "sessions",
+        session_index=state_dir / "session_index.jsonl",
+        hooks_events_path=state_dir / "hooks_events.jsonl",
+        server_enabled=True,
+        host="127.0.0.1",
+        port=port,
+        base_path=base_path,
+        tls_cert_file=Path(""),
+        tls_key_file=Path(""),
+        backend_url="",
+        backend_timeout_seconds=5,
+        backend_auth_token="",
+        collector_enabled=False,
+        collector_interval_seconds=0.5,
+        heartbeat_seconds=15,
+        max_session_age_days=3650,
+        stale_after_seconds=180,
+        machine_id="workstation",
+        machine_dns="workstation.example.ts.net",
+    )
+
+
+class RunningServer:
+    def __init__(self, app: object, server: object, thread: threading.Thread) -> None:
+        self.app = app
+        self.server = server
+        self.thread = thread
+        self.base_url = f"http://127.0.0.1:{self.server.server_address[1]}{self.app.config.base_path}"
+
+    def close(self) -> None:
+        self.app.close()
+        self.thread.join(timeout=2)
+
+
+class CaptureHandler(BaseHTTPRequestHandler):
+    requests: list[dict[str, object]] = []
+
+    def do_POST(self) -> None:  # noqa: N802
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length).decode("utf-8")
+        self.__class__.requests.append(
+            {
+                "path": self.path,
+                "headers": dict(self.headers.items()),
+                "body": body,
+            }
+        )
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", "2")
+        self.end_headers()
+        self.wfile.write(b"{}")
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A003
+        return
+
+
+class RunningCaptureServer:
+    def __init__(self, server: ThreadingHTTPServer, thread: threading.Thread) -> None:
+        self.server = server
+        self.thread = thread
+        self.base_url = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def close(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+
+
+def start_server(config: object) -> RunningServer:
+    app = MODULE.Switchboard2App(config)
+    server = MODULE.ThreadingHTTPServer((config.host, config.port), MODULE.Switchboard2Handler)
+    server.app = app
+    app._server = server
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return RunningServer(app, server, thread)
+
+
+def start_capture_server() -> RunningCaptureServer:
+    CaptureHandler.requests = []
+    server = ThreadingHTTPServer(("127.0.0.1", 0), CaptureHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return RunningCaptureServer(server, thread)
+
+
+class Switchboard2Tests(unittest.TestCase):
+    def test_non_loopback_server_requires_auth_token(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = build_config(Path(tmpdir))
+            config = MODULE.AppConfig(**{**config.__dict__, "host": "0.0.0.0", "backend_auth_token": ""})
+
+            with self.assertRaises(ValueError):
+                MODULE.validate_server_auth_config(config)
+
+            secured = MODULE.AppConfig(**{**config.__dict__, "backend_auth_token": "secret"})
+
+            MODULE.validate_server_auth_config(secured)
+
+    def test_parse_rollout_marks_planning_before_action(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-1.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:00:00Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-plan",
+                                    "cwd": "/repo",
+                                    "git": {"branch": "main"},
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:00:01Z",
+                                "type": "event_msg",
+                                "payload": {"type": "task_started", "turn_id": "turn-1"},
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:00:02Z",
+                                "type": "response_item",
+                                "payload": {
+                                    "type": "message",
+                                    "role": "assistant",
+                                    "phase": "commentary",
+                                    "content": [{"type": "output_text", "text": "I’m checking the architecture first."}],
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            projection = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net"),
+                summary,
+            )
+
+            self.assertEqual(projection["activity_state"], "planning")
+            self.assertEqual(projection["latest_event_id"], "turn-1")
+
+    def test_parse_rollout_marks_exec_command_approval_wait(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-2.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:10:00Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-approval",
+                                    "cwd": "/repo",
+                                    "git": {"branch": "main"},
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:10:01Z",
+                                "type": "event_msg",
+                                "payload": {"type": "task_started", "turn_id": "turn-2"},
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:10:02Z",
+                                "type": "response_item",
+                                "payload": {
+                                    "type": "function_call",
+                                    "name": "exec_command",
+                                    "call_id": "call-123",
+                                    "arguments": json.dumps(
+                                        {
+                                            "cmd": "git pull",
+                                            "sandbox_permissions": "require_escalated",
+                                            "justification": "Need network to fetch updates.",
+                                        }
+                                    ),
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            projection = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net"),
+                summary,
+            )
+
+            self.assertEqual(projection["activity_state"], "awaiting_approval")
+            self.assertEqual(projection["attention_kind"], "awaiting_approval")
+            self.assertEqual(projection["latest_event_id"], "call-123")
+
+    def test_request_user_input_beats_done(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-3.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:20:00Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-input",
+                                    "cwd": "/repo",
+                                    "git": {"branch": "main"},
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:20:01Z",
+                                "type": "event_msg",
+                                "payload": {"type": "task_started", "turn_id": "turn-3"},
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:20:02Z",
+                                "type": "response_item",
+                                "payload": {
+                                    "type": "function_call",
+                                    "name": "request_user_input",
+                                    "call_id": "call-ask",
+                                    "arguments": json.dumps(
+                                        {
+                                            "questions": [
+                                                {"question": "Which target should I use?"}
+                                            ]
+                                        }
+                                    ),
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            projection = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net"),
+                summary,
+            )
+
+            self.assertEqual(projection["activity_state"], "needs_input")
+            self.assertEqual(projection["attention_kind"], "needs_input")
+            self.assertEqual(projection["latest_event_message"], "Which target should I use?")
+
+    def test_parse_rollout_uses_folder_name_when_thread_title_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-untitled.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:30:00Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-untitled",
+                                    "cwd": "/repo/switchboard",
+                                    "git": {"branch": "main"},
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:30:01Z",
+                                "type": "response_item",
+                                "payload": {
+                                    "type": "message",
+                                    "role": "assistant",
+                                    "phase": "commentary",
+                                    "content": [{"type": "output_text", "text": "This should not become the thread title."}],
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            projection = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net"),
+                summary,
+            )
+
+            self.assertEqual(summary.title, "switchboard")
+            self.assertEqual(projection["title"], "switchboard")
+
+    def test_parse_rollout_tracks_latest_user_message(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-user-message.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:31:00Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-user-msg",
+                                    "cwd": "/repo/switchboard",
+                                    "git": {"branch": "main"},
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-17T09:31:01Z",
+                                "type": "event_msg",
+                                "payload": {
+                                    "type": "user_message",
+                                    "message": "Show folder, machine, status, and my last message in the tabs.",
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            projection = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net"),
+                summary,
+            )
+
+            self.assertEqual(summary.latest_user_message, "Show folder, machine, status, and my last message in the tabs.")
+            self.assertEqual(projection["latest_user_message"], "Show folder, machine, status, and my last message in the tabs.")
+
+    def test_store_acknowledge_completion_changes_display_state_to_seen(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = MODULE.StateStore(Path(tmpdir))
+            try:
+                store.apply_event_batch(
+                    [
+                        {
+                            "event_id": "workstation:heartbeat:1",
+                            "type": "machine_heartbeat",
+                            "machine": "workstation",
+                            "machine_dns": "workstation.example.ts.net",
+                            "generated_at": "2026-04-17T10:00:00Z",
+                            "session_count": 1,
+                        },
+                        {
+                            "event_id": "workstation:thread-1:turn-1",
+                            "type": "session_upsert",
+                            "machine": "workstation",
+                            "machine_dns": "workstation.example.ts.net",
+                            "generated_at": "2026-04-17T10:00:00Z",
+                            "session": {
+                                "session_id": "thread-1",
+                                "cwd": "/repo",
+                                "folder_name": "repo",
+                                "branch": "main",
+                                "title": "Test completion",
+                                "detail": "Implemented and verified.",
+                                "activity_state": "done",
+                                "created_at": "2026-04-17T09:00:00Z",
+                                "updated_at": "2026-04-17T10:00:00Z",
+                                "latest_event_id": "turn-1",
+                                "latest_event_status": "done",
+                                "latest_event_message": "Implemented and verified.",
+                                "latest_event_created_at": "2026-04-17T10:00:00Z",
+                                "needs_attention": True,
+                                "attention_kind": "completion_unseen",
+                                "approval_policy": "never",
+                                "code_server_url": "https://workstation.example.ts.net/?folder=/repo",
+                                "same_origin_helper_url": "",
+                            },
+                        },
+                    ]
+                )
+
+                state = store.build_state("workstation", stale_after_seconds=180, retention_days=3650)
+                self.assertEqual(state["workspaces"][0]["display_state"], "done")
+                self.assertTrue(state["workspaces"][0]["needs_attention"])
+
+                store.acknowledge_completion("thread-1", "turn-1")
+
+                state = store.build_state("workstation", stale_after_seconds=180, retention_days=3650)
+                self.assertEqual(state["workspaces"][0]["display_state"], "seen")
+                self.assertFalse(state["workspaces"][0]["needs_attention"])
+            finally:
+                store.close()
+
+    def test_build_state_marks_active_session_stale_when_reporting_stops(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = MODULE.StateStore(Path(tmpdir))
+            try:
+                store.apply_event_batch(
+                    [
+                        {
+                            "event_id": "workstation:heartbeat:stale",
+                            "type": "machine_heartbeat",
+                            "machine": "workstation",
+                            "machine_dns": "workstation.example.ts.net",
+                            "generated_at": "2026-04-17T09:00:00Z",
+                            "session_count": 1,
+                        },
+                        {
+                            "event_id": "workstation:thread-stale:turn-2",
+                            "type": "session_upsert",
+                            "machine": "workstation",
+                            "machine_dns": "workstation.example.ts.net",
+                            "generated_at": "2026-04-17T09:00:00Z",
+                            "session": {
+                                "session_id": "thread-stale",
+                                "cwd": "/repo",
+                                "folder_name": "repo",
+                                "branch": "main",
+                                "title": "Still running",
+                                "detail": "Working.",
+                                "activity_state": "working",
+                                "created_at": "2026-04-17T08:30:00Z",
+                                "updated_at": "2026-04-17T09:00:00Z",
+                                "latest_event_id": "turn-2",
+                                "latest_event_status": "",
+                                "latest_event_message": "",
+                                "latest_event_created_at": "2026-04-17T09:00:00Z",
+                                "needs_attention": False,
+                                "attention_kind": "",
+                                "approval_policy": "never",
+                                "code_server_url": "https://workstation.example.ts.net/?folder=/repo",
+                                "same_origin_helper_url": "",
+                            },
+                        },
+                    ]
+                )
+
+                original_parse = MODULE.parse_iso_timestamp
+                try:
+                    def fake_parse(value):
+                        parsed = original_parse(value)
+                        if parsed is None:
+                            return None
+                        return parsed - MODULE.dt.timedelta(minutes=10)
+
+                    MODULE.parse_iso_timestamp = fake_parse
+                    state = store.build_state("workstation", stale_after_seconds=180, retention_days=3650)
+                finally:
+                    MODULE.parse_iso_timestamp = original_parse
+
+                self.assertEqual(state["workspaces"][0]["display_state"], "stale")
+            finally:
+                store.close()
+
+    def test_build_state_keeps_creation_order_and_archives_last(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = MODULE.StateStore(Path(tmpdir))
+            try:
+                now = MODULE.dt.datetime.now(MODULE.dt.UTC).replace(microsecond=0)
+                latest_update = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+                mid_update = (now - MODULE.dt.timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                earlier_update = (now - MODULE.dt.timedelta(minutes=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                newest_created = (now - MODULE.dt.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                middle_created = (now - MODULE.dt.timedelta(minutes=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                oldest_created = (now - MODULE.dt.timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                store.apply_event_batch(
+                    [
+                        {
+                            "event_id": "workstation:heartbeat:sort",
+                            "type": "machine_heartbeat",
+                            "machine": "workstation",
+                            "machine_dns": "workstation.example.ts.net",
+                            "generated_at": latest_update,
+                            "session_count": 3,
+                        },
+                        {
+                            "event_id": "workstation:thread-newest:turn-3",
+                            "type": "session_upsert",
+                            "machine": "workstation",
+                            "machine_dns": "workstation.example.ts.net",
+                            "generated_at": earlier_update,
+                            "session": {
+                                "session_id": "thread-newest",
+                                "cwd": "/repo/newest",
+                                "folder_name": "newest",
+                                "branch": "main",
+                                "title": "Newest created",
+                                "detail": "Created last, but archived.",
+                                "activity_state": "done",
+                                "created_at": newest_created,
+                                "updated_at": earlier_update,
+                                "latest_event_id": "turn-3",
+                                "latest_event_status": "done",
+                                "latest_event_message": "",
+                                "latest_event_created_at": earlier_update,
+                                "needs_attention": True,
+                                "attention_kind": "completion_unseen",
+                                "approval_policy": "never",
+                                "code_server_url": "https://workstation.example.ts.net/?folder=/repo/newest",
+                                "same_origin_helper_url": "",
+                            },
+                        },
+                        {
+                            "event_id": "workstation:thread-middle:turn-2",
+                            "type": "session_upsert",
+                            "machine": "workstation",
+                            "machine_dns": "workstation.example.ts.net",
+                            "generated_at": mid_update,
+                            "session": {
+                                "session_id": "thread-middle",
+                                "cwd": "/repo/middle",
+                                "folder_name": "middle",
+                                "branch": "main",
+                                "title": "Middle created",
+                                "detail": "Created second and updated midstream.",
+                                "activity_state": "working",
+                                "created_at": middle_created,
+                                "updated_at": mid_update,
+                                "latest_event_id": "turn-2",
+                                "latest_event_status": "",
+                                "latest_event_message": "",
+                                "latest_event_created_at": mid_update,
+                                "needs_attention": False,
+                                "attention_kind": "",
+                                "approval_policy": "never",
+                                "code_server_url": "https://workstation.example.ts.net/?folder=/repo/middle",
+                                "same_origin_helper_url": "",
+                            },
+                        },
+                        {
+                            "event_id": "workstation:thread-oldest:turn-1",
+                            "type": "session_upsert",
+                            "machine": "workstation",
+                            "machine_dns": "workstation.example.ts.net",
+                            "generated_at": latest_update,
+                            "session": {
+                                "session_id": "thread-oldest",
+                                "cwd": "/repo/oldest",
+                                "folder_name": "oldest",
+                                "branch": "main",
+                                "title": "Oldest created",
+                                "detail": "Got the newest status update.",
+                                "activity_state": "needs_input",
+                                "created_at": oldest_created,
+                                "updated_at": latest_update,
+                                "latest_event_id": "turn-1",
+                                "latest_event_status": "needs_input",
+                                "latest_event_message": "",
+                                "latest_event_created_at": latest_update,
+                                "needs_attention": True,
+                                "attention_kind": "needs_input",
+                                "approval_policy": "never",
+                                "code_server_url": "https://workstation.example.ts.net/?folder=/repo/oldest",
+                                "same_origin_helper_url": "",
+                            },
+                        },
+                    ]
+                )
+                store.set_archive_state("thread-newest", True)
+
+                state = store.build_state("workstation", stale_after_seconds=180, retention_days=3650)
+
+                self.assertEqual(
+                    [item["title"] for item in state["workspaces"][:3]],
+                    ["Middle created", "Oldest created", "Newest created"],
+                )
+                self.assertFalse(state["workspaces"][0]["archived"])
+                self.assertFalse(state["workspaces"][1]["archived"])
+                self.assertTrue(state["workspaces"][2]["archived"])
+            finally:
+                store.close()
+
+    def test_upsert_derives_code_server_url_from_machine_dns_and_cwd(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = MODULE.StateStore(Path(tmpdir))
+            try:
+                store.apply_event_batch(
+                    [
+                        {
+                            "event_id": "workstation:thread-safe:url",
+                            "type": "session_upsert",
+                            "machine": "workstation",
+                            "machine_dns": "workstation.example.ts.net",
+                            "generated_at": "2026-04-17T10:00:00Z",
+                            "session": {
+                                "session_id": "thread-safe",
+                                "cwd": "/repo",
+                                "folder_name": "repo",
+                                "branch": "main",
+                                "title": "Safe URL",
+                                "detail": "Working.",
+                                "activity_state": "working",
+                                "created_at": "2026-04-17T09:00:00Z",
+                                "updated_at": "2026-04-17T10:00:00Z",
+                                "latest_event_id": "turn-safe",
+                                "latest_event_status": "",
+                                "latest_event_message": "",
+                                "latest_event_created_at": "2026-04-17T10:00:00Z",
+                                "needs_attention": False,
+                                "attention_kind": "",
+                                "approval_policy": "never",
+                                "code_server_url": "https://evil.invalid/phish",
+                                "same_origin_helper_url": "",
+                            },
+                        },
+                    ]
+                )
+
+                state = store.build_state("workstation", stale_after_seconds=180, retention_days=3650)
+                self.assertEqual(
+                    state["workspaces"][0]["code_server_url"],
+                    "https://workstation.example.ts.net/?folder=/repo",
+                )
+            finally:
+                store.close()
+
+    def test_archive_endpoint_returns_400_for_malformed_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir)))
+            try:
+                req = request.Request(
+                    running.base_url + "/api/workspaces/archive",
+                    data=b"{",
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(req, timeout=5)
+                self.assertEqual(raised.exception.code, 400)
+                payload = json.loads(raised.exception.read().decode("utf-8"))
+                self.assertEqual(payload["status"], "error")
+                self.assertIn("error", payload)
+            finally:
+                running.close()
+
+    def test_events_batch_endpoint_ingests_forwarded_satellite_events(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir)))
+            try:
+                payload = {
+                    "events": [
+                        {
+                            "event_id": "satellite:heartbeat:1",
+                            "type": "machine_heartbeat",
+                            "machine": "satellite",
+                            "machine_dns": "satellite.example.ts.net",
+                            "generated_at": "2026-04-18T10:00:00Z",
+                            "created_at": "2026-04-18T10:00:00Z",
+                            "session_count": 1,
+                        },
+                        {
+                            "event_id": "satellite:thread-1:turn-1",
+                            "type": "session_upsert",
+                            "machine": "satellite",
+                            "machine_dns": "satellite.example.ts.net",
+                            "generated_at": "2026-04-18T10:00:00Z",
+                            "created_at": "2026-04-18T10:00:00Z",
+                            "session": {
+                                "session_id": "thread-1",
+                                "cwd": "/work/repo",
+                                "folder_name": "repo",
+                                "branch": "main",
+                                "title": "Forwarded session",
+                                "detail": "Forwarded from another VM.",
+                                "activity_state": "working",
+                                "created_at": "2026-04-18T09:55:00Z",
+                                "updated_at": "2026-04-18T10:00:00Z",
+                                "latest_event_id": "turn-1",
+                                "latest_event_status": "working",
+                                "latest_event_message": "Still running",
+                                "latest_event_created_at": "2026-04-18T10:00:00Z",
+                                "latest_user_message": "check this repo",
+                                "needs_attention": False,
+                                "attention_kind": "",
+                                "approval_policy": "never",
+                                "code_server_url": "https://satellite.example.ts.net/?folder=/work/repo",
+                                "same_origin_helper_url": "",
+                            },
+                        },
+                    ]
+                }
+                req = request.Request(
+                    running.base_url + "/api/events/batch",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with request.urlopen(req, timeout=5) as response:
+                    accepted = json.loads(response.read().decode("utf-8"))
+                self.assertEqual(accepted["status"], "accepted")
+                self.assertEqual(accepted["applied"], 2)
+
+                with request.urlopen(running.base_url + "/api/state", timeout=5) as response:
+                    state = json.loads(response.read().decode("utf-8"))
+                self.assertEqual(state["machines"][0]["machine"], "satellite")
+                self.assertEqual(state["workspaces"][0]["machine"], "satellite")
+                self.assertEqual(state["workspaces"][0]["folder_name"], "repo")
+                self.assertEqual(state["workspaces"][0]["latest_user_message"], "check this repo")
+            finally:
+                running.close()
+
+    def test_collect_once_surfaces_needs_input_from_hook_stream(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = build_config(Path(tmpdir))
+            now = MODULE.dt.datetime.now(MODULE.dt.UTC).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+            config.hooks_events_path.parent.mkdir(parents=True, exist_ok=True)
+            config.hooks_events_path.write_text(
+                json.dumps(
+                    {
+                        "event_id": "pws:thread-hook:turn-1",
+                        "session_id": "thread-hook",
+                        "machine": "pws",
+                        "cwd": "/home/user/pantera",
+                        "workspace": "pantera",
+                        "status": "needs_input",
+                        "title": "pantera",
+                        "branch": "main",
+                        "message": "Which deploy target should I use?",
+                        "created_at": now,
+                        "source": "codex_stop_hook",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            app = MODULE.Switchboard2App(config)
+            try:
+                changed = app.collect_once()
+                self.assertTrue(changed)
+
+                state = app.build_state()
+                self.assertEqual(len(state["workspaces"]), 1)
+                workspace = state["workspaces"][0]
+                self.assertEqual(workspace["machine"], "pws")
+                self.assertEqual(workspace["display_state"], "needs_input")
+                self.assertEqual(workspace["attention_kind"], "needs_input")
+                self.assertEqual(workspace["latest_event_message"], "Which deploy target should I use?")
+            finally:
+                app.close()
+
+    def test_collect_once_enqueues_hook_events_for_satellite_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = build_config(Path(tmpdir))
+            now = MODULE.dt.datetime.now(MODULE.dt.UTC).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+            config = MODULE.AppConfig(
+                **{
+                    **base.__dict__,
+                    "server_enabled": False,
+                    "backend_url": "http://127.0.0.1:9999/switchboard2",
+                }
+            )
+            config.hooks_events_path.parent.mkdir(parents=True, exist_ok=True)
+            config.hooks_events_path.write_text(
+                json.dumps(
+                    {
+                        "event_id": "pws:thread-hook:turn-2",
+                        "session_id": "thread-hook",
+                        "machine": "pws",
+                        "cwd": "/home/user/pantera",
+                        "workspace": "pantera",
+                        "status": "needs_input",
+                        "title": "pantera",
+                        "branch": "main",
+                        "message": "Pick a deployment target.",
+                        "created_at": now,
+                        "source": "codex_stop_hook",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            app = MODULE.Switchboard2App(config)
+            try:
+                changed = app.collect_once()
+                self.assertTrue(changed)
+
+                queued = app.store.next_outbound_batch(limit=10)
+                payloads = [json.loads(str(row["payload_json"])) for row in queued]
+                hook_events = [payload for payload in payloads if payload.get("type") == "hook_hint"]
+                self.assertEqual(len(hook_events), 1)
+                self.assertEqual(hook_events[0]["status"], "needs_input")
+                self.assertEqual(hook_events[0]["machine"], "pws")
+            finally:
+                app.close()
+
+    def test_newer_hook_hint_overrides_older_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = MODULE.StateStore(Path(tmpdir))
+            try:
+                base = MODULE.dt.datetime.now(MODULE.dt.UTC).replace(microsecond=0)
+                created = (base - MODULE.dt.timedelta(minutes=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                working_at = (base - MODULE.dt.timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                hook_at = (base - MODULE.dt.timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                store.apply_event_batch(
+                    [
+                        {
+                            "event_id": "pws:thread-hook:turn-working",
+                            "type": "session_upsert",
+                            "machine": "pws",
+                            "machine_dns": "pws.example.ts.net",
+                            "generated_at": working_at,
+                            "session": {
+                                "session_id": "thread-hook",
+                                "cwd": "/home/user/pantera",
+                                "folder_name": "pantera",
+                                "branch": "main",
+                                "title": "pantera",
+                                "detail": "Still working.",
+                                "activity_state": "working",
+                                "created_at": created,
+                                "updated_at": working_at,
+                                "latest_event_id": "turn-working",
+                                "latest_event_status": "working",
+                                "latest_event_message": "Still working.",
+                                "latest_event_created_at": working_at,
+                                "needs_attention": False,
+                                "attention_kind": "",
+                                "approval_policy": "never",
+                                "code_server_url": "https://pws.example.ts.net/?folder=/home/user/pantera",
+                                "same_origin_helper_url": "",
+                            },
+                        },
+                        {
+                            "event_id": "pws:thread-hook:turn-needs-input",
+                            "type": "hook_hint",
+                            "machine": "pws",
+                            "machine_dns": "pws.example.ts.net",
+                            "session_id": "thread-hook",
+                            "cwd": "/home/user/pantera",
+                            "workspace": "pantera",
+                            "title": "pantera",
+                            "branch": "main",
+                            "status": "needs_input",
+                            "message": "Choose the deploy target.",
+                            "created_at": hook_at,
+                            "generated_at": hook_at,
+                        },
+                    ]
+                )
+
+                state = store.build_state("workstation", stale_after_seconds=180, retention_days=3650)
+                workspace = state["workspaces"][0]
+                self.assertEqual(workspace["display_state"], "needs_input")
+                self.assertEqual(workspace["attention_kind"], "needs_input")
+                self.assertEqual(workspace["latest_event_message"], "Choose the deploy target.")
+            finally:
+                store.close()
+
+    def test_older_hook_hint_does_not_override_newer_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = MODULE.StateStore(Path(tmpdir))
+            try:
+                base = MODULE.dt.datetime.now(MODULE.dt.UTC).replace(microsecond=0)
+                created = (base - MODULE.dt.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                hook_at = (base - MODULE.dt.timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                working_at = (base - MODULE.dt.timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                store.apply_event_batch(
+                    [
+                        {
+                            "event_id": "pws:thread-hook:turn-working",
+                            "type": "session_upsert",
+                            "machine": "pws",
+                            "machine_dns": "pws.example.ts.net",
+                            "generated_at": working_at,
+                            "session": {
+                                "session_id": "thread-hook",
+                                "cwd": "/home/user/pantera",
+                                "folder_name": "pantera",
+                                "branch": "main",
+                                "title": "pantera",
+                                "detail": "Still working.",
+                                "activity_state": "working",
+                                "created_at": created,
+                                "updated_at": working_at,
+                                "latest_event_id": "turn-working",
+                                "latest_event_status": "working",
+                                "latest_event_message": "Still working.",
+                                "latest_event_created_at": working_at,
+                                "needs_attention": False,
+                                "attention_kind": "",
+                                "approval_policy": "never",
+                                "code_server_url": "https://pws.example.ts.net/?folder=/home/user/pantera",
+                                "same_origin_helper_url": "",
+                            },
+                        },
+                        {
+                            "event_id": "pws:thread-hook:turn-needs-input-old",
+                            "type": "hook_hint",
+                            "machine": "pws",
+                            "machine_dns": "pws.example.ts.net",
+                            "session_id": "thread-hook",
+                            "cwd": "/home/user/pantera",
+                            "workspace": "pantera",
+                            "title": "pantera",
+                            "branch": "main",
+                            "status": "needs_input",
+                            "message": "Choose the deploy target.",
+                            "created_at": hook_at,
+                            "generated_at": hook_at,
+                        },
+                    ]
+                )
+
+                state = store.build_state("workstation", stale_after_seconds=180, retention_days=3650)
+                workspace = state["workspaces"][0]
+                self.assertEqual(workspace["display_state"], "working")
+                self.assertEqual(workspace["attention_kind"], "")
+                self.assertEqual(workspace["latest_event_message"], "Still working.")
+            finally:
+                store.close()
+
+    def test_sender_posts_to_backend_batch_endpoint_with_token(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            capture = start_capture_server()
+            try:
+                config = build_config(Path(tmpdir))
+                config = MODULE.AppConfig(
+                    **{
+                        **config.__dict__,
+                        "server_enabled": False,
+                        "backend_url": capture.base_url + "/switchboard2",
+                        "backend_auth_token": "secret-token",
+                    }
+                )
+                app = MODULE.Switchboard2App(config)
+                try:
+                    app._post_event_batch(
+                        [
+                            {
+                                "event_id": "satellite:heartbeat:1",
+                                "type": "machine_heartbeat",
+                                "machine": "satellite",
+                                "machine_dns": "satellite.example.ts.net",
+                                "generated_at": "2026-04-18T10:00:00Z",
+                                "created_at": "2026-04-18T10:00:00Z",
+                                "session_count": 1,
+                            }
+                        ]
+                    )
+                finally:
+                    app.close()
+
+                self.assertEqual(len(CaptureHandler.requests), 1)
+                captured = CaptureHandler.requests[0]
+                self.assertEqual(captured["path"], "/switchboard2/api/events/batch")
+                self.assertEqual(captured["headers"]["X-Switchboard2-Token"], "secret-token")
+                body = json.loads(str(captured["body"]))
+                self.assertEqual(body["events"][0]["machine"], "satellite")
+            finally:
+                capture.close()
+
+    def test_token_protects_state_and_mutations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = build_config(Path(tmpdir))
+            config = MODULE.AppConfig(**{**config.__dict__, "backend_auth_token": "secret-token"})
+            running = start_server(config)
+            try:
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(running.base_url + "/api/state", timeout=5)
+                self.assertEqual(raised.exception.code, 401)
+
+                authorized = request.Request(
+                    running.base_url + "/api/state",
+                    headers={"X-Switchboard2-Token": "secret-token"},
+                    method="GET",
+                )
+                with request.urlopen(authorized, timeout=5) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                self.assertIn("workspaces", payload)
+
+                unauthorized_post = request.Request(
+                    running.base_url + "/api/workspaces/archive",
+                    data=json.dumps({"session_id": "missing", "archived": True}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with self.assertRaises(error.HTTPError) as post_raised:
+                    request.urlopen(unauthorized_post, timeout=5)
+                self.assertEqual(post_raised.exception.code, 401)
+            finally:
+                running.close()
+
+    def test_custom_base_path_serves_relative_manifest_and_scope_safe_worker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir), base_path="/board"))
+            try:
+                with request.urlopen(running.base_url + "/manifest.webmanifest", timeout=5) as response:
+                    manifest = json.loads(response.read().decode("utf-8"))
+                self.assertEqual(manifest["start_url"], "./")
+                self.assertEqual(manifest["scope"], "./")
+                self.assertTrue(all(not icon["src"].startswith("/switchboard2/") for icon in manifest["icons"]))
+
+                with request.urlopen(running.base_url + "/service-worker.js", timeout=5) as response:
+                    worker = response.read().decode("utf-8")
+                self.assertNotIn('"/switchboard2/', worker)
+                self.assertIn("pathWithinScope", worker)
+            finally:
+                running.close()
+
+    def test_ui_version_endpoint_reports_static_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir)))
+            try:
+                with request.urlopen(running.base_url + "/api/ui-version", timeout=5) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                self.assertIn("version", payload)
+                self.assertRegex(str(payload["version"]), r"^\d+$")
+            finally:
+                running.close()
+
+    def test_index_uses_create_tab_copy_and_folder_combobox(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir)))
+            try:
+                with request.urlopen(running.base_url + "/", timeout=5) as response:
+                    html = response.read().decode("utf-8")
+                self.assertIn("Create Workspace", html)
+                self.assertIn(">Create tab<", html)
+                self.assertIn('role="combobox"', html)
+                self.assertIn('id="new-workspace-folder-options"', html)
+                self.assertNotIn("new-workspace-folder-suggestions", html)
+            finally:
+                running.close()
+
+    def test_app_script_creates_unique_local_workspace_ids_keeps_fresh_tabs_and_syncs_window_title(self) -> None:
+        script = (
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "klimkit"
+            / "apps"
+            / "switchboard2"
+            / "static"
+            / "app.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("createLocalWorkspaceId", script)
+        self.assertIn("LOCAL_WORKSPACE_SEQUENCE_KEY", script)
+        self.assertNotIn("activate(existing.id", script)
+        self.assertIn("Create fresh tab for new folder path", script)
+        self.assertIn("resolveNotificationTargetWorkspace", script)
+        self.assertIn("preloadNonArchivedFrames", script)
+        self.assertIn("buildWindowTitle", script)
+        self.assertIn("syncDocumentTitle", script)
+        self.assertIn("notificationStatusForWorkspace", script)
+        self.assertIn("notificationMemoryKeyForWorkspace", script)
+        self.assertIn("notificationSignatureForWorkspace", script)
+        self.assertIn("reconcileLocalWorkspaces", script)
+        self.assertIn("findServerWorkspaceForLocal", script)
+        self.assertIn('tag: signature', script)
+        self.assertIn('console.warn("Failed to show Switchboard2 notification"', script)
+        self.assertIn('panel.setAttribute("aria-hidden", String(!active))', script)
+        self.assertIn("ensurePanel(workspace);", script)
+        self.assertIn("workspace.archived || !workspace.needs_attention", script)
+        self.assertIn('const uiVersionUrl = "./api/ui-version";', script)
+        self.assertNotIn('document.title = error instanceof Error ? error.message', script)
+        self.assertNotIn('panel.toggleAttribute("hidden", !active)', script)
+        self.assertNotIn("ui.notificationMemory[workspace.id] = eventId", script)
+
+
+if __name__ == "__main__":
+    unittest.main()

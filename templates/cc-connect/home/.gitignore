@@ -1,0 +1,6 @@
+/.codex
+/.codex/
+/logs/
+/run/
+/sessions/
+/daemon.json

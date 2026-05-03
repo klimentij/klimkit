@@ -1,0 +1,4 @@
+interface:
+  display_name: "agent-browser"
+  short_description: "Browser automation CLI for AI agents"
+  default_prompt: "Use $agent-browser for browser automation tasks. Before running agent-browser commands, load the upstream skill instructions with `agent-browser skills get agent-browser`."

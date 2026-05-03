@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SOURCE_PATH="${BASH_SOURCE[0]}"
+while [[ -L "${SOURCE_PATH}" ]]; do
+  SOURCE_DIR="$(cd -P "$(dirname "${SOURCE_PATH}")" && pwd)"
+  SOURCE_PATH="$(readlink "${SOURCE_PATH}")"
+  [[ "${SOURCE_PATH}" != /* ]] && SOURCE_PATH="${SOURCE_DIR}/${SOURCE_PATH}"
+done
+
+REPO_ROOT="$(cd -P "$(dirname "${SOURCE_PATH}")" && pwd)"
+export KLIMKIT_REPO_ROOT="${KLIMKIT_REPO_ROOT:-${REPO_ROOT}}"
+export KLIMKIT_PROG="${KLIMKIT_PROG:-kk}"
+
+if command -v uv >/dev/null 2>&1; then
+  exec uv run --project "${REPO_ROOT}" kk "$@"
+fi
+
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+export PYTHONPATH="${REPO_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
+exec "${PYTHON_BIN}" -m klimkit.cli "$@"

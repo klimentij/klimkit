@@ -1,0 +1,43 @@
+language = "en"
+attachment_send = "on"
+
+[log]
+level = "info"
+
+[[projects]]
+name = "codex"
+admin_from = ""
+
+[projects.agent]
+type = "codex"
+
+[projects.agent.options]
+work_dir = "~"
+mode = "full-auto"
+
+[[projects.platforms]]
+type = "telegram"
+
+[projects.platforms.options]
+allow_from = ""
+token = ""
+group_reply_all = false
+share_session_in_channel = true
+enable_reactions = true
+
+[webhook]
+enabled = false
+port = 9111
+token = ""
+path = "/hook"
+
+[bridge]
+enabled = false
+port = 9810
+token = ""
+
+[management]
+enabled = false
+port = 9820
+token = ""
+cors_origins = []

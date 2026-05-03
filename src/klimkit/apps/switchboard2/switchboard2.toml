@@ -1,0 +1,28 @@
+[paths]
+state_dir = "~/.local/state/klimkit/switchboard2"
+sessions_root = "~/.codex/sessions"
+session_index = "~/.codex/session_index.jsonl"
+hooks_events = "~/.codex/switchboard/events.jsonl"
+
+[server]
+enabled = true
+host = "127.0.0.1"
+port = 4721
+base_path = "/switchboard2"
+
+[backend]
+base_url = ""
+timeout_seconds = 10
+# Required for any non-loopback or multi-VM deployment.
+auth_token = ""
+
+[collector]
+enabled = true
+interval_seconds = 0.5
+heartbeat_seconds = 15
+max_session_age_days = 14
+stale_after_seconds = 180
+
+[machine]
+id = ""
+dns_name = ""
