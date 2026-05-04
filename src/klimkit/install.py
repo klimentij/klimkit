@@ -278,7 +278,7 @@ def render_config(config: InstallConfig) -> str:
             f"helper_port = {config.switchboard_agent_helper_port}",
             "",
             "[notifications.telegram]",
-            "# Telegram notifications are optional and read by the Codex Stop hook.",
+            "# Telegram notifications are optional and used by apply, autosync, and Codex Stop hooks.",
             f"enabled = {str(config.telegram_enabled).lower()}",
             f"bot_token = {json.dumps(config.telegram_bot_token)}",
             f"chat_id = {json.dumps(config.telegram_chat_id)}",

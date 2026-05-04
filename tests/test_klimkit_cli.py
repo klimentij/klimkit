@@ -257,6 +257,7 @@ class KlimkitCliTests(unittest.TestCase):
             with (
                 redirect_stdout(stdout),
                 mock.patch.object(cli, "build_plan", return_value=[]),
+                mock.patch.object(cli, "_tailscale_dns_name", return_value="odev.tail11c448.ts.net"),
                 mock.patch.object(
                     cli,
                     "apply_plan",
@@ -281,9 +282,144 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn("restarted", output)
             self.assertIn("restart Klimkit user service", output)
             self.assertIn("Switchboard: http://127.0.0.1:4721/switchboard/", output)
+            self.assertIn("Switchboard proxy: https://odev.tail11c448.ts.net/proxy/4721/", output)
+            self.assertIn("Switchboard serve: https://odev.tail11c448.ts.net/switchboard/", output)
             self.assertIn("Codex projection:", output)
             self.assertIn("code-server settings:", output)
             self.assertIn("systemctl --user status klimkit.service --no-pager", output)
+
+    def test_apply_sends_telegram_summary_when_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "klimkit.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[components]",
+                        "client = true",
+                        "server = true",
+                        "",
+                        "[switchboard.server]",
+                        "enabled = true",
+                        'host = "127.0.0.1"',
+                        "port = 4721",
+                        'base_path = "/switchboard"',
+                        "",
+                        "[notifications.telegram]",
+                        "enabled = true",
+                        'bot_token = "bot-token"',
+                        'chat_id = "chat-id"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+
+            with (
+                redirect_stdout(stdout),
+                mock.patch.object(cli.socket, "gethostname", return_value="vm-1"),
+                mock.patch.object(cli, "_tailscale_dns_name", return_value="odev.tail11c448.ts.net"),
+                mock.patch.object(cli, "build_plan", return_value=[]),
+                mock.patch.object(
+                    cli,
+                    "apply_plan",
+                    return_value={
+                        "actions": [
+                            {
+                                "id": "systemd-restart-klimkit",
+                                "kind": "run_command",
+                                "description": "restart Klimkit user service",
+                                "status": "ran",
+                            }
+                        ],
+                        "changed": [{"status": "updated", "target": "/tmp/changed.txt"}],
+                    },
+                ),
+                mock.patch.object(cli, "send_telegram_notification", return_value=True) as telegram_mock,
+            ):
+                result = cli.main(["--config", str(config_path), "apply"])
+
+            self.assertEqual(result, 0)
+            telegram_mock.assert_called_once()
+            notification = telegram_mock.call_args.args[1]
+            self.assertIn("Klimkit apply on vm-1", notification)
+            self.assertIn("1 actions", notification)
+            self.assertIn("1 files changed", notification)
+            self.assertIn("restart Klimkit user service", notification)
+            self.assertIn("https://odev.tail11c448.ts.net/proxy/4721/", notification)
+            self.assertIn("telegram", stdout.getvalue())
+            self.assertIn("sent apply summary to Telegram", stdout.getvalue())
+
+    def test_deferred_apply_skips_telegram_to_avoid_autosync_duplicate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "klimkit.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[components]",
+                        "client = true",
+                        "server = false",
+                        "",
+                        "[workers]",
+                        "switchboard_agent = false",
+                        "",
+                        "[notifications.telegram]",
+                        "enabled = true",
+                        'bot_token = "bot-token"',
+                        'chat_id = "chat-id"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+
+            with (
+                redirect_stdout(stdout),
+                mock.patch.object(cli, "build_plan", return_value=[]),
+                mock.patch.object(cli, "apply_plan", return_value={"actions": [], "changed": []}),
+                mock.patch.object(cli, "send_telegram_notification") as telegram_mock,
+            ):
+                result = cli.main(["--config", str(config_path), "apply", "--defer-service-restart"])
+
+            self.assertEqual(result, 0)
+            telegram_mock.assert_not_called()
+            self.assertNotIn("telegram", stdout.getvalue())
+
+    def test_doctor_reports_switchboard_tailnet_urls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "klimkit.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[components]",
+                        "client = true",
+                        "server = true",
+                        "",
+                        "[switchboard.server]",
+                        "enabled = true",
+                        'host = "127.0.0.1"',
+                        "port = 4721",
+                        'base_path = "/switchboard"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+
+            with (
+                redirect_stdout(stdout),
+                mock.patch.object(cli, "_tailscale_dns_name", return_value="odev.tail11c448.ts.net"),
+            ):
+                result = cli.main(["--config", str(config_path), "doctor"])
+
+            self.assertEqual(result, 0)
+            output = stdout.getvalue()
+            self.assertIn("URLs", output)
+            self.assertIn("Switchboard: http://127.0.0.1:4721/switchboard/", output)
+            self.assertIn("Switchboard proxy: https://odev.tail11c448.ts.net/proxy/4721/", output)
+            self.assertIn("Switchboard serve: https://odev.tail11c448.ts.net/switchboard/", output)
 
     def test_setup_role_flag_previews_existing_config_conversion(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import platform
 import shutil
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -19,6 +21,7 @@ from .install import (
     validate_config,
     with_role,
 )
+from .notifications import send_telegram_notification
 from .paths import KLIMKIT_CONFIG_FILE, KLIMKIT_MANIFEST_FILE, OPS_REPO_ROOT
 
 
@@ -126,6 +129,19 @@ def _print_changed_files(manifest: dict[str, object]) -> None:
         print(_status(status, target, "ok" if status in {"created", "updated"} else "warn"))
 
 
+def _run_actions(manifest: dict[str, object]) -> list[dict[str, object]]:
+    actions = manifest.get("actions")
+    return (
+        [
+            item
+            for item in actions
+            if isinstance(item, dict) and item.get("kind") == "run_command" and item.get("status") == "ran"
+        ]
+        if isinstance(actions, list)
+        else []
+    )
+
+
 def _run_status(description: str) -> tuple[str, str]:
     lowered = description.lower()
     if "restart" in lowered:
@@ -146,29 +162,152 @@ def _display_host(host: str) -> str:
     return host
 
 
+def _switchboard_base_path(config: object) -> str:
+    base_path = str(getattr(config, "switchboard_base_path", "/switchboard")).strip() or "/switchboard"
+    if not base_path.startswith("/"):
+        base_path = "/" + base_path
+    return base_path.rstrip("/") + "/"
+
+
 def _switchboard_url(config: object) -> str | None:
     if not bool(getattr(config, "switchboard_enabled", False)):
         return None
     host = _display_host(str(getattr(config, "switchboard_host", "127.0.0.1")))
     port = int(getattr(config, "switchboard_port", 4721))
-    base_path = str(getattr(config, "switchboard_base_path", "/switchboard")).strip() or "/switchboard"
-    if not base_path.startswith("/"):
-        base_path = "/" + base_path
-    base_path = base_path.rstrip("/") + "/"
-    return f"http://{host}:{port}{base_path}"
+    return f"http://{host}:{port}{_switchboard_base_path(config)}"
 
 
-def _print_live_report(config: object, manifest: dict[str, object], *, services_skipped: bool) -> None:
+def _tailscale_dns_name() -> str:
+    try:
+        result = subprocess.run(
+            ["tailscale", "status", "--json"],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=2,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if result.returncode != 0:
+        return ""
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    self_info = payload.get("Self")
+    if not isinstance(self_info, dict):
+        return ""
+    return str(self_info.get("DNSName") or "").strip().rstrip(".")
+
+
+def _switchboard_access_lines(config: object) -> list[tuple[str, str, str]]:
+    url = _switchboard_url(config)
+    if not url:
+        return []
+    lines = [("url", f"Switchboard: {url}", "ok")]
+    dns_name = _tailscale_dns_name()
+    if dns_name:
+        port = int(getattr(config, "switchboard_port", 4721))
+        lines.append(("tailnet", f"Switchboard proxy: https://{dns_name}/proxy/{port}/", "ok"))
+        lines.append(("tailnet", f"Switchboard serve: https://{dns_name}{_switchboard_base_path(config)}", "ok"))
+    return lines
+
+
+def _changed_summary(manifest: dict[str, object]) -> str:
+    changed = manifest.get("changed")
+    if not isinstance(changed, list) or not changed:
+        return "0 files changed"
+    statuses: dict[str, int] = {}
+    for item in changed:
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status") or "changed")
+        statuses[status] = statuses.get(status, 0) + 1
+    parts = [f"{count} {status}" for status, count in sorted(statuses.items())]
+    return f"{len(changed)} files changed" + (f" ({', '.join(parts)})" if parts else "")
+
+
+def _service_summary(config: object, manifest: dict[str, object], *, services_skipped: bool) -> str:
+    run_actions = _run_actions(manifest)
+    if run_actions:
+        descriptions = [str(item.get("description") or "service command") for item in run_actions]
+        return "services: " + "; ".join(descriptions)
+    if services_skipped:
+        return "services skipped"
+    if bool(getattr(config, "supervisor_enabled", False)) and bool(getattr(config, "configure_services", False)):
+        return "services unchanged"
+    return "services not managed"
+
+
+def _notification_switchboard_url(config: object) -> str:
+    access_lines = _switchboard_access_lines(config)
+    for _label, message, _style in access_lines:
+        if message.startswith("Switchboard proxy: "):
+            return message.replace("Switchboard proxy: ", "Switchboard: ", 1)
+    for _label, message, _style in access_lines:
+        if message.startswith("Switchboard: "):
+            return message
+    return ""
+
+
+def _apply_notification_text(
+    config: object,
+    manifest: dict[str, object],
+    *,
+    command_name: str,
+    services_skipped: bool,
+) -> str:
     actions = manifest.get("actions")
-    run_actions = (
-        [
-            item
-            for item in actions
-            if isinstance(item, dict) and item.get("kind") == "run_command" and item.get("status") == "ran"
-        ]
-        if isinstance(actions, list)
-        else []
+    action_count = len(actions) if isinstance(actions, list) else 0
+    parts = [
+        f"Klimkit {command_name} on {socket.gethostname()}:",
+        f"{action_count} actions",
+        _changed_summary(manifest),
+        _service_summary(config, manifest, services_skipped=services_skipped),
+    ]
+    switchboard_url = _notification_switchboard_url(config)
+    if switchboard_url:
+        parts.append(switchboard_url)
+    return " ".join(parts)
+
+
+def _send_apply_notification(
+    config: object,
+    manifest: dict[str, object],
+    *,
+    command_name: str,
+    services_skipped: bool,
+) -> tuple[str, str] | None:
+    if not bool(getattr(config, "telegram_enabled", False)):
+        return None
+    if not str(getattr(config, "telegram_bot_token", "")).strip() or not str(
+        getattr(config, "telegram_chat_id", "")
+    ).strip():
+        return ("not sent; Telegram bot_token/chat_id missing", "warn")
+    text = _apply_notification_text(
+        config,
+        manifest,
+        command_name=command_name,
+        services_skipped=services_skipped,
     )
+    try:
+        if send_telegram_notification(config, text):
+            return ("sent apply summary to Telegram", "ok")
+    except Exception:
+        return ("send failed; check Telegram token/chat/network", "warn")
+    return ("not sent; Telegram disabled or incomplete", "warn")
+
+
+def _print_live_report(
+    config: object,
+    manifest: dict[str, object],
+    *,
+    services_skipped: bool,
+    telegram_status: tuple[str, str] | None = None,
+) -> None:
+    run_actions = _run_actions(manifest)
 
     print()
     print(_section("Live"))
@@ -182,9 +321,12 @@ def _print_live_report(config: object, manifest: dict[str, object], *, services_
     elif bool(getattr(config, "supervisor_enabled", False)) and bool(getattr(config, "configure_services", False)):
         print(_status("unchanged", "no service command ran", "warn"))
 
-    url = _switchboard_url(config)
-    if url:
-        print(_status("url", f"Switchboard: {url}", "ok"))
+    for label, message, style in _switchboard_access_lines(config):
+        print(_status(label, message, style))
+
+    if telegram_status is not None:
+        message, style = telegram_status
+        print(_status("telegram", message, style))
 
     if bool(getattr(config, "codex_enabled", False)):
         print(_status("live", f"Codex projection: {Path.home() / '.codex'}", "ok"))
@@ -235,6 +377,17 @@ def _format_welcome() -> str:
         _command_row("kk update", "pull the checkout only"),
         _command_row("kk pull", "pull current branch and apply this VM"),
     ]
+    if KLIMKIT_CONFIG_FILE.exists():
+        try:
+            config = load_config(KLIMKIT_CONFIG_FILE)
+        except Exception:
+            config = None
+        if config is not None:
+            access_lines = _switchboard_access_lines(config)
+            if access_lines:
+                lines.extend(["", _section("URLs")])
+                for label, message, style in access_lines:
+                    lines.append(_status(label, message, style))
     return "\n".join(lines) + "\n"
 
 
@@ -504,7 +657,17 @@ def cmd_apply(args: argparse.Namespace) -> int:
     print(_kv("actions", len(manifest["actions"])))
     _print_changed_files(manifest)
     print(_kv("manifest", manifest_path))
-    _print_live_report(config, manifest, services_skipped=_skip_services(args))
+    telegram_status = (
+        None
+        if bool(getattr(args, "defer_service_restart", False))
+        else _send_apply_notification(
+            config,
+            manifest,
+            command_name="apply",
+            services_skipped=_skip_services(args),
+        )
+    )
+    _print_live_report(config, manifest, services_skipped=_skip_services(args), telegram_status=telegram_status)
     return 0
 
 
@@ -537,6 +700,13 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     git_path = shutil.which("git")
     print(_status("ok" if uv_path else "missing", f"uv: {uv_path or 'missing'}", "ok" if uv_path else "warn"))
     print(_status("ok" if git_path else "missing", f"git: {git_path or 'missing'}", "ok" if git_path else "warn"))
+    if config is not None:
+        access_lines = _switchboard_access_lines(config)
+        if access_lines:
+            print()
+            print(_section("URLs"))
+            for label, message, style in access_lines:
+                print(_status(label, message, style))
     if uv_path is None:
         status = 1
     return status
@@ -588,7 +758,13 @@ def cmd_pull(args: argparse.Namespace) -> int:
     print(_kv("actions", len(manifest["actions"])))
     _print_changed_files(manifest)
     print(_kv("manifest", manifest_path))
-    _print_live_report(config, manifest, services_skipped=_skip_services(args))
+    telegram_status = _send_apply_notification(
+        config,
+        manifest,
+        command_name="pull",
+        services_skipped=_skip_services(args),
+    )
+    _print_live_report(config, manifest, services_skipped=_skip_services(args), telegram_status=telegram_status)
     return 0
 
 

@@ -5,6 +5,7 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
+from klimkit import notifications
 from klimkit.tools.supervisor import supervisor as MODULE
 
 
@@ -300,7 +301,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
 
         with (
             mock.patch.object(MODULE.socket, "gethostname", return_value="vm-1"),
-            mock.patch.object(MODULE.request, "urlopen") as urlopen_mock,
+            mock.patch.object(notifications.request, "urlopen") as urlopen_mock,
         ):
             urlopen_mock.return_value.__enter__.return_value.read.return_value = b'{"ok":true}'
             sent = MODULE.send_telegram_notification(config, MODULE.autosync_notification_text(config, update))

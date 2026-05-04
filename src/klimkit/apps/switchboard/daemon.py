@@ -1776,10 +1776,50 @@ class SwitchboardApp:
             stale_after_seconds=self.config.stale_after_seconds,
             retention_days=self.config.max_session_age_days,
         )
+        self._ensure_self_machine(state)
         state["codex_launch_flags"] = codex_launch_flags_text(
             bypass_approvals_and_sandbox=self.config.trusted_codex_launch_bypass_sandbox
         )
         return state
+
+    def _ensure_self_machine(self, state: dict[str, Any]) -> None:
+        if not self.identity.machine:
+            return
+        machines = state.setdefault("machines", [])
+        if not isinstance(machines, list):
+            machines = []
+            state["machines"] = machines
+        workspaces = state.get("workspaces")
+        session_count = (
+            sum(
+                1
+                for workspace in workspaces
+                if isinstance(workspace, dict) and workspace.get("machine") == self.identity.machine
+            )
+            if isinstance(workspaces, list)
+            else 0
+        )
+        generated_at = str(state.get("generated_at") or iso_now())
+        for machine in machines:
+            if not isinstance(machine, dict) or machine.get("machine") != self.identity.machine:
+                continue
+            machine["machine_dns"] = str(machine.get("machine_dns") or self.identity.dns_name)
+            machine["generated_at"] = str(machine.get("generated_at") or generated_at)
+            machine["reported_at"] = str(machine.get("reported_at") or generated_at)
+            machine["session_count"] = max(int(machine.get("session_count") or 0), session_count)
+            machine["online"] = True
+            return
+        machines.append(
+            {
+                "machine": self.identity.machine,
+                "machine_dns": self.identity.dns_name,
+                "generated_at": generated_at,
+                "reported_at": generated_at,
+                "session_count": session_count,
+                "online": True,
+            }
+        )
+        machines.sort(key=lambda item: str(item.get("machine", "")) if isinstance(item, dict) else "")
 
     def ingest_snapshot(self, payload: dict[str, Any]) -> dict[str, Any]:
         count = self.store.apply_snapshot(payload)

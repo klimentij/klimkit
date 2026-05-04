@@ -196,6 +196,20 @@ class SwitchboardTests(unittest.TestCase):
         self.assertNotIn("Secure", plain)
         self.assertIn("Secure", secure)
 
+    def test_app_state_includes_self_machine_before_collector_heartbeat(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app = MODULE.SwitchboardApp(build_config(Path(tmpdir)))
+            try:
+                state = app.build_state()
+            finally:
+                app.close()
+
+        self.assertEqual(len(state["machines"]), 1)
+        self.assertEqual(state["machines"][0]["machine"], "workstation")
+        self.assertEqual(state["machines"][0]["machine_dns"], "workstation.example.ts.net")
+        self.assertEqual(state["machines"][0]["session_count"], 0)
+        self.assertTrue(state["machines"][0]["online"])
+
     def test_parse_rollout_marks_planning_before_action(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
