@@ -379,6 +379,41 @@ class KlimkitSupervisorTests(unittest.TestCase):
         self.assertEqual(state["auto_sync"]["current_revision"], "newrevision")
         self.assertEqual(state["auto_sync"]["changed_files"], ["packs/codex/AGENTS.md"])
 
+    def test_auto_sync_once_does_not_mark_revision_applied_when_apply_fails(self) -> None:
+        config = MODULE.SupervisorConfig(
+            profile="server",
+            repo_root=Path("/tmp/klimkit"),
+            machine_config_path=Path("/tmp/machine.toml"),
+            live_sync_enabled=True,
+            live_sync_interval_seconds=5,
+            fetch_ref="origin/main",
+            switchboard_agent_enabled=False,
+            manage_switchboard=True,
+        )
+
+        def fake_git_output(_repo_root: Path, *args: str) -> str:
+            if args == ("rev-parse", "HEAD"):
+                return "newrevision"
+            if args == ("diff", "--name-only", "oldrevision", "newrevision"):
+                return "packs/codex/AGENTS.md\n"
+            raise AssertionError(args)
+
+        state: dict[str, object] = {"auto_sync": {"current_revision": "oldrevision"}}
+        with (
+            mock.patch.object(MODULE, "fetch_remote", return_value="newrevision"),
+            mock.patch.object(MODULE, "git_output", side_effect=fake_git_output),
+            mock.patch.object(MODULE, "save_supervisor_state") as save_mock,
+            mock.patch.object(MODULE, "run_apply_for_autosync", side_effect=RuntimeError("apply failed")),
+            mock.patch.object(MODULE, "send_telegram_notification") as telegram_mock,
+            mock.patch.object(MODULE, "restart_managed_service") as restart_mock,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "apply failed"):
+                MODULE.auto_sync_once(config, state)
+
+        save_mock.assert_not_called()
+        telegram_mock.assert_not_called()
+        restart_mock.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

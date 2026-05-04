@@ -363,10 +363,10 @@ def auto_sync_once(config: SupervisorConfig, state: dict[str, Any]) -> str:
             "applied_at": time.time(),
         }
     )
-    save_supervisor_state(state)
     apply_output = run_apply_for_autosync(config)
     if apply_output:
         print(apply_output, flush=True)
+    save_supervisor_state(state)
     notification = autosync_notification_text(config, update)
     try:
         if send_telegram_notification(config, notification):
