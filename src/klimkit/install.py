@@ -126,7 +126,7 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
         code_server_enabled=client_enabled,
         supervisor_enabled=client_enabled or server_enabled,
         live_sync_enabled=False,
-        switchboard_agent_enabled=False,
+        switchboard_agent_enabled=client_enabled and not server_enabled,
         switchboard_enabled=server_enabled,
         configure_services=True,
         install_code_server_if_missing=client_enabled,
@@ -152,6 +152,7 @@ def with_role(config: InstallConfig, profile: str) -> InstallConfig:
         code_server_enabled=role.code_server_enabled,
         supervisor_enabled=role.supervisor_enabled,
         live_sync_enabled=role.live_sync_enabled,
+        switchboard_agent_enabled=role.switchboard_agent_enabled,
         switchboard_enabled=role.switchboard_enabled,
         install_code_server_if_missing=role.install_code_server_if_missing,
     )
@@ -162,25 +163,33 @@ def render_config(config: InstallConfig) -> str:
         [
             "# Klimkit setup config.",
             "# Edit this file, then run `kk preview` or `kk apply`.",
-            "# Most machines only need components.client and components.server.",
+            "# First VM default: components.client = true and components.server = true.",
+            "# Second VM: run `kk setup --client-only`, then set switchboard.backend_url before `kk apply`.",
             "",
             "[machine]",
             f'repo_root = "{config.repo_root}"',
             "",
             "[components]",
+            "# client: local Codex pack, code-server settings, and client support.",
+            "# server: central Klimkit Switchboard server on this machine.",
             f"client = {str(config.client_enabled).lower()}",
             f"server = {str(config.server_enabled).lower()}",
+            "# Advanced switches. Most machines should leave these derived from client/server.",
             f"codex = {str(config.codex_enabled).lower()}",
             f"code_server = {str(config.code_server_enabled).lower()}",
+            "# supervisor: local `kk daemon`; services.enable controls whether it starts at login/boot.",
             f"supervisor = {str(config.supervisor_enabled).lower()}",
             f"switchboard = {str(config.switchboard_enabled).lower()}",
             "",
             "[workers]",
+            "# live_sync: periodically fetch Git and copy Codex assets. Default false; use `kk pull` instead.",
             f"live_sync = {str(config.live_sync_enabled).lower()}",
+            "# switchboard_agent: report this VM to a central Switchboard. Requires switchboard.backend_url.",
             f"switchboard_agent = {str(config.switchboard_agent_enabled).lower()}",
             "",
             "[services]",
-            f"configure = {str(config.configure_services).lower()}",
+            "# enable: install/start the systemd or launchd service for the Klimkit supervisor.",
+            f"enable = {str(config.configure_services).lower()}",
             "",
             "[code_server]",
             f"install_if_missing = {str(config.install_code_server_if_missing).lower()}",
@@ -298,11 +307,9 @@ def parse_config(raw: str) -> InstallConfig:
         code_server_enabled=_bool(components.get("code_server"), client_enabled),
         supervisor_enabled=_bool(components.get("supervisor"), client_enabled or server_enabled),
         live_sync_enabled=_bool(workers.get("live_sync"), False),
-        switchboard_agent_enabled=_bool(
-            workers.get("switchboard_agent"), False
-        ),
+        switchboard_agent_enabled=_bool(workers.get("switchboard_agent"), client_enabled and not server_enabled),
         switchboard_enabled=_bool(components.get("switchboard"), server_enabled),
-        configure_services=_bool(services.get("configure"), True),
+        configure_services=_bool(services.get("enable", services.get("configure")), True),
         install_code_server_if_missing=_bool(
             code_server.get("install_if_missing"), client_enabled
         ),
@@ -341,6 +348,16 @@ def ensure_config(path: Path = KLIMKIT_CONFIG_FILE, *, profile: str = "first-vm"
 
 def load_config(path: Path = KLIMKIT_CONFIG_FILE) -> InstallConfig:
     return parse_config(path.expanduser().read_text(encoding="utf-8"))
+
+
+def validate_config(config: InstallConfig) -> list[str]:
+    errors: list[str] = []
+    if config.switchboard_agent_enabled and not config.switchboard_backend_url:
+        errors.append(
+            "[workers] switchboard_agent = true requires [switchboard] backend_url, "
+            "for example https://<first-vm>.<tailnet>.ts.net/switchboard"
+        )
+    return errors
 
 
 def _template_text(path: Path, config: InstallConfig, *, config_path: Path = KLIMKIT_CONFIG_FILE) -> str:
@@ -762,6 +779,7 @@ def apply_plan(
         "version": 1,
         "applied_at": dt.datetime.now(dt.UTC).isoformat(),
         "actions": [],
+        "changed": [],
         "pruned": [],
         "skipped": [],
     }
@@ -789,6 +807,7 @@ def apply_plan(
             continue
         backup = ""
         new_bytes = action.content.encode("utf-8") if action.content is not None else action.source.read_bytes()
+        change_status = "created"
         if action.target.exists():
             if action.target.read_bytes() == new_bytes:
                 action.target.chmod(action.mode)
@@ -804,6 +823,7 @@ def apply_plan(
                 )
                 _write_manifest(manifest_path, manifest)
                 continue
+            change_status = "updated"
             backup_path = backup_root / action.target.relative_to(action.target.anchor)
             backup_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(action.target, backup_path)
@@ -821,6 +841,13 @@ def apply_plan(
                 "source": str(action.source or ""),
                 "backup": backup,
                 "hash": _hash_file(action.target),
+            }
+        )
+        manifest["changed"].append(
+            {
+                "target": str(action.target),
+                "status": change_status,
+                "backup": backup,
             }
         )
         _write_manifest(manifest_path, manifest)
@@ -841,6 +868,7 @@ def apply_plan(
         shutil.copy2(target, backup_path)
         target.unlink()
         manifest["pruned"].append({"target": str(target), "backup": str(backup_path)})
+        manifest["changed"].append({"target": str(target), "status": "removed", "backup": str(backup_path)})
     _write_manifest(manifest_path, manifest)
     return manifest
 

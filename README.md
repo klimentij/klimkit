@@ -71,8 +71,12 @@ directly with `kk apply`.
 
 There is no automatic cross-VM sync by default. `[workers] live_sync = false`
 keeps the supervisor from periodically fetching Git and copying Codex assets
-into `$HOME`. Use `kk sync-live` only when you explicitly want that one-shot
-Codex-pack sync on the current VM.
+into `$HOME`. Use `kk pull` for normal Git-based updates, or `kk sync-live`
+only when you explicitly want that one-shot Codex-pack sync on the current VM.
+
+`kk apply` and `kk pull` show a `Changed Files` section for files whose bytes
+actually changed. Planned files with identical content are still tracked in the
+manifest, but they are not listed as changed.
 
 ## First VM
 
@@ -127,21 +131,24 @@ This writes:
 [components]
 client = true
 server = false
+
+[workers]
+switchboard_agent = true
 ```
 
 If a config already exists, `kk setup --client-only` updates the role flags in
 `~/.config/klimkit/klimkit.toml` before showing the new preview.
 
-Then point the second VM at the first VM's Switchboard server:
+Then point the second VM at the first VM's Switchboard server before applying:
 
 ```toml
-[workers]
-switchboard_agent = true
-
 [switchboard]
 backend_url = "https://<first-vm>.<tailnet>.ts.net/switchboard"
 auth_token = ""
 ```
+
+`kk apply` refuses a client-only Switchboard agent config until `backend_url` is
+set, because the VM cannot infer which first VM should receive its reports.
 
 If the first VM uses a Switchboard token, put the same token in
 `switchboard.auth_token` on each client VM. Then run:
@@ -180,6 +187,19 @@ codex = true
 code_server = true
 supervisor = true
 switchboard = true
+```
+
+`supervisor` is the local long-running `kk daemon`. On server VMs it keeps the
+Klimkit Switchboard process running. On client VMs it runs enabled workers such
+as the Switchboard reporting agent. `[services] enable = true` controls whether
+`kk apply` installs and starts the systemd or launchd service for that daemon.
+
+Worker switches are off unless the selected role needs them:
+
+```toml
+[workers]
+live_sync = false          # auto-fetch Git and copy Codex assets; prefer kk pull
+switchboard_agent = true   # second VM reporting to the first VM; requires backend_url
 ```
 
 Older configs with `[machine] profile = "client"` or `profile = "server"` still

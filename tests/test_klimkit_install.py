@@ -36,6 +36,8 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertFalse(parsed.live_sync_enabled)
         self.assertTrue(parsed.install_code_server_if_missing)
         self.assertEqual(parsed.switchboard_config_path.name, "switchboard.toml")
+        self.assertIn("First VM default", render_config(config))
+        self.assertIn("enable = true", render_config(config))
 
     def test_client_only_role_disables_server_components(self) -> None:
         config = parse_config(
@@ -53,6 +55,20 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertTrue(config.codex_enabled)
         self.assertFalse(config.live_sync_enabled)
         self.assertFalse(config.switchboard_enabled)
+        self.assertTrue(config.switchboard_agent_enabled)
+
+    def test_legacy_services_configure_key_still_loads(self) -> None:
+        config = parse_config(
+            "\n".join(
+                [
+                    "[services]",
+                    "configure = false",
+                    "",
+                ]
+            )
+        )
+
+        self.assertFalse(config.configure_services)
 
     def test_legacy_switchboard_defaults_migrate_to_switchboard_name(self) -> None:
         config = parse_config(
@@ -165,6 +181,8 @@ class KlimkitInstallTests(unittest.TestCase):
             self.assertTrue(manifest_path.exists())
             self.assertTrue(manifest["actions"][0]["backup"])
             self.assertTrue(Path(manifest["actions"][0]["backup"]).exists())
+            self.assertEqual(manifest["changed"][0]["status"], "updated")
+            self.assertEqual(manifest["changed"][1]["status"], "created")
             self.assertEqual(unmanaged.read_text(encoding="utf-8"), "keep\n")
 
             manifest = apply_plan(
@@ -185,7 +203,25 @@ class KlimkitInstallTests(unittest.TestCase):
             self.assertEqual(managed.read_text(encoding="utf-8"), "newer\n")
             self.assertFalse(obsolete.exists())
             self.assertEqual(manifest["pruned"][0]["target"], str(obsolete))
+            self.assertEqual(manifest["changed"][-1]["status"], "removed")
             self.assertTrue(Path(manifest["pruned"][0]["backup"]).exists())
+
+            manifest = apply_plan(
+                [
+                    Action(
+                        id="managed",
+                        kind="write_file",
+                        target=managed,
+                        description="managed test file",
+                        content="newer\n",
+                    ),
+                ],
+                manifest_path=manifest_path,
+                backup_root=backup_root,
+                managed_roots=(root,),
+            )
+
+            self.assertEqual(manifest["changed"], [])
 
             removed = uninstall_from_manifest(manifest_path=manifest_path, managed_roots=(root,))
 

@@ -104,7 +104,10 @@ class KlimkitCliTests(unittest.TestCase):
     def test_pull_updates_from_git_upstream_and_applies(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "klimkit.toml"
-            config_path.write_text("[components]\nclient = true\nserver = false\n", encoding="utf-8")
+            config_path.write_text(
+                "[components]\nclient = true\nserver = false\n\n[workers]\nswitchboard_agent = false\n",
+                encoding="utf-8",
+            )
             stdout = io.StringIO()
             git_calls: list[list[str]] = []
 
@@ -161,6 +164,51 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertTrue(config.client_enabled)
             self.assertFalse(config.server_enabled)
             self.assertFalse(config.switchboard_enabled)
+            self.assertTrue(config.switchboard_agent_enabled)
+
+    def test_apply_blocks_client_agent_without_backend_url(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "klimkit.toml"
+            with redirect_stdout(io.StringIO()):
+                cli.main(["--config", str(config_path), "setup", "--client-only", "--skip-services"])
+            stderr = io.StringIO()
+
+            with redirect_stderr(stderr):
+                result = cli.main(["--config", str(config_path), "apply", "--skip-services"])
+
+            self.assertEqual(result, 1)
+            self.assertIn("Apply is blocked", stderr.getvalue())
+            self.assertIn("backend_url", stderr.getvalue())
+
+    def test_apply_reports_only_changed_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "klimkit.toml"
+            config_path.write_text(
+                "[components]\nclient = true\nserver = false\n\n[workers]\nswitchboard_agent = false\n",
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+
+            with (
+                redirect_stdout(stdout),
+                mock.patch.object(cli, "build_plan", return_value=[]) as build_plan_mock,
+                mock.patch.object(
+                    cli,
+                    "apply_plan",
+                    return_value={
+                        "actions": [{"id": "same"}],
+                        "changed": [{"status": "updated", "target": "/tmp/changed.txt"}],
+                    },
+                ) as apply_plan_mock,
+            ):
+                result = cli.main(["--config", str(config_path), "apply", "--skip-services"])
+
+            self.assertEqual(result, 0)
+            build_plan_mock.assert_called_once()
+            apply_plan_mock.assert_called_once_with([])
+            self.assertIn("changed    1", stdout.getvalue())
+            self.assertIn("Changed Files", stdout.getvalue())
+            self.assertIn("/tmp/changed.txt", stdout.getvalue())
 
     def test_setup_role_flag_previews_existing_config_conversion(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

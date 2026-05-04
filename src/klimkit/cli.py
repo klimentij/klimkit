@@ -7,7 +7,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .install import apply_plan, build_plan, ensure_config, format_plan, load_config, render_config, uninstall_from_manifest, with_role
+from .install import (
+    apply_plan,
+    build_plan,
+    ensure_config,
+    format_plan,
+    load_config,
+    render_config,
+    uninstall_from_manifest,
+    validate_config,
+    with_role,
+)
 from .paths import KLIMKIT_CONFIG_FILE, KLIMKIT_MANIFEST_FILE, OPS_REPO_ROOT
 
 
@@ -81,6 +91,38 @@ def _status(label: str, message: str, style: str = "ok") -> str:
 
 def _error(message: str) -> str:
     return f"{_paint('error', 'error', stream=sys.stderr)} {message}"
+
+
+def _print_apply_blockers(errors: list[str]) -> None:
+    print(_error("Apply is blocked until the local config is complete."), file=sys.stderr)
+    for error in errors:
+        print(f"  {_paint('required', 'warn', stream=sys.stderr)} {error}", file=sys.stderr)
+
+
+def _print_before_apply(errors: list[str]) -> None:
+    if not errors:
+        return
+    print()
+    print(_section("Before Apply"))
+    for error in errors:
+        print(_status("required", error, "warn"))
+
+
+def _print_changed_files(manifest: dict[str, object]) -> None:
+    changed = manifest.get("changed")
+    if not isinstance(changed, list):
+        changed = []
+    print(_kv("changed", len(changed)))
+    if not changed:
+        return
+    print()
+    print(_section("Changed Files"))
+    for item in changed:
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status", "changed"))
+        target = str(item.get("target", ""))
+        print(_status(status, target, "ok" if status in {"created", "updated"} else "warn"))
 
 
 def _format_welcome() -> str:
@@ -294,14 +336,20 @@ def cmd_setup(args: argparse.Namespace) -> int:
         config_path.chmod(0o600)
         updated = True
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
+    validation_errors = validate_config(config)
     suffix = " (created)" if created else " (updated)" if updated else ""
     print(_header("setup", "Config prepared; no files were applied."))
     print(_kv("config", f"{args.config.expanduser()}{suffix}"))
     print()
     print(format_plan(actions, config_path=args.config, color=_color_enabled()), end="")
+    _print_before_apply(validation_errors)
     print()
     print(_section("Next"))
-    print(_command_row("kk apply", "apply this plan"))
+    if validation_errors:
+        print(_command_row(f"edit {args.config.expanduser()}", "set the required local values"))
+        print(_command_row("kk apply", "apply after the config is complete"))
+    else:
+        print(_command_row("kk apply", "apply this plan"))
     return 0
 
 
@@ -312,15 +360,21 @@ def cmd_preview(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
     print(format_plan(actions, config_path=args.config, color=_color_enabled()), end="")
+    _print_before_apply(validate_config(config))
     return 0
 
 
 def cmd_apply(args: argparse.Namespace) -> int:
     config, _ = ensure_config(args.config, profile="first-vm")
+    validation_errors = validate_config(config)
+    if validation_errors:
+        _print_apply_blockers(validation_errors)
+        return 1
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
     manifest = apply_plan(actions)
     print(_header("apply", "Local plan applied."))
     print(_kv("actions", len(manifest["actions"])))
+    _print_changed_files(manifest)
     print(_kv("manifest", KLIMKIT_MANIFEST_FILE))
     return 0
 
@@ -377,17 +431,22 @@ def cmd_pull(args: argparse.Namespace) -> int:
     if not args.config.expanduser().exists():
         print(_error("Config is missing; run `kk setup` first."), file=sys.stderr)
         return 1
+    config = load_config(args.config)
+    validation_errors = validate_config(config)
+    if validation_errors:
+        _print_apply_blockers(validation_errors)
+        return 1
     try:
         summary = update_checkout()
     except RuntimeError as exc:
         print(_error(f"Pull failed: {exc}"), file=sys.stderr)
         return 1
-    config = load_config(args.config)
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
     manifest = apply_plan(actions)
     print(_header("pull", "Checkout updated and local plan applied."))
     print(_kv("checkout", summary))
     print(_kv("actions", len(manifest["actions"])))
+    _print_changed_files(manifest)
     print(_kv("manifest", KLIMKIT_MANIFEST_FILE))
     return 0
 

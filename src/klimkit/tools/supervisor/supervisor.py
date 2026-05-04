@@ -178,7 +178,9 @@ def load_machine_config(path: Path) -> SupervisorConfig:
         live_sync_enabled=bool(raw.get("workers", {}).get("live_sync", nested("live_sync", "enabled"))),
         live_sync_interval_seconds=max(15, int(nested("live_sync", "interval_seconds"))),
         fetch_ref=str(nested("live_sync", "fetch_ref")).strip() or "origin/main",
-        switchboard_agent_enabled=bool(nested("workers", "switchboard_agent")),
+        switchboard_agent_enabled=bool(
+            raw.get("workers", {}).get("switchboard_agent", client_enabled and not server_enabled)
+        ),
         manage_switchboard=bool(component_config.get("switchboard", component_defaults["switchboard"])),
         switchboard_config_path=Path(str(nested("switchboard", "config_path"))).expanduser(),
         switchboard_agent_config_path=Path(str(nested("switchboard", "agent_config_path"))).expanduser(),
@@ -201,7 +203,7 @@ def write_machine_config(path: Path, *, profile: str, repo_root: Path) -> None:
                 "",
                 "[workers]",
                 "live_sync = false",
-                "switchboard_agent = false",
+                f"switchboard_agent = {'true' if profile in {'client', 'client-only'} else 'false'}",
                 "",
                 "[components]",
                 f"client = {'false' if profile == 'server-only' else 'true'}",
