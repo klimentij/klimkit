@@ -325,6 +325,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
             switchboard_agent_enabled=False,
             manage_switchboard=True,
         )
+        state: dict[str, object] = {"auto_sync": {"current_revision": "samerevision"}}
 
         with (
             mock.patch.object(MODULE, "fetch_remote", return_value="samerevision"),
@@ -333,12 +334,50 @@ class KlimkitSupervisorTests(unittest.TestCase):
             mock.patch.object(MODULE, "run_apply_for_autosync") as apply_mock,
             mock.patch.object(MODULE, "restart_managed_service") as restart_mock,
         ):
-            summary = MODULE.auto_sync_once(config, {})
+            summary = MODULE.auto_sync_once(config, state)
 
         self.assertEqual(summary, "autosync: main unchanged")
         save_mock.assert_called_once()
         apply_mock.assert_not_called()
         restart_mock.assert_not_called()
+
+    def test_auto_sync_once_applies_local_head_change_after_same_vm_push(self) -> None:
+        config = MODULE.SupervisorConfig(
+            profile="server",
+            repo_root=Path("/tmp/klimkit"),
+            machine_config_path=Path("/tmp/machine.toml"),
+            live_sync_enabled=True,
+            live_sync_interval_seconds=5,
+            fetch_ref="origin/main",
+            switchboard_agent_enabled=False,
+            manage_switchboard=True,
+        )
+
+        def fake_git_output(_repo_root: Path, *args: str) -> str:
+            if args == ("rev-parse", "HEAD"):
+                return "newrevision"
+            if args == ("diff", "--name-only", "oldrevision", "newrevision"):
+                return "packs/codex/AGENTS.md\n"
+            raise AssertionError(args)
+
+        state: dict[str, object] = {"auto_sync": {"current_revision": "oldrevision"}}
+        with (
+            mock.patch.object(MODULE, "fetch_remote", return_value="newrevision"),
+            mock.patch.object(MODULE, "git_output", side_effect=fake_git_output),
+            mock.patch.object(MODULE, "save_supervisor_state") as save_mock,
+            mock.patch.object(MODULE, "run_apply_for_autosync", return_value="apply ok") as apply_mock,
+            mock.patch.object(MODULE, "send_telegram_notification", return_value=True) as telegram_mock,
+            mock.patch.object(MODULE, "restart_managed_service", return_value="restarted systemd user service") as restart_mock,
+        ):
+            summary = MODULE.auto_sync_once(config, state)
+
+        apply_mock.assert_called_once_with(config)
+        telegram_mock.assert_called_once()
+        restart_mock.assert_called_once_with()
+        save_mock.assert_called_once()
+        self.assertIn("oldrevi..newrevi", summary)
+        self.assertEqual(state["auto_sync"]["current_revision"], "newrevision")
+        self.assertEqual(state["auto_sync"]["changed_files"], ["packs/codex/AGENTS.md"])
 
 
 if __name__ == "__main__":

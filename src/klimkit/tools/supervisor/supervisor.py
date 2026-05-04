@@ -211,25 +211,66 @@ def changed_files_between(repo_root: Path, previous_revision: str, new_revision:
     return tuple(line.strip() for line in output.splitlines() if line.strip())
 
 
-def fast_forward_checkout(config: SupervisorConfig) -> CheckoutUpdate | None:
+def fast_forward_checkout(config: SupervisorConfig, state: dict[str, Any] | None = None) -> CheckoutUpdate | None:
     new_revision = fetch_remote(config.repo_root, config.fetch_ref)
     previous_revision = git_output(config.repo_root, "rev-parse", "HEAD")
+    auto_state = state.setdefault("auto_sync", {}) if state is not None else {}
+    applied_revision = str(auto_state.get("current_revision") or "").strip()
     if new_revision == previous_revision:
-        return None
+        if applied_revision == new_revision:
+            return None
+        if applied_revision:
+            changed_files = changed_files_between(config.repo_root, applied_revision, new_revision)
+            notification_previous = applied_revision
+        else:
+            changed_files = changed_files_for_revision(config.repo_root, new_revision)
+            notification_previous = parent_revision(config.repo_root, new_revision) or new_revision
+        return CheckoutUpdate(
+            previous_revision=notification_previous,
+            new_revision=new_revision,
+            changed_files=changed_files,
+        )
     dirty = git_output(config.repo_root, "status", "--porcelain")
     if dirty.strip():
         raise RuntimeError("autosync refused: Klimkit checkout has uncommitted changes")
-    if not is_ancestor(config.repo_root, previous_revision, new_revision):
+    if is_ancestor(config.repo_root, previous_revision, new_revision):
+        changed_files = changed_files_between(config.repo_root, previous_revision, new_revision)
+        git_output(config.repo_root, "merge", "--ff-only", new_revision)
+        return CheckoutUpdate(
+            previous_revision=previous_revision,
+            new_revision=new_revision,
+            changed_files=changed_files,
+        )
+    if is_ancestor(config.repo_root, new_revision, previous_revision):
+        if applied_revision == previous_revision:
+            return None
+        if applied_revision and is_ancestor(config.repo_root, applied_revision, previous_revision):
+            changed_files = changed_files_between(config.repo_root, applied_revision, previous_revision)
+            notification_previous = applied_revision
+        else:
+            changed_files = changed_files_for_revision(config.repo_root, previous_revision)
+            notification_previous = parent_revision(config.repo_root, previous_revision) or previous_revision
+        return CheckoutUpdate(
+            previous_revision=notification_previous,
+            new_revision=previous_revision,
+            changed_files=changed_files,
+        )
+    else:
         raise RuntimeError(
             f"autosync refused: {config.fetch_ref} is not a fast-forward from current HEAD"
         )
-    changed_files = changed_files_between(config.repo_root, previous_revision, new_revision)
-    git_output(config.repo_root, "merge", "--ff-only", new_revision)
-    return CheckoutUpdate(
-        previous_revision=previous_revision,
-        new_revision=new_revision,
-        changed_files=changed_files,
-    )
+
+
+def parent_revision(repo_root: Path, revision: str) -> str:
+    try:
+        return git_output(repo_root, "rev-parse", f"{revision}^")
+    except RuntimeError:
+        return ""
+
+
+def changed_files_for_revision(repo_root: Path, revision: str) -> tuple[str, ...]:
+    output = git_output(repo_root, "diff-tree", "--no-commit-id", "--name-only", "-r", revision)
+    return tuple(line.strip() for line in output.splitlines() if line.strip())
 
 
 def run_apply_for_autosync(config: SupervisorConfig) -> str:
@@ -306,10 +347,11 @@ def restart_managed_service() -> str:
 
 
 def auto_sync_once(config: SupervisorConfig, state: dict[str, Any]) -> str:
-    update = fast_forward_checkout(config)
+    update = fast_forward_checkout(config, state)
     auto_state = state.setdefault("auto_sync", {})
     if update is None:
         auto_state["last_checked_ref"] = config.fetch_ref
+        auto_state["current_revision"] = git_output(config.repo_root, "rev-parse", "HEAD")
         save_supervisor_state(state)
         return "autosync: main unchanged"
 
