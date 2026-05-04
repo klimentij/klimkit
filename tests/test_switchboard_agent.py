@@ -7,6 +7,64 @@ from klimkit.tools.switchboard_agent import switchboard_agent as MODULE
 
 
 class SwitchboardAgentTests(unittest.TestCase):
+    def test_load_config_reads_agent_from_klimkit_toml(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "klimkit.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[paths]",
+                        f'state_dir = "{root / "state"}"',
+                        "",
+                        "[switchboard.agent]",
+                        "enabled = true",
+                        'backend_url = "https://server.example.ts.net/switchboard"',
+                        'auth_token = "secret"',
+                        "interval_seconds = 7",
+                        "heartbeat_seconds = 70",
+                        "helper_host = \"127.0.0.1\"",
+                        "helper_port = 4633",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = MODULE.load_config(config_path)
+
+        self.assertEqual(config.state_dir, root / "state" / "switchboard-agent")
+        self.assertEqual(config.backend_url, "https://server.example.ts.net/switchboard")
+        self.assertEqual(config.backend_auth_token, "secret")
+        self.assertEqual(config.interval_seconds, 7)
+        self.assertEqual(config.helper_host, "127.0.0.1")
+        self.assertEqual(config.helper_port, 4633)
+
+    def test_load_config_keeps_standalone_agent_paths_exact(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "switchboard-agent.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[paths]",
+                        f'state_dir = "{root / "state" / "switchboard-agent"}"',
+                        f'sessions_root = "{root / "sessions"}"',
+                        f'session_index = "{root / "session_index.jsonl"}"',
+                        "",
+                        "[backend]",
+                        'base_url = "https://server.example.ts.net/switchboard"',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = MODULE.load_config(config_path)
+
+        self.assertEqual(config.state_dir, root / "state" / "switchboard-agent")
+        self.assertEqual(config.sessions_root, root / "sessions")
+        self.assertEqual(config.session_index, root / "session_index.jsonl")
+
     def test_build_snapshot_summarizes_sessions(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -69,6 +127,7 @@ class SwitchboardAgentTests(unittest.TestCase):
                 heartbeat_seconds=60,
                 max_session_age_days=3650,
                 helper_enabled=True,
+                helper_host="127.0.0.1",
                 helper_port=4632,
             )
             identity = MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net")
@@ -360,6 +419,7 @@ class SwitchboardAgentTests(unittest.TestCase):
                 heartbeat_seconds=60,
                 max_session_age_days=3650,
                 helper_enabled=True,
+                helper_host="127.0.0.1",
                 helper_port=4632,
             )
             identity = MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net")

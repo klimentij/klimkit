@@ -125,9 +125,16 @@ def _print_changed_files(manifest: dict[str, object]) -> None:
         print(_status(status, target, "ok" if status in {"created", "updated"} else "warn"))
 
 
+def _manifest_path(config: object) -> Path:
+    state_dir = getattr(config, "state_dir")
+    if not isinstance(state_dir, Path):
+        state_dir = Path(str(state_dir)).expanduser()
+    return state_dir / "install" / "manifest.json"
+
+
 def _format_welcome() -> str:
     lines = [
-        _header("operator kit", "Agentic engineering across machines, under control."),
+        _header("machine kit", "Keep an agent-ready machine reproducible from one repo."),
         "",
         _section("Paths"),
         _kv("config", KLIMKIT_CONFIG_FILE),
@@ -170,7 +177,7 @@ def _add_command(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=_prog_name(),
-        description="Agentic engineering across machines, under control.",
+        description="Keep an agent-ready machine reproducible from one repo.",
         epilog=EXAMPLES,
         formatter_class=HelpFormatter,
     )
@@ -222,7 +229,7 @@ def build_parser() -> argparse.ArgumentParser:
         "doctor",
         help="Check config, repo, and runtime prerequisites.",
         description="Check the configured repo, TOML config, manifest path, uv, and git.",
-        examples="  kk doctor\n  kk --config ~/.config/klimkit/klimkit.toml doctor",
+        examples="  kk doctor\n  kk --config .klimkit/local/klimkit.toml doctor",
     )
     _add_command(
         subparsers,
@@ -263,9 +270,9 @@ def build_parser() -> argparse.ArgumentParser:
         "serve",
         help="Run the Switchboard web UI/API.",
         description="Run Switchboard or print projected session state for agent-testable checks.",
-        examples="  kk serve\n  kk serve --print-projections\n  kk serve --config src/klimkit/apps/switchboard/switchboard.toml",
+        examples="  kk serve\n  kk serve --print-projections\n  kk serve --config .klimkit/local/klimkit.toml",
     )
-    serve.add_argument("--config", dest="switchboard_config", type=Path, default=None, help="Switchboard TOML config path.")
+    serve.add_argument("--config", dest="switchboard_config", type=Path, default=None, help="Klimkit TOML config path for Switchboard.")
     serve.add_argument("--print-projections", action="store_true", help="Print local projections and exit.")
 
     uninstall = _add_command(
@@ -341,7 +348,15 @@ def cmd_setup(args: argparse.Namespace) -> int:
     print(_header("setup", "Config prepared; no files were applied."))
     print(_kv("config", f"{args.config.expanduser()}{suffix}"))
     print()
-    print(format_plan(actions, config_path=args.config, color=_color_enabled()), end="")
+    print(
+        format_plan(
+            actions,
+            config_path=args.config,
+            manifest_path=_manifest_path(config),
+            color=_color_enabled(),
+        ),
+        end="",
+    )
     _print_before_apply(validation_errors)
     print()
     print(_section("Next"))
@@ -359,7 +374,15 @@ def cmd_preview(args: argparse.Namespace) -> int:
         return 1
     config = load_config(args.config)
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
-    print(format_plan(actions, config_path=args.config, color=_color_enabled()), end="")
+    print(
+        format_plan(
+            actions,
+            config_path=args.config,
+            manifest_path=_manifest_path(config),
+            color=_color_enabled(),
+        ),
+        end="",
+    )
     _print_before_apply(validate_config(config))
     return 0
 
@@ -371,28 +394,39 @@ def cmd_apply(args: argparse.Namespace) -> int:
         _print_apply_blockers(validation_errors)
         return 1
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
-    manifest = apply_plan(actions)
+    manifest_path = _manifest_path(config)
+    manifest = apply_plan(actions, manifest_path=manifest_path, backup_root=config.backups_dir)
     print(_header("apply", "Local plan applied."))
     print(_kv("actions", len(manifest["actions"])))
     _print_changed_files(manifest)
-    print(_kv("manifest", KLIMKIT_MANIFEST_FILE))
+    print(_kv("manifest", manifest_path))
     return 0
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
     status = 0
+    config = None
+    config_error = ""
+    if args.config.expanduser().exists():
+        try:
+            config = load_config(args.config)
+        except Exception as exc:
+            config_error = str(exc)
+    manifest_path = _manifest_path(config) if config is not None else KLIMKIT_MANIFEST_FILE
     print(_header("doctor", "Local Klimkit health check."))
     print(_section("Paths"))
     print(_kv("repo", OPS_REPO_ROOT))
     print(_kv("config", args.config.expanduser()))
-    print(_kv("manifest", KLIMKIT_MANIFEST_FILE))
+    print(_kv("manifest", manifest_path))
     print()
     print(_section("Checks"))
     if not args.config.expanduser().exists():
         print(_status("missing", "config; run `kk setup`", "warn"))
         status = 1
+    elif config_error:
+        print(_status("invalid", f"config: {config_error}", "error"))
+        status = 1
     else:
-        load_config(args.config)
         print(_status("ok", "config"))
     uv_path = shutil.which("uv")
     git_path = shutil.which("git")
@@ -442,12 +476,13 @@ def cmd_pull(args: argparse.Namespace) -> int:
         print(_error(f"Pull failed: {exc}"), file=sys.stderr)
         return 1
     actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
-    manifest = apply_plan(actions)
+    manifest_path = _manifest_path(config)
+    manifest = apply_plan(actions, manifest_path=manifest_path, backup_root=config.backups_dir)
     print(_header("pull", "Checkout updated and local plan applied."))
     print(_kv("checkout", summary))
     print(_kv("actions", len(manifest["actions"])))
     _print_changed_files(manifest)
-    print(_kv("manifest", KLIMKIT_MANIFEST_FILE))
+    print(_kv("manifest", manifest_path))
     return 0
 
 
@@ -455,17 +490,20 @@ def cmd_serve(args: argparse.Namespace) -> int:
     from .apps.switchboard import daemon
 
     daemon_args: list[str] = []
-    if args.switchboard_config is not None:
-        daemon_args.extend(["--config", str(args.switchboard_config)])
+    daemon_args.extend(["--config", str((args.switchboard_config or args.config).expanduser())])
     if args.print_projections:
         daemon_args.append("--print-projections")
     return daemon.main(daemon_args)
 
 
 def cmd_uninstall(args: argparse.Namespace) -> int:
-    removed = uninstall_from_manifest()
+    manifest_path = KLIMKIT_MANIFEST_FILE
+    if args.config.expanduser().exists():
+        manifest_path = _manifest_path(load_config(args.config))
+    removed = uninstall_from_manifest(manifest_path=manifest_path)
     print(_header("uninstall", "Manifest-owned files removed."))
     print(_kv("removed", removed))
+    print(_kv("manifest", manifest_path))
     return 0
 
 

@@ -17,12 +17,13 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib
 
+from .harnesses.codex import codex_harness
 from .paths import (
+    KLIMKIT_BACKUPS_DIR,
     KLIMKIT_CONFIG_FILE,
     KLIMKIT_MANIFEST_FILE,
+    KLIMKIT_LOGS_DIR,
     KLIMKIT_STATE_DIR,
-    KLIMKIT_SWITCHBOARD_AGENT_CONFIG_FILE,
-    KLIMKIT_SWITCHBOARD_CONFIG_FILE,
     OPS_REPO_ROOT,
 )
 
@@ -47,13 +48,27 @@ class InstallConfig:
     configure_services: bool
     install_code_server_if_missing: bool
     tailscale_serve_enabled: bool
-    switchboard_config_path: Path
-    switchboard_agent_config_path: Path
+    state_dir: Path
+    backups_dir: Path
+    logs_dir: Path
     switchboard_backend_url: str
     switchboard_host: str
     switchboard_port: int
     switchboard_base_path: str
+    switchboard_secure_auth_cookie: bool
     switchboard_auth_token: str
+    switchboard_agent_helper_host: str
+    switchboard_agent_helper_port: int
+    switchboard_agent_interval_seconds: int
+    switchboard_agent_heartbeat_seconds: int
+    switchboard_collector_interval_seconds: float
+    switchboard_heartbeat_seconds: int
+    switchboard_max_session_age_days: int
+    switchboard_stale_after_seconds: int
+    telegram_enabled: bool
+    telegram_bot_token: str
+    telegram_chat_id: str
+    trusted_codex_launch_bypass_sandbox: bool
 
 
 @dataclass(frozen=True)
@@ -131,13 +146,27 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
         configure_services=True,
         install_code_server_if_missing=client_enabled,
         tailscale_serve_enabled=True,
-        switchboard_config_path=KLIMKIT_SWITCHBOARD_CONFIG_FILE,
-        switchboard_agent_config_path=KLIMKIT_SWITCHBOARD_AGENT_CONFIG_FILE,
+        state_dir=KLIMKIT_STATE_DIR,
+        backups_dir=KLIMKIT_BACKUPS_DIR,
+        logs_dir=KLIMKIT_LOGS_DIR,
         switchboard_backend_url="",
         switchboard_host="127.0.0.1",
         switchboard_port=4721,
         switchboard_base_path="/switchboard",
+        switchboard_secure_auth_cookie=False,
         switchboard_auth_token="",
+        switchboard_agent_helper_host="127.0.0.1",
+        switchboard_agent_helper_port=4632,
+        switchboard_agent_interval_seconds=5,
+        switchboard_agent_heartbeat_seconds=60,
+        switchboard_collector_interval_seconds=0.5,
+        switchboard_heartbeat_seconds=15,
+        switchboard_max_session_age_days=14,
+        switchboard_stale_after_seconds=180,
+        telegram_enabled=False,
+        telegram_bot_token="",
+        telegram_chat_id="",
+        trusted_codex_launch_bypass_sandbox=True,
     )
 
 
@@ -161,25 +190,27 @@ def with_role(config: InstallConfig, profile: str) -> InstallConfig:
 def render_config(config: InstallConfig) -> str:
     return "\n".join(
         [
-            "# Klimkit setup config.",
+            "# Klimkit local machine config.",
             "# Edit this file, then run `kk preview` or `kk apply`.",
-            "# First VM default: components.client = true and components.server = true.",
-            "# Second VM: run `kk setup --client-only`, then set switchboard.backend_url before `kk apply`.",
+            "# This is the only human-edited Klimkit config; other files are generated projections.",
             "",
-            "[machine]",
+            "[paths]",
+            "# Repo checkout Klimkit should apply from.",
             f'repo_root = "{config.repo_root}"',
+            "# Runtime state for manifests, DBs, and local process state.",
+            f"state_dir = {json.dumps(str(config.state_dir))}",
+            "# Backups created before Klimkit updates managed files.",
+            f"backups_dir = {json.dumps(str(config.backups_dir))}",
+            "# Logs written by the Klimkit supervisor and helpers.",
+            f"logs_dir = {json.dumps(str(config.logs_dir))}",
             "",
             "[components]",
-            "# client: local Codex pack, code-server settings, and client support.",
-            "# server: central Klimkit Switchboard server on this machine.",
+            "# Client installs local agent harness assets and code-server support.",
             f"client = {str(config.client_enabled).lower()}",
+            "# Server runs the central Switchboard on this machine.",
             f"server = {str(config.server_enabled).lower()}",
-            "# Advanced switches. Most machines should leave these derived from client/server.",
-            f"codex = {str(config.codex_enabled).lower()}",
-            f"code_server = {str(config.code_server_enabled).lower()}",
-            "# supervisor: local `kk daemon`; services.enable controls whether it starts at login/boot.",
+            "# Supervisor runs `kk daemon`; services.enable controls login/boot startup.",
             f"supervisor = {str(config.supervisor_enabled).lower()}",
-            f"switchboard = {str(config.switchboard_enabled).lower()}",
             "",
             "[workers]",
             "# live_sync: periodically fetch Git and copy Codex assets. Default false; use `kk pull` instead.",
@@ -192,19 +223,59 @@ def render_config(config: InstallConfig) -> str:
             f"enable = {str(config.configure_services).lower()}",
             "",
             "[code_server]",
+            "# Enable projection of code-server config and user settings.",
+            f"enabled = {str(config.code_server_enabled).lower()}",
+            "# If code-server is missing, `kk apply` may run the upstream network installer.",
             f"install_if_missing = {str(config.install_code_server_if_missing).lower()}",
             "",
             "[tailscale]",
+            "# Configure Tailscale Serve for browser access from the private tailnet.",
             f"configure_serve = {str(config.tailscale_serve_enabled).lower()}",
             "",
-            "[switchboard]",
-            f"config_path = {json.dumps(str(config.switchboard_config_path))}",
-            f"agent_config_path = {json.dumps(str(config.switchboard_agent_config_path))}",
-            f"backend_url = {json.dumps(config.switchboard_backend_url)}",
+            "[harnesses.codex]",
+            "# Enable Codex pack projection into the default ~/.codex home.",
+            f"enabled = {str(config.codex_enabled).lower()}",
+            "",
+            "[switchboard.server]",
+            "# Enable the central Switchboard web UI and API on this machine.",
+            f"enabled = {str(config.switchboard_enabled).lower()}",
+            "# Loopback is safe without a token; non-loopback hosts require auth_token.",
             f"host = {json.dumps(config.switchboard_host)}",
             f"port = {config.switchboard_port}",
             f"base_path = {json.dumps(config.switchboard_base_path)}",
+            "# Set true when Switchboard is exposed through HTTPS and browser cookies should require it.",
+            f"secure_auth_cookie = {str(config.switchboard_secure_auth_cookie).lower()}",
+            "# Bearer token for remote Switchboard API/UI access.",
             f"auth_token = {json.dumps(config.switchboard_auth_token)}",
+            "# Collector interval controls how often local Codex state is read.",
+            f"collector_interval_seconds = {config.switchboard_collector_interval_seconds}",
+            f"heartbeat_seconds = {config.switchboard_heartbeat_seconds}",
+            f"max_session_age_days = {config.switchboard_max_session_age_days}",
+            f"stale_after_seconds = {config.switchboard_stale_after_seconds}",
+            "",
+            "[switchboard.agent]",
+            "# Enable this VM to report local Codex sessions to the central Switchboard.",
+            f"enabled = {str(config.switchboard_agent_enabled).lower()}",
+            "# Central Switchboard URL, for example https://server.example.ts.net/switchboard.",
+            f"backend_url = {json.dumps(config.switchboard_backend_url)}",
+            "# Shared bearer token for agent-to-server reporting.",
+            f"auth_token = {json.dumps(config.switchboard_auth_token)}",
+            f"interval_seconds = {config.switchboard_agent_interval_seconds}",
+            f"heartbeat_seconds = {config.switchboard_agent_heartbeat_seconds}",
+            f"max_session_age_days = {config.switchboard_max_session_age_days}",
+            "# Helper is loopback by default; expose another host only for a trusted proxy.",
+            f"helper_host = {json.dumps(config.switchboard_agent_helper_host)}",
+            f"helper_port = {config.switchboard_agent_helper_port}",
+            "",
+            "[notifications.telegram]",
+            "# Telegram notifications are optional and read by the Codex Stop hook.",
+            f"enabled = {str(config.telegram_enabled).lower()}",
+            f"bot_token = {json.dumps(config.telegram_bot_token)}",
+            f"chat_id = {json.dumps(config.telegram_chat_id)}",
+            "",
+            "[trusted_local_agent_launch]",
+            "# Switchboard-launched Codex terminals are trusted-local automation by default.",
+            f"bypass_codex_approvals_and_sandbox = {str(config.trusted_codex_launch_bypass_sandbox).lower()}",
             "",
         ]
     )
@@ -217,7 +288,7 @@ def render_switchboard_config(config: InstallConfig) -> str:
             "# This file is local because it may contain backend.auth_token.",
             "",
             "[paths]",
-            f"state_dir = {json.dumps(str(KLIMKIT_STATE_DIR / 'switchboard'))}",
+            f"state_dir = {json.dumps(str(config.state_dir / 'switchboard'))}",
             f"sessions_root = {json.dumps(str(Path.home() / '.codex' / 'sessions'))}",
             f"session_index = {json.dumps(str(Path.home() / '.codex' / 'session_index.jsonl'))}",
             f"hooks_events = {json.dumps(str(Path.home() / '.codex' / 'switchboard' / 'events.jsonl'))}",
@@ -257,7 +328,7 @@ def render_switchboard_agent_config(config: InstallConfig) -> str:
             "[paths]",
             f"sessions_root = {json.dumps(str(Path.home() / '.codex' / 'sessions'))}",
             f"session_index = {json.dumps(str(Path.home() / '.codex' / 'session_index.jsonl'))}",
-            f"state_dir = {json.dumps(str(KLIMKIT_STATE_DIR / 'switchboard-agent'))}",
+            f"state_dir = {json.dumps(str(config.state_dir / 'switchboard-agent'))}",
             "",
             "[backend]",
             f"base_url = {json.dumps(config.switchboard_backend_url)}",
@@ -287,28 +358,45 @@ def _bool(raw: Any, default: bool) -> bool:
 
 def parse_config(raw: str) -> InstallConfig:
     data = tomllib.loads(raw) if raw.strip() else {}
+    paths = data.get("paths", {})
     machine = data.get("machine", {})
     components = data.get("components", {})
     workers = data.get("workers", {})
     services = data.get("services", {})
     code_server = data.get("code_server", {})
     tailscale = data.get("tailscale", {})
+    harnesses = data.get("harnesses", {})
+    codex = harnesses.get("codex", {}) if isinstance(harnesses.get("codex", {}), dict) else {}
     switchboard = data.get("switchboard", {})
+    switchboard_server = switchboard.get("server", {}) if isinstance(switchboard.get("server", {}), dict) else {}
+    switchboard_agent = switchboard.get("agent", {}) if isinstance(switchboard.get("agent", {}), dict) else {}
+    notifications = data.get("notifications", {})
+    telegram = notifications.get("telegram", {}) if isinstance(notifications.get("telegram", {}), dict) else {}
+    trusted_launch = data.get("trusted_local_agent_launch", {})
     role = str(machine.get("profile", "first-vm")).strip() or "first-vm"
     default_client_enabled, default_server_enabled = _role_flags(role)
     client_enabled = _bool(components.get("client"), default_client_enabled)
     server_enabled = _bool(components.get("server"), default_server_enabled)
+    state_dir = expand_path(str(paths.get("state_dir", KLIMKIT_STATE_DIR)))
+    server_enabled_default = _bool(components.get("switchboard"), server_enabled)
+    agent_enabled_default = _bool(workers.get("switchboard_agent"), client_enabled and not server_enabled)
+    auth_token = str(
+        switchboard_agent.get(
+            "auth_token",
+            switchboard_server.get("auth_token", switchboard.get("auth_token", "")),
+        )
+    ).strip()
     return InstallConfig(
         profile=_profile_from_roles(client_enabled=client_enabled, server_enabled=server_enabled),
-        repo_root=expand_path(str(machine.get("repo_root", OPS_REPO_ROOT))),
+        repo_root=expand_path(str(paths.get("repo_root", machine.get("repo_root", OPS_REPO_ROOT)))),
         client_enabled=client_enabled,
         server_enabled=server_enabled,
-        codex_enabled=_bool(components.get("codex"), client_enabled),
-        code_server_enabled=_bool(components.get("code_server"), client_enabled),
+        codex_enabled=_bool(codex.get("enabled", components.get("codex")), client_enabled),
+        code_server_enabled=_bool(code_server.get("enabled", components.get("code_server")), client_enabled),
         supervisor_enabled=_bool(components.get("supervisor"), client_enabled or server_enabled),
         live_sync_enabled=_bool(workers.get("live_sync"), False),
-        switchboard_agent_enabled=_bool(workers.get("switchboard_agent"), client_enabled and not server_enabled),
-        switchboard_enabled=_bool(components.get("switchboard"), server_enabled),
+        switchboard_agent_enabled=_bool(switchboard_agent.get("enabled"), agent_enabled_default),
+        switchboard_enabled=_bool(switchboard_server.get("enabled"), server_enabled_default),
         configure_services=_bool(services.get("enable", services.get("configure")), True),
         install_code_server_if_missing=_bool(
             code_server.get("install_if_missing"), client_enabled
@@ -316,17 +404,45 @@ def parse_config(raw: str) -> InstallConfig:
         tailscale_serve_enabled=_bool(
             tailscale.get("configure_serve"), True
         ),
-        switchboard_config_path=_normalized_switchboard_config_path(
-            expand_path(str(switchboard.get("config_path", KLIMKIT_SWITCHBOARD_CONFIG_FILE)))
+        state_dir=state_dir,
+        backups_dir=expand_path(str(paths.get("backups_dir", KLIMKIT_BACKUPS_DIR))),
+        logs_dir=expand_path(str(paths.get("logs_dir", KLIMKIT_LOGS_DIR))),
+        switchboard_backend_url=_normalized_switchboard_backend_url(
+            str(switchboard_agent.get("backend_url", switchboard.get("backend_url", "")))
         ),
-        switchboard_agent_config_path=expand_path(
-            str(switchboard.get("agent_config_path", KLIMKIT_SWITCHBOARD_AGENT_CONFIG_FILE))
+        switchboard_host=str(switchboard_server.get("host", switchboard.get("host", "127.0.0.1"))).strip()
+        or "127.0.0.1",
+        switchboard_port=max(1, int(switchboard_server.get("port", switchboard.get("port", 4721)))),
+        switchboard_base_path=_normalized_switchboard_base_path(
+            str(switchboard_server.get("base_path", switchboard.get("base_path", "/switchboard")))
         ),
-        switchboard_backend_url=_normalized_switchboard_backend_url(str(switchboard.get("backend_url", ""))),
-        switchboard_host=str(switchboard.get("host", "127.0.0.1")).strip() or "127.0.0.1",
-        switchboard_port=max(1, int(switchboard.get("port", 4721))),
-        switchboard_base_path=_normalized_switchboard_base_path(str(switchboard.get("base_path", "/switchboard"))),
-        switchboard_auth_token=str(switchboard.get("auth_token", "")).strip(),
+        switchboard_secure_auth_cookie=_bool(switchboard_server.get("secure_auth_cookie"), False),
+        switchboard_auth_token=auth_token,
+        switchboard_agent_helper_host=str(switchboard_agent.get("helper_host", "127.0.0.1")).strip()
+        or "127.0.0.1",
+        switchboard_agent_helper_port=max(1, int(switchboard_agent.get("helper_port", 4632))),
+        switchboard_agent_interval_seconds=max(1, int(switchboard_agent.get("interval_seconds", 5))),
+        switchboard_agent_heartbeat_seconds=max(5, int(switchboard_agent.get("heartbeat_seconds", 60))),
+        switchboard_collector_interval_seconds=max(
+            0.1, float(switchboard_server.get("collector_interval_seconds", 0.5))
+        ),
+        switchboard_heartbeat_seconds=max(5, int(switchboard_server.get("heartbeat_seconds", 15))),
+        switchboard_max_session_age_days=max(
+            1,
+            int(
+                switchboard_server.get(
+                    "max_session_age_days",
+                    switchboard_agent.get("max_session_age_days", 14),
+                )
+            ),
+        ),
+        switchboard_stale_after_seconds=max(30, int(switchboard_server.get("stale_after_seconds", 180))),
+        telegram_enabled=_bool(telegram.get("enabled"), False),
+        telegram_bot_token=str(telegram.get("bot_token", "")).strip(),
+        telegram_chat_id=str(telegram.get("chat_id", "")).strip(),
+        trusted_codex_launch_bypass_sandbox=_bool(
+            trusted_launch.get("bypass_codex_approvals_and_sandbox"), True
+        ),
     )
 
 
@@ -335,11 +451,7 @@ def ensure_config(path: Path = KLIMKIT_CONFIG_FILE, *, profile: str = "first-vm"
     if path.exists():
         path.chmod(CONFIG_MODE)
         return parse_config(path.read_text(encoding="utf-8")), False
-    config = replace(
-        default_config(profile),
-        switchboard_config_path=path.parent / "switchboard.toml",
-        switchboard_agent_config_path=path.parent / "switchboard-agent.toml",
-    )
+    config = default_config(profile)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_config(config), encoding="utf-8")
     path.chmod(CONFIG_MODE)
@@ -354,7 +466,7 @@ def validate_config(config: InstallConfig) -> list[str]:
     errors: list[str] = []
     if config.switchboard_agent_enabled and not config.switchboard_backend_url:
         errors.append(
-            "[workers] switchboard_agent = true requires [switchboard] backend_url, "
+            "[switchboard.agent] enabled = true requires backend_url, "
             "for example https://<first-vm>.<tailnet>.ts.net/switchboard"
         )
     return errors
@@ -445,58 +557,36 @@ def build_plan(
             id="klimkit-config",
             kind="write_file",
             target=config_path.expanduser(),
-            description="Klimkit TOML config",
+            description="Klimkit single source config",
             content=render_config(config),
             mode=CONFIG_MODE,
             component="core",
         )
     ]
-    if config.switchboard_enabled:
-        actions.append(
-            Action(
-                id="switchboard-config",
-                kind="write_file",
-                target=config.switchboard_config_path.expanduser(),
-                description="Switchboard TOML config",
-                content=render_switchboard_config(config),
-                mode=CONFIG_MODE,
-                component="switchboard",
-            )
-        )
-    if config.switchboard_agent_enabled:
-        actions.append(
-            Action(
-                id="switchboard-agent-config",
-                kind="write_file",
-                target=config.switchboard_agent_config_path.expanduser(),
-                description="Switchboard agent TOML config",
-                content=render_switchboard_agent_config(config),
-                mode=CONFIG_MODE,
-                component="switchboard-agent",
-            )
-        )
 
     if config.codex_enabled:
-        pack = repo / "packs" / "codex"
-        actions.extend(
-            [
-                _file_action("codex-agents-md", pack / "AGENTS.md", home / "AGENTS.md", "home AGENTS.md", component="codex"),
-                _file_action("codex-config", pack / "config.toml", home / ".codex" / "config.toml", "Codex config", component="codex"),
-                _file_action("codex-hooks-json", pack / "hooks.json", home / ".codex" / "hooks.json", "Codex hooks config", component="codex"),
-            ]
-        )
-        actions.extend(_dir_actions("codex-hooks", pack / "hooks", home / ".codex" / "hooks", "Codex hooks", component="codex"))
-        actions.extend(_dir_actions("codex-agents", pack / "agents", home / ".codex" / "agents", "Codex agents", component="codex"))
-        actions.extend(
-            _dir_actions(
-                "codex-skills",
-                pack / "skills",
-                home / ".codex" / "skills",
-                "Codex skills",
-                component="codex",
-                exclude_prefixes=(".system/",),
-            )
-        )
+        for projection in codex_harness(home=home, repo_root=repo).projections:
+            if projection.kind == "file":
+                actions.append(
+                    _file_action(
+                        projection.id,
+                        projection.source,
+                        projection.target,
+                        projection.description,
+                        component=projection.component,
+                    )
+                )
+            elif projection.kind == "dir":
+                actions.extend(
+                    _dir_actions(
+                        projection.id,
+                        projection.source,
+                        projection.target,
+                        projection.description,
+                        component=projection.component,
+                        exclude_prefixes=projection.exclude_prefixes,
+                    )
+                )
 
     if config.code_server_enabled:
         actions.append(
@@ -524,14 +614,14 @@ def build_plan(
                     id="install-code-server",
                     kind="run_command",
                     target=Path("code-server"),
-                    description="install code-server with the upstream installer",
+                    description="external network installer: code-server upstream script",
                     command=(
                         "sh",
                         "-c",
                         "command -v curl >/dev/null 2>&1 || { echo 'curl is required to install code-server' >&2; exit 1; }; "
                         "curl -fsSL https://code-server.dev/install.sh | sh",
                     ),
-                    component="code-server",
+                    component="external-installer",
                 )
             )
 
@@ -621,6 +711,7 @@ def _component_name(component: str) -> str:
         "core": "Core",
         "codex": "Codex",
         "code-server": "Code Server",
+        "external-installer": "External Installers",
         "service": "Services",
         "switchboard": "Switchboard",
         "switchboard-agent": "Switchboard Agent",
@@ -672,14 +763,20 @@ def _component_groups(actions: list[Action]) -> list[tuple[str, list[Action]]]:
     return groups
 
 
-def format_plan(actions: list[Action], *, config_path: Path = KLIMKIT_CONFIG_FILE, color: bool = False) -> str:
+def format_plan(
+    actions: list[Action],
+    *,
+    config_path: Path = KLIMKIT_CONFIG_FILE,
+    manifest_path: Path = KLIMKIT_MANIFEST_FILE,
+    color: bool = False,
+) -> str:
     width = _plan_width()
     groups = _component_groups(actions)
     lines = [
         _ansi("Klimkit Setup Preview", "1;38;2;126;240;175", color=color),
         "",
         f"  {'config':<9} {config_path.expanduser()}",
-        f"  {'manifest':<9} {KLIMKIT_MANIFEST_FILE}",
+        f"  {'manifest':<9} {manifest_path.expanduser()}",
         f"  {'actions':<9} {len(actions)}",
         "",
         _rule(width, color=color),
@@ -738,7 +835,6 @@ def _default_delete_roots(home: Path | None = None) -> tuple[Path, ...]:
     return (
         home / "AGENTS.md",
         home / ".codex",
-        home / ".config" / "klimkit",
         home / ".config" / "code-server",
         home / ".local" / "share" / "code-server" / "User",
         home / ".config" / "systemd" / "user" / "klimkit.service",
@@ -770,7 +866,7 @@ def apply_plan(
     backup_root: Path | None = None,
     managed_roots: tuple[Path, ...] | None = None,
 ) -> dict[str, Any]:
-    backup_root = (backup_root or KLIMKIT_STATE_DIR / "backups") / dt.datetime.now(dt.UTC).strftime(
+    backup_root = (backup_root or KLIMKIT_BACKUPS_DIR) / dt.datetime.now(dt.UTC).strftime(
         "%Y%m%dT%H%M%SZ"
     )
     previous_manifest = _load_manifest(manifest_path)

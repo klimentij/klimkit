@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 import unittest
@@ -14,7 +15,6 @@ from klimkit.install import (
     default_config,
     parse_config,
     render_config,
-    render_switchboard_agent_config,
     uninstall_from_manifest,
 )
 
@@ -35,9 +35,11 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertTrue(parsed.switchboard_enabled)
         self.assertFalse(parsed.live_sync_enabled)
         self.assertTrue(parsed.install_code_server_if_missing)
-        self.assertEqual(parsed.switchboard_config_path.name, "switchboard.toml")
-        self.assertIn("First VM default", render_config(config))
+        self.assertEqual(parsed.state_dir, ROOT / ".klimkit" / "state")
+        self.assertIn("only human-edited Klimkit config", render_config(config))
         self.assertIn("enable = true", render_config(config))
+        self.assertIn("[switchboard.server]", render_config(config))
+        self.assertIn("[notifications.telegram]", render_config(config))
 
     def test_client_only_role_disables_server_components(self) -> None:
         config = parse_config(
@@ -70,22 +72,26 @@ class KlimkitInstallTests(unittest.TestCase):
 
         self.assertFalse(config.configure_services)
 
-    def test_legacy_switchboard_defaults_migrate_to_switchboard_name(self) -> None:
+    def test_switchboard_nested_config_loads_single_toml(self) -> None:
         config = parse_config(
             "\n".join(
                 [
-                    "[switchboard]",
-                    f'config_path = "~/.config/klimkit/{"switchboard" + "2.toml"}"',
-                    f'backend_url = "https://server.example.ts.net/{"switchboard" + "2"}"',
-                    f'base_path = "/{"switchboard" + "2"}"',
+                    "[switchboard.server]",
+                    "enabled = true",
+                    'base_path = "/switchboard"',
+                    'auth_token = "server-secret"',
+                    "",
+                    "[switchboard.agent]",
+                    "enabled = true",
+                    'backend_url = "https://server.example.ts.net/switchboard"',
                     "",
                 ]
             )
         )
 
-        self.assertEqual(config.switchboard_config_path.name, "switchboard.toml")
         self.assertEqual(config.switchboard_backend_url, "https://server.example.ts.net/switchboard")
         self.assertEqual(config.switchboard_base_path, "/switchboard")
+        self.assertEqual(config.switchboard_auth_token, "server-secret")
 
     def test_legacy_server_profile_still_enables_server_role(self) -> None:
         config = parse_config(
@@ -103,16 +109,20 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertTrue(config.server_enabled)
         self.assertTrue(config.switchboard_enabled)
 
-    def test_server_plan_writes_sensitive_configs_private(self) -> None:
+    def test_build_plan_writes_single_klimkit_toml_only(self) -> None:
         config = replace(default_config(), repo_root=ROOT)
 
         actions = build_plan(config, skip_services=True)
 
-        switchboard = next(action for action in actions if action.id == "switchboard-config")
-        self.assertEqual(switchboard.mode, 0o600)
-        self.assertIn("auth_token", switchboard.content or "")
+        self.assertTrue(any(action.id == "klimkit-config" for action in actions))
+        self.assertFalse(any(action.id == "switchboard-config" for action in actions))
+        self.assertFalse(any(action.id == "switchboard-agent-config" for action in actions))
+        config_action = next(action for action in actions if action.id == "klimkit-config")
+        self.assertEqual(config_action.mode, 0o600)
+        self.assertIn("[switchboard.server]", config_action.content or "")
+        self.assertIn("[switchboard.agent]", config_action.content or "")
 
-    def test_switchboard_agent_config_uses_private_backend_settings(self) -> None:
+    def test_single_config_uses_private_backend_settings(self) -> None:
         config = replace(
             default_config("client"),
             switchboard_agent_enabled=True,
@@ -120,9 +130,9 @@ class KlimkitInstallTests(unittest.TestCase):
             switchboard_auth_token="secret",
         )
 
-        content = render_switchboard_agent_config(config)
+        content = render_config(config)
 
-        self.assertIn('base_url = "https://server.example.ts.net/switchboard"', content)
+        self.assertIn('backend_url = "https://server.example.ts.net/switchboard"', content)
         self.assertIn('auth_token = "secret"', content)
 
     def test_code_server_install_is_run_command_when_missing(self) -> None:
@@ -314,6 +324,64 @@ class KlimkitInstallTests(unittest.TestCase):
             self.assertTrue(managed.exists())
             self.assertTrue(manifest_path.exists())
 
+    def test_apply_prunes_legacy_home_agents_md_only_when_hash_matches(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            home = Path(tmpdir)
+            legacy_agents = home / "AGENTS.md"
+            manifest_path = home / ".klimkit" / "state" / "install" / "manifest.json"
+            backup_root = home / ".klimkit" / "backups"
+            legacy_agents.write_text("old managed guidance\n", encoding="utf-8")
+            legacy_hash = self._sha256(legacy_agents)
+            manifest_path.parent.mkdir(parents=True)
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "actions": [
+                            {
+                                "id": "codex-agents-md",
+                                "kind": "write_file",
+                                "target": str(legacy_agents),
+                                "hash": legacy_hash,
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with mock.patch("klimkit.install.Path.home", return_value=home):
+                manifest = apply_plan([], manifest_path=manifest_path, backup_root=backup_root)
+
+            self.assertFalse(legacy_agents.exists())
+            self.assertEqual(manifest["pruned"][0]["target"], str(legacy_agents))
+
+            legacy_agents.write_text("user guidance\n", encoding="utf-8")
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "actions": [
+                            {
+                                "id": "codex-agents-md",
+                                "kind": "write_file",
+                                "target": str(legacy_agents),
+                                "hash": legacy_hash,
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with mock.patch("klimkit.install.Path.home", return_value=home):
+                manifest = apply_plan([], manifest_path=manifest_path, backup_root=backup_root)
+
+            self.assertTrue(legacy_agents.exists())
+            self.assertEqual(manifest["skipped"][0]["reason"], "modified")
+
     def test_service_templates_use_custom_config_path(self) -> None:
         config_path = Path("/tmp/custom-klimkit.toml")
         config = replace(
@@ -381,6 +449,12 @@ class KlimkitInstallTests(unittest.TestCase):
                     break
             self.assertTrue(description, f"{path} is missing a description")
             self.assertLessEqual(len(description), 500, f"{path} description exceeds Codex CLI limit")
+
+    @staticmethod
+    def _sha256(path: Path) -> str:
+        import hashlib
+
+        return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 if __name__ == "__main__":

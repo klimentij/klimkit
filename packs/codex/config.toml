@@ -16,5 +16,12 @@ enabled = false
 multi_agent = true
 codex_hooks = true
 
+[[hooks.Stop]]
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = "$HOME/.codex/hooks/stop-notify.sh"
+timeout = 30
+
 [plugins."github@openai-curated"]
 enabled = true

@@ -57,7 +57,6 @@ class KlimkitSupervisorTests(unittest.TestCase):
             fetch_ref="origin/main",
             switchboard_agent_enabled=True,
             manage_switchboard=True,
-            switchboard_agent_config_path=Path("/tmp/private-agent.toml"),
         )
         agent_config = mock.Mock()
         agent_config.state_dir = Path("/tmp/agent-state")
@@ -74,21 +73,25 @@ class KlimkitSupervisorTests(unittest.TestCase):
             result = MODULE.run_switchboard_agent_once(config)
 
         helper_mock.assert_called_once_with(agent_config)
-        load_config_mock.assert_called_once_with(Path("/tmp/private-agent.toml"))
+        load_config_mock.assert_called_once_with(Path("/tmp/machine.toml"))
         conn.close.assert_called_once()
         self.assertEqual(result, "switchboard-agent: reported snapshot")
 
-    def test_load_machine_config_accepts_legacy_switchboard_key(self) -> None:
+    def test_load_machine_config_uses_single_switchboard_server_section(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "machine.toml"
             config_path.write_text(
                 "\n".join(
                     [
-                        "[machine]",
-                        'profile = "server"',
+                        "[paths]",
+                        f'repo_root = "{tmpdir}"',
                         "",
                         "[components]",
-                        "switchboard = true",
+                        "client = true",
+                        "server = true",
+                        "",
+                        "[switchboard.server]",
+                        "enabled = true",
                         "",
                     ]
                 ),
@@ -98,7 +101,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
             config = MODULE.load_machine_config(config_path)
 
         self.assertTrue(config.manage_switchboard)
-        self.assertEqual(config.switchboard_config_path, config_path.parent / "switchboard.toml")
+        self.assertEqual(config.machine_config_path, config_path)
 
     def test_load_machine_config_uses_component_server_without_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -121,10 +124,9 @@ class KlimkitSupervisorTests(unittest.TestCase):
         self.assertTrue(config.manage_switchboard)
         self.assertFalse(config.live_sync_enabled)
 
-    def test_load_machine_config_uses_local_switchboard_agent_config_path(self) -> None:
+    def test_load_machine_config_uses_single_switchboard_agent_section(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "machine.toml"
-            agent_config_path = Path(tmpdir) / "private-agent.toml"
             config_path.write_text(
                 "\n".join(
                     [
@@ -132,11 +134,9 @@ class KlimkitSupervisorTests(unittest.TestCase):
                         "client = true",
                         "server = false",
                         "",
-                        "[workers]",
-                        "switchboard_agent = true",
-                        "",
-                        "[switchboard]",
-                        f'agent_config_path = "{agent_config_path}"',
+                        "[switchboard.agent]",
+                        "enabled = true",
+                        'backend_url = "https://server.example.ts.net/switchboard"',
                         "",
                     ]
                 ),
@@ -147,7 +147,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
 
         self.assertEqual(config.profile, "client")
         self.assertTrue(config.switchboard_agent_enabled)
-        self.assertEqual(config.switchboard_agent_config_path, agent_config_path)
+        self.assertEqual(config.machine_config_path, config_path)
 
     def test_ensure_central_processes_uses_local_switchboard_config(self) -> None:
         config = MODULE.SupervisorConfig(
@@ -159,14 +159,22 @@ class KlimkitSupervisorTests(unittest.TestCase):
             fetch_ref="origin/main",
             switchboard_agent_enabled=False,
             manage_switchboard=True,
-            switchboard_config_path=Path("/tmp/private-switchboard.toml"),
         )
 
         with mock.patch.object(MODULE, "start_process", return_value=mock.Mock()) as start_mock:
             MODULE.ensure_central_processes(config, {})
 
         command = start_mock.call_args.kwargs["command"]
-        self.assertEqual(command, ["/tmp/klimkit/klimkit", "serve", "--config", "/tmp/private-switchboard.toml"])
+        self.assertEqual(command, ["/tmp/klimkit/klimkit", "serve", "--config", "/tmp/machine.toml"])
+
+    def test_live_mappings_match_codex_harness_registry(self) -> None:
+        mappings = MODULE.live_mappings()
+
+        self.assertEqual(mappings[0].repo_path, "packs/codex/AGENTS.md")
+        self.assertEqual(mappings[0].target_path, Path.home() / ".codex" / "AGENTS.md")
+        self.assertFalse(any(mapping.repo_path == "packs/codex/hooks.json" for mapping in mappings))
+        skills = next(mapping for mapping in mappings if mapping.repo_path == "packs/codex/skills")
+        self.assertEqual(skills.exclude_prefixes, (".system/",))
 
 
 if __name__ == "__main__":

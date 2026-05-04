@@ -2,7 +2,7 @@
 
 Author: Codex
 Date: 2026-04-17
-Status: Draft for review
+Status: Historical design note; current implementation uses the repo-local single Klimkit TOML and the stdlib `unittest` harness.
 
 ## Purpose
 
@@ -27,7 +27,7 @@ This spec is based on three sources of truth checked on 2026-04-17:
 
    Relevant constraints confirmed:
 
-   - Codex discovers hooks from `~/.codex/hooks.json` and `<repo>/.codex/hooks.json`.
+   - Codex discovers hooks from `hooks.json` or inline `[hooks]` tables in `config.toml`.
    - Hooks receive structured JSON input.
    - `Stop` does not use `matcher`.
    - `Stop` is continuation-oriented, not a general live event stream.
@@ -37,9 +37,9 @@ This spec is based on three sources of truth checked on 2026-04-17:
 
    - `~/.codex/sessions/**/rollout-*.jsonl`
    - `~/.codex/session_index.jsonl`
-   - `~/.codex/hooks.json`
+   - `~/.codex/config.toml`
    - `~/.codex/hooks/stop-notify.sh`
-   - `~/.codex/switchboard/events.jsonl`
+   - `~/klimkit/.klimkit/state/switchboard/events.jsonl`
 
 3. Current Switchboard implementation and failure mode:
 
@@ -212,7 +212,7 @@ Topology decision:
 
 Use one SQLite file, for example:
 
-- `~/.local/state/klimkit/switchboard/state.sqlite3`
+- `~/klimkit/.klimkit/state/switchboard/state.sqlite3`
 
 Tables:
 
@@ -797,7 +797,7 @@ Current recommendation unless your answers change the constraints:
 - storage: stdlib `sqlite3` in `WAL` mode
 - file watching: `watchfiles`
 - data modeling: `dataclasses` and `TypedDict`
-- tests: `pytest`
+- tests: stdlib `unittest`
 - remote ingress security: Tailscale reachability plus shared token or HMAC
 - frontend: keep current vanilla JS/CSS UI and switch it to SSE plus backend ranking
 

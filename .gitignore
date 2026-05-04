@@ -1,6 +1,10 @@
 .switchboard/
 .switchboard-agent/
+.klimkit/local/
+.klimkit/state/
+.klimkit/backups/
+.klimkit/logs/
 tmp/
 __pycache__/
 .venv/
-src/klimkit/apps/switchboard2/static/reports/*
+.coverage

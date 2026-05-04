@@ -43,7 +43,7 @@ class KlimkitCliTests(unittest.TestCase):
             result = cli.main([])
 
         self.assertEqual(result, 0)
-        self.assertIn("Agentic engineering across machines, under control.", stdout.getvalue())
+        self.assertIn("Keep an agent-ready machine reproducible from one repo.", stdout.getvalue())
         self.assertIn("kk setup", stdout.getvalue())
         self.assertIn("kk apply", stdout.getvalue())
         self.assertIn("kk update", stdout.getvalue())
@@ -76,7 +76,9 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertEqual(result, 0)
             build_plan_mock.assert_called_once()
             self.assertTrue(build_plan_mock.call_args.kwargs["skip_services"])
-            apply_plan_mock.assert_called_once_with([])
+            apply_plan_mock.assert_called_once()
+            self.assertEqual(apply_plan_mock.call_args.args, ([],))
+            self.assertEqual(apply_plan_mock.call_args.kwargs["manifest_path"], cli.KLIMKIT_MANIFEST_FILE)
             self.assertIn("actions    0", stdout.getvalue())
 
     def test_uninstall_without_confirmation_flag_uninstalls(self) -> None:
@@ -86,7 +88,7 @@ class KlimkitCliTests(unittest.TestCase):
             result = cli.main(["uninstall"])
 
         self.assertEqual(result, 0)
-        uninstall_mock.assert_called_once_with()
+        uninstall_mock.assert_called_once_with(manifest_path=cli.KLIMKIT_MANIFEST_FILE)
         self.assertIn("removed    3", stdout.getvalue())
 
     def test_pull_refuses_missing_config(self) -> None:
@@ -134,7 +136,9 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn(["git", "pull", "--ff-only", "origin", "main"], git_calls)
             build_plan_mock.assert_called_once()
             self.assertTrue(build_plan_mock.call_args.kwargs["skip_services"])
-            apply_plan_mock.assert_called_once_with([])
+            apply_plan_mock.assert_called_once()
+            self.assertEqual(apply_plan_mock.call_args.args, ([],))
+            self.assertEqual(apply_plan_mock.call_args.kwargs["manifest_path"], cli.KLIMKIT_MANIFEST_FILE)
             self.assertIn("actions    0", stdout.getvalue())
 
     def test_setup_creates_config_without_applying_by_default(self) -> None:
@@ -205,7 +209,9 @@ class KlimkitCliTests(unittest.TestCase):
 
             self.assertEqual(result, 0)
             build_plan_mock.assert_called_once()
-            apply_plan_mock.assert_called_once_with([])
+            apply_plan_mock.assert_called_once()
+            self.assertEqual(apply_plan_mock.call_args.args, ([],))
+            self.assertEqual(apply_plan_mock.call_args.kwargs["manifest_path"], cli.KLIMKIT_MANIFEST_FILE)
             self.assertIn("changed    1", stdout.getvalue())
             self.assertIn("Changed Files", stdout.getvalue())
             self.assertIn("/tmp/changed.txt", stdout.getvalue())
@@ -222,16 +228,19 @@ class KlimkitCliTests(unittest.TestCase):
 
             self.assertEqual(result, 0)
             self.assertIn("(updated)", stdout.getvalue())
-            self.assertIn("Switchboard TOML config", stdout.getvalue())
+            self.assertIn("Klimkit single source config", stdout.getvalue())
             config = parse_config(config_path.read_text(encoding="utf-8"))
             self.assertTrue(config.server_enabled)
 
     def test_plan_uses_klimkit_paths_and_no_private_defaults(self) -> None:
         config = default_config("client")
-        rendered = format_plan(build_plan(config, skip_services=True), config_path=Path("/tmp/klimkit.toml"))
+        with mock.patch("klimkit.install.shutil.which", return_value=None):
+            rendered = format_plan(build_plan(config, skip_services=True), config_path=Path("/tmp/klimkit.toml"))
 
-        self.assertIn(".config/klimkit", rendered)
-        self.assertIn(".local/state/klimkit", rendered)
+        self.assertIn(".klimkit/local/klimkit.toml", rendered)
+        self.assertIn(".klimkit/state", rendered)
+        self.assertIn("External Installers", rendered)
+        self.assertNotIn("switchboard.toml", rendered)
         self.assertNotIn("tail11" + "c448", rendered)
         self.assertNotIn("od" + "ev", rendered)
 

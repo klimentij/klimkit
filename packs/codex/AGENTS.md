@@ -37,6 +37,34 @@ Custom Codex agents are managed from `packs/codex/agents/` and synced into `~/.c
 
 Shared skills live in `~/.codex/skills/`. Prefer a matching documented skill over ad-hoc command sequences when one exists, and let repository-local skills add project-specific workflows as needed.
 
+## Klimkit Project Memory, Logs, And Tasks
+
+At the start of meaningful repo work, read `.klimkit/memory.md` and `.klimkit/log.md` when they exist. If either file is missing and meaningful repo work is starting, create it under `.klimkit/` before the first memory or log update.
+
+Use this memory template:
+
+```markdown
+# Project Memory
+
+Durable preferences, corrections, and process rules. Add dated one-sentence memories.
+
+## Memories
+```
+
+Use this log template:
+
+```markdown
+# Project Log
+
+Timestamped audit trail. Entries describe actions, not preferences.
+
+## Log
+```
+
+Store durable preferences, corrections, and process rules in `.klimkit/memory.md` as dated one-sentence memories. Store meaningful actions in `.klimkit/log.md` as ISO-timestamped one-sentence audit entries. Logs describe what happened, not preferences.
+
+Task and feature work belongs under `.klimkit/tasks/<nn-feature-slug>/`. Human-authored files use `-h-` in the filename. Agent-authored files use `-a-` in the filename. Task folders can contain planning, design, discussion, proof, and implementation notes.
+
 
 # Behavioral guidelines
 

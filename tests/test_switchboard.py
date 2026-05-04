@@ -9,7 +9,13 @@ from urllib import error, request
 from klimkit.apps.switchboard import daemon as MODULE
 
 
-def build_config(state_dir: Path, *, base_path: str = "/switchboard", port: int = 0) -> object:
+def build_config(
+    state_dir: Path,
+    *,
+    base_path: str = "/switchboard",
+    port: int = 0,
+    trusted_bypass: bool = True,
+) -> object:
     return MODULE.AppConfig(
         state_dir=state_dir,
         sessions_root=state_dir / "sessions",
@@ -19,6 +25,7 @@ def build_config(state_dir: Path, *, base_path: str = "/switchboard", port: int 
         host="127.0.0.1",
         port=port,
         base_path=base_path,
+        secure_auth_cookie=False,
         tls_cert_file=Path(""),
         tls_key_file=Path(""),
         backend_url="",
@@ -31,6 +38,7 @@ def build_config(state_dir: Path, *, base_path: str = "/switchboard", port: int 
         stale_after_seconds=180,
         machine_id="workstation",
         machine_dns="workstation.example.ts.net",
+        trusted_codex_launch_bypass_sandbox=trusted_bypass,
     )
 
 
@@ -107,6 +115,68 @@ def same_origin_headers(running: RunningServer) -> dict[str, str]:
 
 
 class SwitchboardTests(unittest.TestCase):
+    def test_load_config_reads_server_from_klimkit_toml(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "klimkit.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[paths]",
+                        f'state_dir = "{root / "state"}"',
+                        "",
+                        "[switchboard.server]",
+                        "enabled = true",
+                        'host = "127.0.0.1"',
+                        "port = 4876",
+                        'base_path = "/switchboard"',
+                        "secure_auth_cookie = true",
+                        'auth_token = "secret"',
+                        "collector_interval_seconds = 1.5",
+                        "",
+                        "[trusted_local_agent_launch]",
+                        "bypass_codex_approvals_and_sandbox = false",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = MODULE.load_config(config_path)
+
+        self.assertEqual(config.state_dir, root / "state" / "switchboard")
+        self.assertEqual(config.hooks_events_path, root / "state" / "switchboard" / "events.jsonl")
+        self.assertEqual(config.port, 4876)
+        self.assertTrue(config.secure_auth_cookie)
+        self.assertEqual(config.backend_auth_token, "secret")
+        self.assertEqual(config.collector_interval_seconds, 1.5)
+        self.assertFalse(config.trusted_codex_launch_bypass_sandbox)
+
+    def test_load_config_keeps_standalone_switchboard_paths_exact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "switchboard.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[paths]",
+                        f'state_dir = "{root / "state" / "switchboard"}"',
+                        f'hooks_events = "{root / "events.jsonl"}"',
+                        "",
+                        "[server]",
+                        "enabled = true",
+                        'host = "127.0.0.1"',
+                        "port = 4877",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = MODULE.load_config(config_path)
+
+        self.assertEqual(config.state_dir, root / "state" / "switchboard")
+        self.assertEqual(config.hooks_events_path, root / "events.jsonl")
+
     def test_non_loopback_server_requires_auth_token(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config = build_config(Path(tmpdir))
@@ -118,6 +188,13 @@ class SwitchboardTests(unittest.TestCase):
             secured = MODULE.AppConfig(**{**config.__dict__, "backend_auth_token": "secret"})
 
             MODULE.validate_server_auth_config(secured)
+
+    def test_secure_auth_cookie_flag_is_configurable(self) -> None:
+        plain = MODULE.build_auth_cookie("token", "/switchboard")
+        secure = MODULE.build_auth_cookie("token", "/switchboard", secure=True)
+
+        self.assertNotIn("Secure", plain)
+        self.assertIn("Secure", secure)
 
     def test_parse_rollout_marks_planning_before_action(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -712,6 +789,56 @@ class SwitchboardTests(unittest.TestCase):
             finally:
                 running.close()
 
+    def test_local_workspace_bootstrap_respects_disabled_trusted_bypass(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir), trusted_bypass=False))
+            try:
+                workspace = Path(tmpdir) / "safe" / "repo"
+                req = request.Request(
+                    running.base_url + "/api/local-workspaces/bootstrap",
+                    data=json.dumps({"cwd": str(workspace)}).encode("utf-8"),
+                    headers=same_origin_headers(running),
+                    method="POST",
+                )
+                with request.urlopen(req, timeout=5):
+                    pass
+
+                tasks = json.loads((workspace / ".vscode" / "tasks.json").read_text(encoding="utf-8"))
+                klimkit_tasks = [
+                    task for task in tasks["tasks"] if task.get("label") == MODULE.LOCAL_CODEX_TASK_LABEL
+                ]
+                self.assertEqual(len(klimkit_tasks), 1)
+                self.assertIn("check_for_update_on_startup=false", klimkit_tasks[0]["command"])
+                self.assertNotIn("--dangerously-bypass-approvals-and-sandbox", klimkit_tasks[0]["command"])
+            finally:
+                running.close()
+
+    def test_tokenless_loopback_rejects_untrusted_host_header(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir)))
+            try:
+                req = request.Request(
+                    running.base_url + "/api/state",
+                    headers={"Host": "attacker.example"},
+                    method="GET",
+                )
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(req, timeout=5)
+                self.assertEqual(raised.exception.code, 401)
+            finally:
+                running.close()
+
+    def test_state_exposes_effective_codex_launch_flags(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir), trusted_bypass=False))
+            try:
+                with request.urlopen(running.base_url + "/api/state", timeout=5) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                self.assertIn("check_for_update_on_startup=false", payload["codex_launch_flags"])
+                self.assertNotIn("--dangerously-bypass-approvals-and-sandbox", payload["codex_launch_flags"])
+            finally:
+                running.close()
+
     def test_local_workspace_bootstrap_rejects_relative_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             running = start_server(build_config(Path(tmpdir)))
@@ -1168,6 +1295,9 @@ class SwitchboardTests(unittest.TestCase):
         self.assertIn("buildLocalCodeServerUrl", script)
         self.assertIn("bootstrapLocalWorkspace", script)
         self.assertIn("check_for_update_on_startup=false", script)
+        self.assertIn("codexLaunchFlags", script)
+        self.assertNotIn("TRUSTED_LOCAL_CODEX_LAUNCH_FLAGS", script)
+        self.assertNotIn("--dangerously-bypass-approvals-and-sandbox", script)
         self.assertIn("resolveNotificationTargetWorkspace", script)
         self.assertIn("syncLoadedFrames", script)
         self.assertIn("MAX_LOADED_FRAMES", script)

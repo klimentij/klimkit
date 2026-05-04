@@ -26,8 +26,9 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib
 
+from klimkit.paths import KLIMKIT_CONFIG_FILE, KLIMKIT_STATE_DIR
 
-DEFAULT_CONFIG_PATH = Path(__file__).with_name("switchboard-agent.toml")
+DEFAULT_CONFIG_PATH = KLIMKIT_CONFIG_FILE
 HELPER_STATIC_DIR = Path(__file__).with_name("helper_static")
 TIMESTAMP_RE = re.compile(
     r"^(?P<head>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})"
@@ -71,6 +72,7 @@ class AgentConfig:
     heartbeat_seconds: int
     max_session_age_days: int
     helper_enabled: bool
+    helper_host: str
     helper_port: int
 
 
@@ -125,11 +127,17 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def load_config(path: Path) -> AgentConfig:
+    raw = tomllib.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    is_klimkit_config = "switchboard" in raw and isinstance(raw.get("switchboard"), dict)
+    root_paths = raw.get("paths", {}) if isinstance(raw.get("paths", {}), dict) else {}
+    switchboard = raw.get("switchboard", {}) if isinstance(raw.get("switchboard", {}), dict) else {}
+    agent_config = switchboard.get("agent", {}) if isinstance(switchboard.get("agent", {}), dict) else {}
+    state_root = Path(str(root_paths.get("state_dir", KLIMKIT_STATE_DIR))).expanduser()
     defaults = {
         "paths": {
             "sessions_root": str(Path.home() / ".codex" / "sessions"),
             "session_index": str(Path.home() / ".codex" / "session_index.jsonl"),
-            "state_dir": str(Path.home() / ".local" / "state" / "klimkit" / "switchboard-agent"),
+            "state_dir": str(state_root / "switchboard-agent"),
         },
         "backend": {
             "base_url": "",
@@ -143,16 +151,35 @@ def load_config(path: Path) -> AgentConfig:
         },
         "helper": {
             "enabled": True,
+            "host": "127.0.0.1",
             "port": 4632,
         },
     }
 
-    if path.exists():
-        raw = tomllib.loads(path.read_text(encoding="utf-8"))
-    else:
-        raw = {}
+    paths_config = {**(switchboard.get("paths", {}) if is_klimkit_config else root_paths)}
+    backend_config = {**raw.get("backend", {})}
+    agent_legacy_config = raw.get("agent", {})
+    helper_config = raw.get("helper", {})
 
     def nested(section: str, key: str) -> Any:
+        if section == "paths":
+            return paths_config.get(key, defaults[section][key])
+        if section == "backend":
+            if key == "base_url":
+                return agent_config.get("backend_url", backend_config.get(key, defaults[section][key]))
+            if key == "auth_token":
+                return agent_config.get("auth_token", backend_config.get(key, defaults[section][key]))
+            return backend_config.get(key, defaults[section][key])
+        if section == "agent":
+            mapping = {
+                "interval_seconds": "interval_seconds",
+                "heartbeat_seconds": "heartbeat_seconds",
+                "max_session_age_days": "max_session_age_days",
+            }
+            return agent_config.get(mapping[key], agent_legacy_config.get(key, defaults[section][key]))
+        if section == "helper":
+            mapping = {"enabled": "enabled", "host": "helper_host", "port": "helper_port"}
+            return agent_config.get(mapping[key], helper_config.get(key, defaults[section][key]))
         return raw.get(section, {}).get(key, defaults[section][key])
 
     return AgentConfig(
@@ -166,6 +193,7 @@ def load_config(path: Path) -> AgentConfig:
         heartbeat_seconds=max(5, int(nested("agent", "heartbeat_seconds"))),
         max_session_age_days=max(1, int(nested("agent", "max_session_age_days"))),
         helper_enabled=bool(nested("helper", "enabled")),
+        helper_host=str(nested("helper", "host")).strip() or "127.0.0.1",
         helper_port=max(1, int(nested("helper", "port"))),
     )
 
@@ -720,11 +748,10 @@ def start_helper_server(config: AgentConfig) -> ThreadingHTTPServer | None:
     if not config.helper_enabled:
         return None
     try:
-        # Bind broadly so code-server's /proxy/<port>/ path can actually reach the helper.
-        server = ThreadingHTTPServer(("0.0.0.0", config.helper_port), HelperStaticHandler)
+        server = ThreadingHTTPServer((config.helper_host, config.helper_port), HelperStaticHandler)
     except OSError as exc:
         print(
-            f"switchboard-agent warning: helper server unavailable on 0.0.0.0:{config.helper_port}: {exc}",
+            f"switchboard-agent warning: helper server unavailable on {config.helper_host}:{config.helper_port}: {exc}",
             file=sys.stderr,
             flush=True,
         )

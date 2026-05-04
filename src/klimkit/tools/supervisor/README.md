@@ -8,7 +8,7 @@ Responsibilities:
 - optionally run the Switchboard snapshot worker
 - when `components.server = true`, keep Switchboard alive
 
-The machine-local config lives at `~/.config/klimkit/klimkit.toml`.
+The machine-local config lives at `~/klimkit/.klimkit/local/klimkit.toml`.
 
 Install and start it through:
 

@@ -3,15 +3,40 @@ set -euo pipefail
 
 payload="$(cat)"
 
-TELEGRAM_ENV="${KLIMKIT_TELEGRAM_ENV:-$HOME/.config/klimkit/telegram.env}"
-if [[ -f "$TELEGRAM_ENV" ]]; then
-  # shellcheck disable=SC1090
-  source "$TELEGRAM_ENV"
-fi
+KLIMKIT_CONFIG="${KLIMKIT_CONFIG:-$HOME/klimkit/.klimkit/local/klimkit.toml}"
 
-TELEGRAM_ENABLED="${KLIMKIT_TELEGRAM_ENABLED:-false}"
-BOT_TOKEN="${KLIMKIT_TELEGRAM_BOT_TOKEN:-${TELEGRAM_BOT_TOKEN:-}}"
-CHAT_ID="${KLIMKIT_TELEGRAM_CHAT_ID:-${TELEGRAM_CHAT_ID:-}}"
+telegram_json="$(
+  KLIMKIT_CONFIG="$KLIMKIT_CONFIG" /usr/bin/python3 -c '
+import json
+import os
+from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    try:
+        import tomli as tomllib
+    except ModuleNotFoundError:
+        print(json.dumps({"enabled": False, "bot_token": "", "chat_id": ""}))
+        raise SystemExit(0)
+
+path = Path(os.environ.get("KLIMKIT_CONFIG", "")).expanduser()
+try:
+    data = tomllib.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+except Exception:
+    data = {}
+telegram = data.get("notifications", {}).get("telegram", {}) if isinstance(data, dict) else {}
+print(json.dumps({
+    "enabled": bool(telegram.get("enabled", False)),
+    "bot_token": str(telegram.get("bot_token", "")),
+    "chat_id": str(telegram.get("chat_id", "")),
+}))
+'
+)"
+
+TELEGRAM_ENABLED="${KLIMKIT_TELEGRAM_ENABLED:-$(printf '%s' "$telegram_json" | /usr/bin/python3 -c 'import json, sys; print(str(json.load(sys.stdin).get("enabled", False)).lower())')}"
+BOT_TOKEN="${KLIMKIT_TELEGRAM_BOT_TOKEN:-$(printf '%s' "$telegram_json" | /usr/bin/python3 -c 'import json, sys; print(json.load(sys.stdin).get("bot_token", ""))')}"
+CHAT_ID="${KLIMKIT_TELEGRAM_CHAT_ID:-$(printf '%s' "$telegram_json" | /usr/bin/python3 -c 'import json, sys; print(json.load(sys.stdin).get("chat_id", ""))')}"
 
 metadata_json="$(
   printf '%s' "$payload" | /usr/bin/python3 -c '
@@ -29,8 +54,9 @@ import urllib.request
 import html
 
 MAX_LEN = 320
-STATE_PATH = os.path.expanduser("~/.codex/hooks/.stop-notify-seen.json")
-EVENTS_PATH = os.path.expanduser("~/.codex/switchboard/events.jsonl")
+STATE_ROOT = os.path.expanduser(os.environ.get("KLIMKIT_STATE_DIR", "~/klimkit/.klimkit/state"))
+STATE_PATH = os.path.join(STATE_ROOT, "codex-hooks", "stop-notify-seen.json")
+EVENTS_PATH = os.path.join(STATE_ROOT, "switchboard", "events.jsonl")
 DEFAULT_FORWARD_ENDPOINT = os.environ.get("SWITCHBOARD_EVENT_ENDPOINT", "")
 TRIVIAL_MESSAGES = {
     "yes",

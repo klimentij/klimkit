@@ -1,7 +1,7 @@
 [paths]
 sessions_root = "~/.codex/sessions"
 session_index = "~/.codex/session_index.jsonl"
-state_dir = "~/.local/state/klimkit/switchboard-agent"
+state_dir = "~/klimkit/.klimkit/state/switchboard-agent"
 
 [backend]
 base_url = ""
@@ -15,4 +15,5 @@ max_session_age_days = 14
 
 [helper]
 enabled = true
+host = "127.0.0.1"
 port = 4632

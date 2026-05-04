@@ -47,7 +47,7 @@ const POLL_INTERVAL_MS = 10000;
 const UI_VERSION_POLL_INTERVAL_MS = 3000;
 const FOLDER_SUGGESTION_LIMIT = 10;
 const HOT_FRAME_STATES = new Set(["new", "starting", "planning", "working", "needs_input", "awaiting_approval"]);
-const CODEX_LAUNCH_FLAGS = "-c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox";
+const DEFAULT_CODEX_LAUNCH_FLAGS = "-c check_for_update_on_startup=false";
 const APP_INSTANCE_KEY = "__switchboardAppInstance";
 const APP_GENERATION_KEY = "__switchboardAppGeneration";
 const APP_POLL_TIMER_KEY = "__switchboardPollTimer";
@@ -81,6 +81,7 @@ const ui = {
     ...loadJson(CATALOG_FILTERS_KEY, {}),
   },
   selectedWorkspaceIds: new Set(),
+  codexLaunchFlags: DEFAULT_CODEX_LAUNCH_FLAGS,
 };
 
 let pollTimer = null;
@@ -245,18 +246,23 @@ function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
 }
 
+function normalizeCodexLaunchFlags(value) {
+  const text = String(value || "").trim().replace(/\s+/g, " ");
+  return text || DEFAULT_CODEX_LAUNCH_FLAGS;
+}
+
 function codexResumeCommand(workspace) {
   const sessionId = String(workspace?.session_id || "").trim();
   return sessionId
-    ? `codex ${CODEX_LAUNCH_FLAGS} resume ${shellQuote(sessionId)}`
+    ? `codex ${ui.codexLaunchFlags} resume ${shellQuote(sessionId)}`
     : "";
 }
 
 function codexLaunchCommand(workspace) {
   const cwd = String(workspace?.cwd || "").trim();
   return cwd
-    ? `codex ${CODEX_LAUNCH_FLAGS} -C ${shellQuote(cwd)}`
-    : `codex ${CODEX_LAUNCH_FLAGS}`;
+    ? `codex ${ui.codexLaunchFlags} -C ${shellQuote(cwd)}`
+    : `codex ${ui.codexLaunchFlags}`;
 }
 
 function codexCommand(workspace) {
@@ -549,6 +555,7 @@ function syncLocalWorkspaces() {
 }
 
 function materializeState(payload) {
+  ui.codexLaunchFlags = normalizeCodexLaunchFlags(payload.codex_launch_flags);
   ui.serverWorkspaces = sortWorkspaces(Array.isArray(payload.workspaces) ? payload.workspaces : []);
   syncLocalWorkspaces();
   reconcileLocalWorkspaces(ui.serverWorkspaces);

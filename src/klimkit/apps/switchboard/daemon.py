@@ -32,8 +32,9 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib
 
+from klimkit.paths import KLIMKIT_CONFIG_FILE, KLIMKIT_STATE_DIR
 
-DEFAULT_CONFIG_PATH = Path(__file__).with_name("switchboard.toml")
+DEFAULT_CONFIG_PATH = KLIMKIT_CONFIG_FILE
 STATIC_DIR = Path(__file__).with_name("static")
 CACHE_VERSION = 2
 DEFAULT_BASE_PATH = "/switchboard"
@@ -96,6 +97,7 @@ class AppConfig:
     host: str
     port: int
     base_path: str
+    secure_auth_cookie: bool
     tls_cert_file: Path
     tls_key_file: Path
     backend_url: str
@@ -108,6 +110,7 @@ class AppConfig:
     stale_after_seconds: int
     machine_id: str
     machine_dns: str
+    trusted_codex_launch_bypass_sandbox: bool
 
 
 @dataclass(frozen=True)
@@ -169,18 +172,26 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def load_config(path: Path) -> AppConfig:
+    raw = tomllib.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    is_klimkit_config = "switchboard" in raw and isinstance(raw.get("switchboard"), dict)
+    root_paths = raw.get("paths", {}) if isinstance(raw.get("paths", {}), dict) else {}
+    switchboard = raw.get("switchboard", {}) if isinstance(raw.get("switchboard", {}), dict) else {}
+    server_config = switchboard.get("server", {}) if isinstance(switchboard.get("server", {}), dict) else {}
+    agent_config = switchboard.get("agent", {}) if isinstance(switchboard.get("agent", {}), dict) else {}
+    state_root = Path(str(root_paths.get("state_dir", KLIMKIT_STATE_DIR))).expanduser()
     defaults = {
         "paths": {
-            "state_dir": str(Path.home() / ".local" / "state" / "klimkit" / "switchboard"),
+            "state_dir": str(state_root / "switchboard"),
             "sessions_root": str(Path.home() / ".codex" / "sessions"),
             "session_index": str(Path.home() / ".codex" / "session_index.jsonl"),
-            "hooks_events": str(Path.home() / ".codex" / "switchboard" / "events.jsonl"),
+            "hooks_events": str(state_root / "switchboard" / "events.jsonl"),
         },
         "server": {
             "enabled": True,
             "host": "127.0.0.1",
             "port": 4721,
             "base_path": DEFAULT_BASE_PATH,
+            "secure_auth_cookie": False,
             "tls_cert_file": "",
             "tls_key_file": "",
         },
@@ -202,9 +213,35 @@ def load_config(path: Path) -> AppConfig:
         },
     }
 
-    raw = tomllib.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    paths_config = {**(switchboard.get("paths", {}) if is_klimkit_config else root_paths)}
+    backend_config = {**raw.get("backend", {}), **switchboard.get("backend", {})}
+    collector_config = {**raw.get("collector", {})}
+    machine_config = raw.get("machine", {})
+    trusted_launch_config = raw.get("trusted_local_agent_launch", {})
 
     def nested(section: str, key: str) -> Any:
+        if section == "paths":
+            return paths_config.get(key, defaults[section][key])
+        if section == "server":
+            return server_config.get(key, raw.get("server", {}).get(key, defaults[section][key]))
+        if section == "backend":
+            if key == "auth_token":
+                return server_config.get("auth_token", agent_config.get("auth_token", backend_config.get(key, defaults[section][key])))
+            if key == "base_url":
+                return backend_config.get(key, defaults[section][key])
+            return backend_config.get(key, defaults[section][key])
+        if section == "collector":
+            mapping = {
+                "interval_seconds": "collector_interval_seconds",
+                "heartbeat_seconds": "heartbeat_seconds",
+                "max_session_age_days": "max_session_age_days",
+                "stale_after_seconds": "stale_after_seconds",
+            }
+            if key == "enabled":
+                return collector_config.get(key, defaults[section][key])
+            return server_config.get(mapping[key], collector_config.get(key, defaults[section][key]))
+        if section == "machine":
+            return machine_config.get(key, defaults[section][key])
         return raw.get(section, {}).get(key, defaults[section][key])
 
     base_path = str(nested("server", "base_path")).strip() or DEFAULT_BASE_PATH
@@ -221,6 +258,7 @@ def load_config(path: Path) -> AppConfig:
         host=str(nested("server", "host")).strip(),
         port=max(1, int(nested("server", "port"))),
         base_path=base_path,
+        secure_auth_cookie=bool(nested("server", "secure_auth_cookie")),
         tls_cert_file=optional_path(nested("server", "tls_cert_file")),
         tls_key_file=optional_path(nested("server", "tls_key_file")),
         backend_url=str(nested("backend", "base_url")).strip().rstrip("/"),
@@ -233,6 +271,9 @@ def load_config(path: Path) -> AppConfig:
         stale_after_seconds=max(30, int(nested("collector", "stale_after_seconds"))),
         machine_id=str(nested("machine", "id")).strip(),
         machine_dns=str(nested("machine", "dns_name")).strip(),
+        trusted_codex_launch_bypass_sandbox=bool(
+            trusted_launch_config.get("bypass_codex_approvals_and_sandbox", True)
+        ),
     )
 
 
@@ -341,18 +382,30 @@ def build_code_server_url(identity: MachineIdentity, cwd: str) -> str:
     return f"https://{identity.dns_name}/?folder={parse.quote(cwd, safe='/')}"
 
 
-def build_codex_command(cwd: Path) -> str:
-    return (
-        "codex -c check_for_update_on_startup=false "
-        f"--dangerously-bypass-approvals-and-sandbox -C {shlex.quote(str(cwd))}"
+def codex_launch_flags(*, bypass_approvals_and_sandbox: bool) -> tuple[str, ...]:
+    flags = ("-c", "check_for_update_on_startup=false")
+    if bypass_approvals_and_sandbox:
+        return (*flags, "--dangerously-bypass-approvals-and-sandbox")
+    return flags
+
+
+def codex_launch_flags_text(*, bypass_approvals_and_sandbox: bool) -> str:
+    return " ".join(
+        shlex.quote(part)
+        for part in codex_launch_flags(bypass_approvals_and_sandbox=bypass_approvals_and_sandbox)
     )
 
 
-def build_codex_task(cwd: Path) -> dict[str, Any]:
+def build_codex_command(cwd: Path, *, bypass_approvals_and_sandbox: bool = True) -> str:
+    flags = codex_launch_flags_text(bypass_approvals_and_sandbox=bypass_approvals_and_sandbox)
+    return f"codex {flags} -C {shlex.quote(str(cwd))}"
+
+
+def build_codex_task(cwd: Path, *, bypass_approvals_and_sandbox: bool = True) -> dict[str, Any]:
     return {
         "label": LOCAL_CODEX_TASK_LABEL,
         "type": "shell",
-        "command": build_codex_command(cwd),
+        "command": build_codex_command(cwd, bypass_approvals_and_sandbox=bypass_approvals_and_sandbox),
         "problemMatcher": [],
         "presentation": {
             "echo": True,
@@ -367,13 +420,18 @@ def build_codex_task(cwd: Path) -> dict[str, Any]:
     }
 
 
-def merge_klimkit_task(tasks_payload: dict[str, Any], cwd: Path) -> dict[str, Any]:
+def merge_klimkit_task(
+    tasks_payload: dict[str, Any],
+    cwd: Path,
+    *,
+    bypass_approvals_and_sandbox: bool = True,
+) -> dict[str, Any]:
     merged = dict(tasks_payload)
     merged["version"] = str(merged.get("version") or "2.0.0")
     tasks = merged.get("tasks")
     if not isinstance(tasks, list):
         tasks = []
-    task = build_codex_task(cwd)
+    task = build_codex_task(cwd, bypass_approvals_and_sandbox=bypass_approvals_and_sandbox)
     merged["tasks"] = [
         existing
         for existing in tasks
@@ -1713,11 +1771,15 @@ class SwitchboardApp:
         self.store.close()
 
     def build_state(self) -> dict[str, Any]:
-        return self.store.build_state(
+        state = self.store.build_state(
             hostname=self.hostname,
             stale_after_seconds=self.config.stale_after_seconds,
             retention_days=self.config.max_session_age_days,
         )
+        state["codex_launch_flags"] = codex_launch_flags_text(
+            bypass_approvals_and_sandbox=self.config.trusted_codex_launch_bypass_sandbox
+        )
+        return state
 
     def ingest_snapshot(self, payload: dict[str, Any]) -> dict[str, Any]:
         count = self.store.apply_snapshot(payload)
@@ -1772,7 +1834,11 @@ class SwitchboardApp:
             if not isinstance(loaded_tasks, dict):
                 raise ValueError(f"{tasks_path} must contain a JSON object")
             tasks_payload = loaded_tasks
-        merged_tasks = merge_klimkit_task(tasks_payload, cwd)
+        merged_tasks = merge_klimkit_task(
+            tasks_payload,
+            cwd,
+            bypass_approvals_and_sandbox=self.config.trusted_codex_launch_bypass_sandbox,
+        )
         tasks_path.write_text(json.dumps(merged_tasks, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
         settings_path = vscode_dir / "settings.json"
@@ -2247,6 +2313,8 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
         return content_type == "application/json"
 
     def _is_same_origin_request(self) -> bool:
+        if not self.app.config.backend_auth_token and not self._is_trusted_loopback_host_header():
+            return False
         expected = self._request_origin()
         origin = str(self.headers.get("Origin") or "").strip()
         if origin and origin.lower() != "null":
@@ -2262,6 +2330,12 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
             host = f"{self.app.config.host}:{self.app.config.port}"
         scheme = "https" if isinstance(self.connection, ssl.SSLSocket) else "http"
         return f"{scheme}://{host.lower()}"
+
+    def _is_trusted_loopback_host_header(self) -> bool:
+        host = host_header_hostname(str(self.headers.get("Host") or "").strip())
+        if not host:
+            return True
+        return is_loopback_host(host)
 
     def _handle_stream(self) -> None:
         subscriber = self.app.broadcaster.subscribe()
@@ -2333,7 +2407,7 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
         token = self.app.config.backend_auth_token
         if token:
             return self._presented_token() == token
-        return is_loopback_host(self.client_address[0])
+        return is_loopback_host(self.client_address[0]) and self._is_trusted_loopback_host_header()
 
     def _presented_token(self) -> str:
         header_token = str(self.headers.get("X-Switchboard-Token", "")).strip()
@@ -2368,7 +2442,7 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
             location += "?" + clean_query
         self.send_response(HTTPStatus.FOUND)
         self.send_header("Location", location)
-        self.send_header("Set-Cookie", build_auth_cookie(token, self.app.config.base_path))
+        self.send_header("Set-Cookie", build_auth_cookie(token, self.app.config.base_path, secure=self.app.config.secure_auth_cookie))
         self.send_header("Content-Length", "0")
         self.end_headers()
         return True
@@ -2416,18 +2490,32 @@ def is_safe_static_path(candidate: Path, root: Path) -> bool:
 
 
 def is_loopback_host(host: str) -> bool:
+    host = host.strip().strip("[]").lower()
     try:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return host in {"localhost", "::1"}
 
 
-def build_auth_cookie(token: str, base_path: str) -> str:
+def host_header_hostname(value: str) -> str:
+    value = value.strip()
+    if not value:
+        return ""
+    try:
+        parsed = urlparse("//" + value)
+    except ValueError:
+        return ""
+    return (parsed.hostname or "").strip().lower()
+
+
+def build_auth_cookie(token: str, base_path: str, *, secure: bool = False) -> str:
     cookie = SimpleCookie()
     cookie[AUTH_COOKIE_NAME] = token
     cookie[AUTH_COOKIE_NAME]["path"] = base_path or "/"
     cookie[AUTH_COOKIE_NAME]["httponly"] = True
     cookie[AUTH_COOKIE_NAME]["samesite"] = "Strict"
+    if secure:
+        cookie[AUTH_COOKIE_NAME]["secure"] = True
     return cookie.output(header="", sep="").strip()
 
 

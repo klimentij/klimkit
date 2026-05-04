@@ -1,8 +1,8 @@
 [paths]
-state_dir = "~/.local/state/klimkit/switchboard"
+state_dir = "~/klimkit/.klimkit/state/switchboard"
 sessions_root = "~/.codex/sessions"
 session_index = "~/.codex/session_index.jsonl"
-hooks_events = "~/.codex/switchboard/events.jsonl"
+hooks_events = "~/klimkit/.klimkit/state/switchboard/events.jsonl"
 
 [server]
 enabled = true
