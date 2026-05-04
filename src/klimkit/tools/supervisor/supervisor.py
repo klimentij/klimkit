@@ -323,11 +323,15 @@ def summarize_changed_files(changed_files: tuple[str, ...]) -> str:
 def autosync_notification_text(config: SupervisorConfig, update: CheckoutUpdate) -> str:
     machine = socket.gethostname()
     summary = summarize_changed_files(update.changed_files)
-    return (
-        f"Klimkit autosync on {machine}: "
-        f"{config.profile}, "
-        f"{update.previous_revision[:7]} -> {update.new_revision[:7]}, "
-        f"{len(update.changed_files)} files ({summary}); applied projections; restarting service."
+    return "\n".join(
+        [
+            "🔄 Klimkit autosync",
+            f"🖥 Machine: {machine}",
+            f"🧩 Profile: {config.profile}",
+            f"🌿 Revision: {update.previous_revision[:7]} -> {update.new_revision[:7]}",
+            f"📝 Changes: {len(update.changed_files)} files ({summary})",
+            "🔁 Live: projections applied; restarting Klimkit service",
+        ]
     )
 
 

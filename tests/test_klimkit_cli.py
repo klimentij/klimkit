@@ -264,6 +264,12 @@ class KlimkitCliTests(unittest.TestCase):
                     return_value={
                         "actions": [
                             {
+                                "id": "tailscale-serve-code-server",
+                                "kind": "run_command",
+                                "description": "configure Tailscale Serve for code-server",
+                                "status": "ran",
+                            },
+                            {
                                 "id": "systemd-restart-klimkit",
                                 "kind": "run_command",
                                 "description": "restart Klimkit user service",
@@ -279,6 +285,8 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertEqual(result, 0)
             output = stdout.getvalue()
             self.assertIn("Live", output)
+            self.assertIn("served", output)
+            self.assertIn("configure Tailscale Serve for code-server", output)
             self.assertIn("restarted", output)
             self.assertIn("restart Klimkit user service", output)
             self.assertIn("Switchboard: http://127.0.0.1:4721/switchboard/", output)
@@ -342,9 +350,10 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertEqual(result, 0)
             telegram_mock.assert_called_once()
             notification = telegram_mock.call_args.args[1]
-            self.assertIn("Klimkit apply on vm-1", notification)
-            self.assertIn("1 actions", notification)
-            self.assertIn("1 files changed", notification)
+            self.assertIn("✅ Klimkit apply", notification)
+            self.assertIn("🖥 Machine: vm-1", notification)
+            self.assertIn("📦 Actions: 1", notification)
+            self.assertIn("📝 Changes: 1 files changed", notification)
             self.assertIn("restart Klimkit user service", notification)
             self.assertIn("https://odev.tail11c448.ts.net/proxy/4721/", notification)
             self.assertIn("telegram", stdout.getvalue())

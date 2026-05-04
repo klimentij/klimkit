@@ -1,8 +1,29 @@
 # Klimkit
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg)](pyproject.toml)
+[![Tests: unittest](https://img.shields.io/badge/Tests-unittest-7ef0af.svg)](tests/)
+[![Runtime: Tailscale](https://img.shields.io/badge/Runtime-Tailscale-6f8d7e.svg)](https://tailscale.com/)
+[![Harness: Codex](https://img.shields.io/badge/Harness-Codex-edfff5.svg)](packs/codex/)
+
 ![Klimkit. Agentic engineering across machines, under control.](assets/brand/klimkit-readme-hero.png)
 
 Klimkit keeps an agent-ready machine reproducible. One repo owns the local instructions, harness packs, services, dashboards, and machine-specific settings needed to make a fresh VM behave like Klim's working environment. You edit the repo, preview exactly what will change, apply it locally, and use normal Git flow to carry the same operator setup to another machine.
+
+## Table of Contents
+
+- [Quick Install](#quick-install)
+- [Tech Stack](#tech-stack)
+- [Single Config](#single-config)
+- [Generated Projections](#generated-projections)
+- [Harness Pack](#harness-pack)
+- [Security Model](#security-model)
+- [Workflow](#workflow)
+- [Common Commands](#common-commands)
+- [Making Changes Live](#making-changes-live)
+- [Contributing](#contributing)
+- [Repository Layout](#repository-layout)
+- [Development](#development)
 
 ## Quick Install
 
@@ -11,6 +32,8 @@ curl -fsSL https://raw.githubusercontent.com/klimentij/klimkit/main/install.sh |
 ```
 
 Supported targets are macOS, Linux, and WSL2. Native Windows and Android/Termux are not supported targets yet.
+
+Chrome is recommended for Switchboard because Klimkit dogfoods the UI against Chrome/code-server/Tailscale Serve paths.
 
 After installation:
 
@@ -75,6 +98,12 @@ backend_url = "https://<first-vm>.<tailnet>.ts.net/switchboard"
 auth_token = ""
 ```
 
+On a first VM that also runs `[switchboard.server]`, `switchboard.agent.enabled = true` is still the default. If `backend_url` is empty, Klimkit reports to the local Switchboard server.
+
+Each client VM exposes its own local code-server through Tailscale Serve at `https://<client>.<tailnet>.ts.net/?folder=<absolute-path>`. Switchboard iframe tabs use the selected machine's code-server URL, not the central Switchboard server's code-server.
+
+If Tailscale refuses Serve changes with `Access denied: serve config denied`, run `sudo tailscale set --operator=$USER` once on that machine, then run `kk apply` again.
+
 Server settings live in the same file:
 
 ```toml
@@ -115,17 +144,50 @@ Current projections include:
 
 Codex keeps its default home at `~/.codex`. Klimkit treats that directory as a managed projection target, while Klimkit's own editable config and runtime state live under `~/klimkit/.klimkit`.
 
+## Harness Pack
+
+The active Codex home-level harness is source-controlled in `packs/codex/` and projected into `~/.codex/` by `kk apply`, `kk pull`, and daemon autosync.
+
+Current pack contents:
+
+- `packs/codex/AGENTS.md` for shared home-level instructions.
+- `packs/codex/config.toml` for GPT-5.5, xhigh reasoning, hooks, plugins, and trusted yolo defaults.
+- `packs/codex/agents/` for shared subagents, including 3-pass final review workflows.
+- `packs/codex/skills/` for reusable local skills, including `harness-tuning`.
+- `packs/codex/hooks/` for Codex Stop notifications and Switchboard event hints.
+
+To tune the shared harness, edit `~/klimkit/packs/codex/`, not `~/.codex/`. Then run:
+
+```bash
+uv run python -m unittest tests.test_codex_pack_validation -q
+kk apply
+git add packs/codex README.md
+git commit -m "Tune Codex harness"
+git push
+```
+
+Machines with autosync enabled pick up the commit from `origin/main`, apply the projection, restart managed services, and send Telegram summaries when configured.
+
 ## Security Model
 
 Klimkit is designed for a trusted personal machine or private tailnet, not arbitrary public internet exposure.
 
+**Important yolo-mode warning:** the default Codex pack is intended for a dedicated VM or external sandbox where `danger-full-access` and `approval_policy = "never"` are acceptable. Do not run this profile on a laptop or server that carries broad cloud credentials, sensitive private data, production write access, or unrelated personal files.
+
 - Switchboard may run without a token only on loopback. Non-loopback server hosts require `switchboard.server.auth_token`.
 - Tailscale Serve is the intended remote access boundary for Switchboard and code-server.
-- code-server binds to loopback with `auth: none`; access should be delegated to Tailscale or another trusted local proxy.
+- code-server binds to loopback with `auth: none`; `kk apply` configures Tailscale Serve so each client exposes only its own loopback code-server to the private tailnet.
 - The code-server template disables workspace trust and allows automatic tasks so the operator box behaves consistently for agent work. Treat this as a trusted-workstation setting.
 - Switchboard agent helper binds to loopback by default. Change `switchboard.agent.helper_host` only for a trusted proxy path.
 - Switchboard-launched Codex terminals use trusted-local automation defaults, including sandbox/approval bypass flags when configured.
 - If code-server is missing, `kk apply` may plan an external network installer. Review `kk preview` before applying, or set `code_server.install_if_missing = false`.
+
+The core risk is the AI-agent "lethal trifecta" described by [Simon Willison](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/): private-data access, exposure to untrusted content, and external communication. OWASP's [Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/) also calls out prompt injection, sensitive information disclosure, insecure plugin/tool design, and excessive agency. For Klimkit, that means:
+
+- Keep the VM's permissions minimal and purpose-built.
+- Avoid mounting broad home directories or production secrets into the agent box.
+- Prefer Tailscale/private network exposure over public listeners.
+- Require human review before moving yolo-mode changes into production systems.
 
 See `SECURITY.md` for the concise security notes.
 
@@ -187,12 +249,17 @@ Switchboard runs locally at:
 http://127.0.0.1:4721/switchboard/
 ```
 
+When Tailscale Serve is configured, `kk apply`, `kk pull`, and `kk doctor` also print the tailnet proxy and serve URLs.
+
 Expose it inside a tailnet with:
 
 ```bash
+tailscale serve --bg --set-path / http://127.0.0.1:8080
 tailscale serve --bg --set-path /switchboard http://127.0.0.1:4721/switchboard
 tailscale serve status
 ```
+
+If Tailscale asks for operator permissions, run `sudo tailscale set --operator=$USER` once and repeat `kk apply`.
 
 ## Making Changes Live
 
@@ -224,6 +291,18 @@ auto_sync_ref = "origin/main"
 Set `auto_sync = false` only on a VM where you want manual `kk pull` control.
 
 When `[notifications.telegram]` is enabled, each successful autosync sends one short message with the hostname, role, commit range, changed file count, changed areas, and restart status.
+
+## Contributing
+
+Contributions should stay small, previewable, and test-backed. Start with `CONTRIBUTING.md`, use `.klimkit/tasks/` for non-trivial plans/proofs, and keep machine-local secrets under ignored `.klimkit/local/`, `.klimkit/state/`, `.klimkit/backups/`, and `.klimkit/logs/`.
+
+Before opening or merging a meaningful change:
+
+```bash
+uv run python -m unittest discover -s tests -q
+uv run coverage run -m unittest discover -s tests -q
+uv run coverage report -m
+```
 
 ## Repository Layout
 

@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from klimkit.tools.switchboard_agent import switchboard_agent as MODULE
 
@@ -39,6 +40,54 @@ class SwitchboardAgentTests(unittest.TestCase):
         self.assertEqual(config.interval_seconds, 7)
         self.assertEqual(config.helper_host, "127.0.0.1")
         self.assertEqual(config.helper_port, 4633)
+
+    def test_load_config_defaults_first_vm_agent_to_local_switchboard(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "klimkit.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[paths]",
+                        f'state_dir = "{root / "state"}"',
+                        "",
+                        "[switchboard.server]",
+                        "enabled = true",
+                        "port = 4999",
+                        'base_path = "/switchboard"',
+                        "",
+                        "[switchboard.agent]",
+                        "enabled = true",
+                        'backend_url = ""',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = MODULE.load_config(config_path)
+
+        self.assertEqual(config.backend_url, "http://127.0.0.1:4999/switchboard")
+
+    def test_detect_machine_identity_infers_dns_when_tailscale_omits_self_dns(self):
+        with (
+            mock.patch.object(MODULE.socket, "gethostname", return_value="MacBook-Air-8.local"),
+            mock.patch.object(
+                MODULE,
+                "load_tailscale_status_payload",
+                return_value={
+                    "MagicDNSSuffix": "tail11c448.ts.net",
+                    "Self": {
+                        "HostName": "MacBook-Air-8.local",
+                        "DNSName": "",
+                    },
+                },
+            ),
+        ):
+            identity = MODULE.detect_machine_identity()
+
+        self.assertEqual(identity.machine, "MacBook-Air-8")
+        self.assertEqual(identity.dns_name, "macbook-air-8.tail11c448.ts.net")
 
     def test_load_config_keeps_standalone_agent_paths_exact(self):
         with tempfile.TemporaryDirectory() as tmpdir:

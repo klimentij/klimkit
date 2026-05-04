@@ -33,6 +33,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertTrue(parsed.server_enabled)
         self.assertEqual(parsed.repo_root, Path("/tmp/klimkit"))
         self.assertTrue(parsed.switchboard_enabled)
+        self.assertTrue(parsed.switchboard_agent_enabled)
         self.assertTrue(parsed.live_sync_enabled)
         self.assertEqual(parsed.live_sync_interval_seconds, 5)
         self.assertEqual(parsed.live_sync_ref, "origin/main")
@@ -40,6 +41,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertEqual(parsed.state_dir, ROOT / ".klimkit" / "state")
         self.assertIn("only human-edited Klimkit config", render_config(config))
         self.assertIn("auto_sync = true", render_config(config))
+        self.assertIn("switchboard_agent = true", render_config(config))
         self.assertIn("auto_sync_interval_seconds = 5", render_config(config))
         self.assertIn("enable = true", render_config(config))
         self.assertIn("[switchboard.server]", render_config(config))
@@ -156,6 +158,19 @@ class KlimkitInstallTests(unittest.TestCase):
             actions = build_plan(config, skip_services=True)
 
         self.assertFalse(any(action.id == "install-code-server" for action in actions))
+
+    def test_client_plan_configures_tailscale_serve_for_code_server(self) -> None:
+        config = replace(default_config("client"), configure_services=True)
+
+        with mock.patch("klimkit.install.shutil.which", return_value="/usr/bin/code-server"):
+            actions = build_plan(config, skip_services=False)
+
+        serve_action = next(action for action in actions if action.id == "tailscale-serve-code-server")
+        self.assertEqual(serve_action.kind, "run_command")
+        command = " ".join(serve_action.command)
+        self.assertIn("tailscale serve --bg --yes --set-path / http://127.0.0.1:8080", command)
+        self.assertIn("sudo tailscale set --operator=$USER", command)
+        self.assertFalse(any(action.id == "tailscale-serve-switchboard" for action in actions))
 
     def test_apply_writes_manifest_backup_and_uninstall_scope(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

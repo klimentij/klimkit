@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import socket
 import sqlite3
 import subprocess
@@ -58,6 +59,12 @@ TRIVIAL_MESSAGES = {
     "done.",
     "stopped.",
 }
+TAILSCALE_COMMAND_CANDIDATES = (
+    "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+    "/opt/homebrew/bin/tailscale",
+    "/usr/local/bin/tailscale",
+    "/usr/bin/tailscale",
+)
 
 
 @dataclass(frozen=True)
@@ -131,6 +138,7 @@ def load_config(path: Path) -> AgentConfig:
     is_klimkit_config = "switchboard" in raw and isinstance(raw.get("switchboard"), dict)
     root_paths = raw.get("paths", {}) if isinstance(raw.get("paths", {}), dict) else {}
     switchboard = raw.get("switchboard", {}) if isinstance(raw.get("switchboard", {}), dict) else {}
+    server_config = switchboard.get("server", {}) if isinstance(switchboard.get("server", {}), dict) else {}
     agent_config = switchboard.get("agent", {}) if isinstance(switchboard.get("agent", {}), dict) else {}
     state_root = Path(str(root_paths.get("state_dir", KLIMKIT_STATE_DIR))).expanduser()
     defaults = {
@@ -160,6 +168,12 @@ def load_config(path: Path) -> AgentConfig:
     backend_config = {**raw.get("backend", {})}
     agent_legacy_config = raw.get("agent", {})
     helper_config = raw.get("helper", {})
+    server_enabled = bool(server_config.get("enabled", False))
+    server_port = max(1, int(server_config.get("port", 4721)))
+    server_base_path = str(server_config.get("base_path", "/switchboard")).strip() or "/switchboard"
+    if not server_base_path.startswith("/"):
+        server_base_path = "/" + server_base_path
+    server_base_path = server_base_path.rstrip("/") or "/switchboard"
 
     def nested(section: str, key: str) -> Any:
         if section == "paths":
@@ -182,11 +196,15 @@ def load_config(path: Path) -> AgentConfig:
             return agent_config.get(mapping[key], helper_config.get(key, defaults[section][key]))
         return raw.get(section, {}).get(key, defaults[section][key])
 
+    backend_url = str(nested("backend", "base_url")).rstrip("/")
+    if not backend_url and server_enabled:
+        backend_url = f"http://127.0.0.1:{server_port}{server_base_path}"
+
     return AgentConfig(
         sessions_root=Path(str(nested("paths", "sessions_root"))).expanduser(),
         session_index=Path(str(nested("paths", "session_index"))).expanduser(),
         state_dir=Path(str(nested("paths", "state_dir"))).expanduser(),
-        backend_url=str(nested("backend", "base_url")).rstrip("/"),
+        backend_url=backend_url,
         backend_auth_token=str(nested("backend", "auth_token")).strip(),
         timeout_seconds=max(1, int(nested("backend", "timeout_seconds"))),
         interval_seconds=max(1, int(nested("agent", "interval_seconds"))),
@@ -196,6 +214,70 @@ def load_config(path: Path) -> AgentConfig:
         helper_host=str(nested("helper", "host")).strip() or "127.0.0.1",
         helper_port=max(1, int(nested("helper", "port"))),
     )
+
+
+def tailnet_suffix_from_status(payload: dict[str, Any]) -> str:
+    suffix = str(payload.get("MagicDNSSuffix") or "").strip().strip(".")
+    if suffix:
+        return suffix
+    current_tailnet = payload.get("CurrentTailnet")
+    if isinstance(current_tailnet, dict):
+        return str(current_tailnet.get("MagicDNSSuffix") or "").strip().strip(".")
+    return ""
+
+
+def tailnet_suffix_from_url(url: str) -> str:
+    try:
+        hostname = parse.urlparse(url).hostname or ""
+    except Exception:
+        return ""
+    parts = hostname.strip(".").split(".")
+    if len(parts) >= 3 and parts[-2:] == ["ts", "net"]:
+        return ".".join(parts[1:])
+    return ""
+
+
+def strip_local_hostname(machine: str) -> str:
+    name = str(machine or "").strip().strip(".")
+    if name.lower().endswith(".local"):
+        return name[:-6]
+    return name
+
+
+def dns_label_from_machine(machine: str) -> str:
+    label = strip_local_hostname(machine).split(".", 1)[0].lower()
+    label = re.sub(r"[^a-z0-9-]+", "-", label)
+    label = re.sub(r"-{2,}", "-", label).strip("-")
+    return label
+
+
+def infer_tailnet_dns_name(machine: str, suffix: str) -> str:
+    label = dns_label_from_machine(machine)
+    normalized_suffix = str(suffix or "").strip().strip(".")
+    if not label or not normalized_suffix:
+        return ""
+    return f"{label}.{normalized_suffix}"
+
+
+def tailscale_command() -> str:
+    command = shutil.which("tailscale")
+    if command:
+        return command
+    for candidate in TAILSCALE_COMMAND_CANDIDATES:
+        if Path(candidate).exists():
+            return candidate
+    return "tailscale"
+
+
+def load_tailscale_status_payload() -> dict[str, Any]:
+    result = subprocess.run(
+        [tailscale_command(), "status", "--json"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    payload = json.loads(result.stdout)
+    return payload if isinstance(payload, dict) else {}
 
 
 def init_db(state_dir: Path) -> sqlite3.Connection:
@@ -550,22 +632,24 @@ def load_session_summaries(
     return summaries
 
 
-def detect_machine_identity() -> MachineIdentity:
+def detect_machine_identity(config: AgentConfig | None = None) -> MachineIdentity:
     machine = socket.gethostname()
     dns_name = ""
+    tailnet_suffix = ""
     try:
-        result = subprocess.run(
-            ["tailscale", "status", "--json"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        payload = json.loads(result.stdout)
+        payload = load_tailscale_status_payload()
         self_info = payload.get("Self") or {}
         machine = str(self_info.get("HostName") or machine).strip() or machine
         dns_name = str(self_info.get("DNSName") or "").strip().rstrip(".")
+        tailnet_suffix = tailnet_suffix_from_status(payload)
     except Exception:
         pass
+    if not tailnet_suffix and config is not None:
+        tailnet_suffix = tailnet_suffix_from_url(config.backend_url)
+    if not dns_name:
+        dns_name = infer_tailnet_dns_name(machine, tailnet_suffix)
+    if dns_name:
+        machine = strip_local_hostname(machine)
     return MachineIdentity(machine=machine, dns_name=dns_name)
 
 
@@ -767,7 +851,7 @@ def run_once(
     *,
     print_snapshot: bool = False,
 ) -> bool:
-    identity = detect_machine_identity()
+    identity = detect_machine_identity(config)
     snapshot = build_snapshot(conn, config, identity)
     if print_snapshot:
         print(json.dumps(snapshot, indent=2, ensure_ascii=True))

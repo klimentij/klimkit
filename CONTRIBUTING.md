@@ -1,6 +1,8 @@
 # Contributing
 
-Use the repo's existing stdlib test harness.
+Keep changes small, previewable, and easy to verify. For non-trivial work, add task notes under `.klimkit/tasks/<nn-feature-slug>/`; use `-h-` for human-authored notes and `-a-` for agent-authored notes.
+
+Use the repo's existing stdlib test harness:
 
 ```bash
 uv run python -m unittest discover -s tests -q
@@ -15,3 +17,12 @@ KLIMKIT_RUN_CODEX_SMOKE=1 uv run python -m unittest tests.test_codex_smoke -q
 ```
 
 For machine-affecting changes, inspect `kk preview` before applying. Keep `.klimkit/tasks/`, `.klimkit/memory.md`, and `.klimkit/log.md` trackable when they explain a task, plan, proof, or decision. Do not commit ignored `.klimkit/local/`, `.klimkit/state/`, `.klimkit/backups/`, or `.klimkit/logs/` content unless a change explicitly needs a sanitized fixture.
+
+For Codex harness changes, edit `packs/codex/` in this repo, then run:
+
+```bash
+uv run python -m unittest tests.test_codex_pack_validation -q
+kk apply
+```
+
+Do not edit generated `~/.codex/` files directly; Klimkit overwrites those projections.

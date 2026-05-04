@@ -1,6 +1,8 @@
 model = "gpt-5.5"
 model_reasoning_effort = "xhigh"
 personality = "pragmatic"
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
 
 [mcp_servers.playwright]
 command = "npx"

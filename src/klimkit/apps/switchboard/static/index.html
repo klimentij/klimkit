@@ -40,10 +40,9 @@
         <div class="workspace-drawer-panel">
           <header class="workspace-drawer-header">
             <div class="workspace-drawer-brand">
-              <img class="workspace-drawer-logo" src="./icons/icon-192.png" alt="" />
               <div>
                 <h2 id="drawer-title" class="workspace-drawer-title">Klimkit Switchboard</h2>
-                <p id="drawer-eyebrow" class="workspace-drawer-eyebrow">All tabs</p>
+                <p id="drawer-eyebrow" class="workspace-drawer-eyebrow">Manual tabs</p>
               </div>
             </div>
             <button id="drawer-close" class="workspace-drawer-close" type="button" aria-label="Close drawer">×</button>
@@ -97,17 +96,11 @@
                 <span>Status</span>
                 <select id="catalog-status-filter">
                   <option value="">All statuses</option>
+                  <option value="new">New</option>
                   <option value="working">Working</option>
-                  <option value="planning">Planning</option>
-                  <option value="awaiting_approval">Awaiting approval</option>
-                  <option value="needs_input">Needs input</option>
+                  <option value="ask">Ask</option>
                   <option value="done">Done</option>
                   <option value="seen">Seen</option>
-                  <option value="stale">Stale</option>
-                  <option value="errored">Errored</option>
-                  <option value="starting">Starting</option>
-                  <option value="idle">Idle</option>
-                  <option value="new">New</option>
                 </select>
               </label>
               <label class="catalog-toggle">

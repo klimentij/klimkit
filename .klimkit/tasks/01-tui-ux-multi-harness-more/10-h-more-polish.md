@@ -35,3 +35,33 @@ when i send msg to codex, for some reason status becomes plannign - incorrect, i
   ⚡ Quick open on this Mac -> that's an old link for mac automation, we're not using it anymore. also remove related code (for Automator and some mac daemon for deeplinking)
 
   instead need a link that opens klimkit webapp on a cetain tab, like link in browser notifications (works correctly)
+
+  ---
+
+  add nice tags to main readme for github: licence etc. 
+  add contribution instructions
+  add table of contents 
+  etc - improve readme so it's more complete and ready for collaborative active work!
+
+
+  ---
+
+  pack polish:
+
+  deeply analayze agents md skills and subagents. criticsally review, find duplicating stuff, inconsistencies, etc. 
+
+  also i wana add to agents smth like
+  just before getting back to finally needs to get pass decisions from 3 parallel final
+  reviewer subagents before bothering klim
+
+
+  also add a skill to pack:
+  like harness-tunining 
+  it should instruct model how to tune genrral homelevel  pack files correctly (make sure ~/klimkit is there, edit only there not directly in home folder! then push and will be autosynced to all machines where klimkit installed with autosync option bla bla) - and add this to readme ofc
+  so klim when working on different projects experiment with harnesss and tune it on the fly with kilmkit , push and that would sync everywhere! 
+
+  need codex to be configured to use 5.5 xhigh fast by default in yolo mode
+
+  add to readme section describing our harnesss setup with subagetns skills etc and note that current pack designed ot be run in a dedicated vm or in a sandbox where it's safe for yolo mode. -- that's recommended. add noticable disclamer that it's super important to make sure agent has minimal permissions from this vm etc. webreseaerch simon willson trifacts thing and based on that add recommendations to readme with warnings. 
+
+  also say in readme , chrome is recommended for switchboard

@@ -46,7 +46,8 @@ const MAX_LOADED_FRAMES = 3;
 const POLL_INTERVAL_MS = 10000;
 const UI_VERSION_POLL_INTERVAL_MS = 3000;
 const FOLDER_SUGGESTION_LIMIT = 10;
-const HOT_FRAME_STATES = new Set(["new", "starting", "planning", "working", "needs_input", "awaiting_approval"]);
+const VISIBLE_STATUSES = ["new", "working", "ask", "done", "seen"];
+const HOT_FRAME_STATES = new Set(["new", "working", "ask"]);
 const DEFAULT_CODEX_LAUNCH_FLAGS = "-c check_for_update_on_startup=false";
 const APP_INSTANCE_KEY = "__switchboardAppInstance";
 const APP_GENERATION_KEY = "__switchboardAppGeneration";
@@ -73,6 +74,7 @@ const ui = {
   archiveSeparator: null,
   drawerOpen: false,
   visibleTabCount: TAB_RENDER_BATCH,
+  appliedLocationTarget: "",
   catalogFilters: {
     search: "",
     machine: "",
@@ -149,7 +151,7 @@ function sanitizeLocalWorkspaces(entries) {
         machine_dns: machineDns,
         cwd,
         folder_name: folderName,
-        code_server_url: String(entry.code_server_url || buildWorkspaceCodeServerUrl(machineDns, cwd)).trim(),
+        code_server_url: buildWorkspaceCodeServerUrl(machine, machineDns, cwd) || String(entry.code_server_url || "").trim(),
         same_origin_helper_url: "",
         title: title || folderName,
         latest_user_message: "",
@@ -196,6 +198,18 @@ function machineFolderKey(machine, cwd) {
   return `${String(machine || "").trim().toLowerCase()}::${normalizePath(cwd)}`;
 }
 
+function workspaceIdentityKey(workspace) {
+  const sessionId = String(workspace?.session_id || "").trim();
+  if (sessionId) {
+    return `session:${sessionId}`;
+  }
+  return `folder:${machineFolderKey(workspace?.machine, workspace?.cwd)}`;
+}
+
+function workspaceAcknowledgeId(workspace) {
+  return String(workspace?.session_id || workspace?.server_workspace_id || workspace?.id || "").trim();
+}
+
 function legacyLocalWorkspaceId(machine, cwd) {
   return `local:${machineFolderKey(machine, cwd)}`;
 }
@@ -220,9 +234,55 @@ function buildCodeServerUrl(machineDns, cwd) {
   return url.toString();
 }
 
+function tailnetSuffixFromHostname(hostname) {
+  const parts = String(hostname || "").trim().replace(/\.$/, "").split(".");
+  if (parts.length >= 3 && parts.at(-2) === "ts" && parts.at(-1) === "net") {
+    return parts.slice(1).join(".");
+  }
+  return "";
+}
+
+function stripLocalHostname(machine) {
+  const name = String(machine || "").trim().replace(/\.$/, "");
+  return name.toLowerCase().endsWith(".local") ? name.slice(0, -6) : name;
+}
+
+function dnsLabelFromMachine(machine) {
+  return stripLocalHostname(machine)
+    .split(".", 1)[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function inferMachineDns(machine, machineDns) {
+  const explicitDns = String(machineDns || "").trim().replace(/\.$/, "");
+  if (explicitDns) {
+    return explicitDns;
+  }
+  const suffix = tailnetSuffixFromHostname(window.location.hostname || "");
+  const label = dnsLabelFromMachine(machine);
+  if (!suffix || !label) {
+    return "";
+  }
+  return `${label}.${suffix}`;
+}
+
 function isLoopbackHostname(hostname) {
   const host = String(hostname || "").toLowerCase();
   return host === "localhost" || host === "::1" || host === "[::1]" || host.startsWith("127.");
+}
+
+function isCurrentMachine(machine, machineDns) {
+  const hostname = String(window.location.hostname || "").trim().replace(/\.$/, "").toLowerCase();
+  const dnsName = String(machineDns || "").trim().replace(/\.$/, "").toLowerCase();
+  if (dnsName && hostname && dnsName === hostname) {
+    return true;
+  }
+  const label = dnsLabelFromMachine(machine);
+  const hostLabel = hostname.split(".", 1)[0].toLowerCase();
+  return Boolean(label && hostLabel && label === hostLabel);
 }
 
 function buildLocalCodeServerUrl(cwd) {
@@ -238,8 +298,12 @@ function buildLocalCodeServerUrl(cwd) {
   return url.toString();
 }
 
-function buildWorkspaceCodeServerUrl(machineDns, cwd) {
-  return buildCodeServerUrl(machineDns, cwd) || buildLocalCodeServerUrl(cwd);
+function buildWorkspaceCodeServerUrl(machine, machineDns, cwd) {
+  const resolvedDns = inferMachineDns(machine, machineDns);
+  if (resolvedDns) {
+    return buildCodeServerUrl(resolvedDns, cwd);
+  }
+  return isCurrentMachine(machine, machineDns) ? buildLocalCodeServerUrl(cwd) : "";
 }
 
 function shellQuote(value) {
@@ -326,11 +390,7 @@ function getWorkspaceById(id) {
 }
 
 function workspaceSessionGroupKey(workspace) {
-  const sessionId = String(workspace?.session_id || "").trim();
-  if (sessionId) {
-    return `session:${sessionId}`;
-  }
-  return `folder:${machineFolderKey(workspace?.machine, workspace?.cwd)}`;
+  return workspaceIdentityKey(workspace);
 }
 
 function workspacesMatchNotificationTarget(candidate, source) {
@@ -374,6 +434,61 @@ function resolveNotificationTargetWorkspace(source) {
     .filter((workspace) => workspacesMatchNotificationTarget(workspace, source))
     .sort((left, right) => compareNotificationTargets(left, right, source));
   return candidates[0] || source;
+}
+
+function currentLocationTargetKey() {
+  return `${window.location.search || ""}${window.location.hash || ""}`;
+}
+
+function locationTargetParams() {
+  const params = new URLSearchParams(window.location.search);
+  const hash = String(window.location.hash || "").replace(/^#/, "");
+  if (hash) {
+    const hashParams = new URLSearchParams(hash);
+    for (const [key, value] of hashParams.entries()) {
+      params.set(key, value);
+    }
+  }
+  return params;
+}
+
+function workspaceMatchesLocationTarget(workspace, params) {
+  const workspaceId = String(params.get("workspace") || params.get("workspace_id") || params.get("tab") || "").trim();
+  if (workspaceId && workspace.id === workspaceId) {
+    return true;
+  }
+  const sessionId = String(params.get("session") || params.get("session_id") || "").trim();
+  if (sessionId && String(workspace.session_id || "").trim() === sessionId) {
+    return true;
+  }
+  const folder = String(params.get("folder") || params.get("cwd") || "").trim();
+  if (!folder) {
+    return false;
+  }
+  const machine = String(params.get("machine") || "").trim().toLowerCase();
+  if (machine && String(workspace.machine || "").trim().toLowerCase() !== machine) {
+    return false;
+  }
+  return normalizePath(workspace.cwd) === normalizePath(folder);
+}
+
+function activateLocationTarget(options = {}) {
+  const targetKey = currentLocationTargetKey();
+  if (!targetKey || targetKey === ui.appliedLocationTarget) {
+    return false;
+  }
+  const params = locationTargetParams();
+  if (![...params.keys()].some((key) => ["workspace", "workspace_id", "tab", "session", "session_id", "folder", "cwd"].includes(key))) {
+    ui.appliedLocationTarget = targetKey;
+    return false;
+  }
+  const target = ui.workspaces.find((workspace) => workspaceMatchesLocationTarget(workspace, params));
+  if (!target) {
+    return false;
+  }
+  ui.appliedLocationTarget = targetKey;
+  activate(target.id, { acknowledge: true, focusTab: Boolean(options.focusTab) });
+  return true;
 }
 
 async function fetchState() {
@@ -473,7 +588,6 @@ function workspaceCreatedSortStamp(workspace) {
 }
 
 function findServerWorkspaceForLocal(localWorkspace, serverWorkspaces, claimedServerIds) {
-  const localCreatedAt = String(localWorkspace?.created_at || "").trim();
   const localKey = machineFolderKey(localWorkspace?.machine, localWorkspace?.cwd);
   return serverWorkspaces
     .filter((workspace) => {
@@ -483,36 +597,92 @@ function findServerWorkspaceForLocal(localWorkspace, serverWorkspaces, claimedSe
       if (machineFolderKey(workspace.machine, workspace.cwd) !== localKey) {
         return false;
       }
-      const serverStamp = workspaceSortStamp(workspace);
-      return Boolean(serverStamp) && (!localCreatedAt || serverStamp >= localCreatedAt);
+      return Boolean(workspaceSortStamp(workspace));
     })
     .sort((left, right) => workspaceSortStamp(left).localeCompare(workspaceSortStamp(right)))[0] || null;
 }
 
-function reconcileLocalWorkspaces(serverWorkspaces) {
+function mergeWorkspaceStatus(localWorkspace, serverWorkspace) {
+  if (!serverWorkspace) {
+    const localMachineDns = String(localWorkspace.machine_dns || "").trim();
+    return {
+      ...localWorkspace,
+      machine_dns: inferMachineDns(localWorkspace.machine, localMachineDns) || localMachineDns,
+      code_server_url:
+        buildWorkspaceCodeServerUrl(localWorkspace.machine, localMachineDns, localWorkspace.cwd) ||
+        localWorkspace.code_server_url ||
+        "",
+      manual_tab: true,
+      server_workspace_id: "",
+    };
+  }
+  const updatedAt = latestStringTimestamp(
+    localWorkspace.updated_at,
+    serverWorkspace.updated_at,
+    serverWorkspace.latest_event_created_at,
+  );
+  const mergedMachineDns = String(serverWorkspace.machine_dns || localWorkspace.machine_dns || "").trim();
+  const mergedCodeServerUrl =
+    buildWorkspaceCodeServerUrl(localWorkspace.machine, mergedMachineDns, localWorkspace.cwd) ||
+    serverWorkspace.code_server_url ||
+    localWorkspace.code_server_url ||
+    "";
+  return {
+    ...localWorkspace,
+    session_id: String(serverWorkspace.session_id || serverWorkspace.id || "").trim(),
+    server_workspace_id: String(serverWorkspace.id || "").trim(),
+    machine_dns: inferMachineDns(localWorkspace.machine, mergedMachineDns) || mergedMachineDns,
+    code_server_url: mergedCodeServerUrl,
+    same_origin_helper_url: serverWorkspace.same_origin_helper_url || localWorkspace.same_origin_helper_url || "",
+    title: serverWorkspace.title || localWorkspace.title,
+    latest_user_message: serverWorkspace.latest_user_message || localWorkspace.latest_user_message || "",
+    branch: serverWorkspace.branch || localWorkspace.branch,
+    detail: serverWorkspace.detail || localWorkspace.detail,
+    activity_state: serverWorkspace.activity_state || localWorkspace.activity_state,
+    display_state: serverWorkspace.display_state || serverWorkspace.activity_state || localWorkspace.display_state || "",
+    needs_attention: Boolean(serverWorkspace.needs_attention),
+    attention_kind: String(serverWorkspace.attention_kind || "").trim(),
+    latest_event_id: serverWorkspace.latest_event_id || localWorkspace.latest_event_id || "",
+    latest_event_status: serverWorkspace.latest_event_status || localWorkspace.latest_event_status || "",
+    latest_event_message: serverWorkspace.latest_event_message || localWorkspace.latest_event_message || "",
+    latest_event_created_at: serverWorkspace.latest_event_created_at || localWorkspace.latest_event_created_at || "",
+    updated_at: updatedAt || localWorkspace.updated_at,
+    is_local: true,
+    manual_tab: true,
+  };
+}
+
+function latestStringTimestamp(...values) {
+  return values
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .sort()
+    .at(-1) || "";
+}
+
+function materializeManualWorkspaces(serverWorkspaces) {
   const claimedServerIds = new Set();
-  const adoptedWorkspaceIds = new Map();
-  const nextLocalWorkspaces = [];
-
-  for (const localWorkspace of ui.localWorkspaces) {
-    const adoptedServerWorkspace = findServerWorkspaceForLocal(localWorkspace, serverWorkspaces, claimedServerIds);
-    if (!adoptedServerWorkspace) {
-      nextLocalWorkspaces.push(localWorkspace);
-      continue;
+  return ui.localWorkspaces.map((localWorkspace) => {
+    const serverWorkspace = findServerWorkspaceForLocal(localWorkspace, serverWorkspaces, claimedServerIds);
+    if (serverWorkspace) {
+      claimedServerIds.add(serverWorkspace.id);
     }
-    claimedServerIds.add(adoptedServerWorkspace.id);
-    adoptedWorkspaceIds.set(localWorkspace.id, adoptedServerWorkspace.id);
-  }
+    return mergeWorkspaceStatus(localWorkspace, serverWorkspace);
+  });
+}
 
-  if (nextLocalWorkspaces.length !== ui.localWorkspaces.length) {
-    ui.localWorkspaces = nextLocalWorkspaces;
-    saveLocalWorkspaces();
-  }
+function localWorkspaceIdForServerWorkspace(serverWorkspace) {
+  const match = ui.workspaces.find((workspace) => workspacesMatchNotificationTarget(workspace, serverWorkspace));
+  return match?.id || "";
+}
 
-  const adoptedActiveId = adoptedWorkspaceIds.get(ui.activeId);
-  if (adoptedActiveId) {
-    saveActiveId(adoptedActiveId);
+function reconcileActiveManualWorkspace() {
+  if (!ui.activeId || ui.workspaces.some((workspace) => workspace.id === ui.activeId)) {
+    return;
   }
+  const activeServerWorkspace = ui.serverWorkspaces.find((workspace) => workspace.id === ui.activeId);
+  const localId = activeServerWorkspace ? localWorkspaceIdForServerWorkspace(activeServerWorkspace) : "";
+  saveActiveId(localId || ui.workspaces.find((workspace) => !workspace.archived)?.id || ui.workspaces[0]?.id || null);
 }
 
 function buildMachineList(machineRows, workspaces) {
@@ -525,9 +695,10 @@ function buildMachineList(machineRows, workspaces) {
     if (!machine) {
       continue;
     }
+    const machineDns = inferMachineDns(machine, row.machine_dns);
     machineMap.set(machine, {
       machine,
-      machine_dns: String(row.machine_dns || "").trim(),
+      machine_dns: machineDns,
       reported_at: String(row.reported_at || "").trim(),
       session_count: Number.parseInt(String(row.session_count || 0), 10) || 0,
       online: Boolean(row.online),
@@ -535,12 +706,13 @@ function buildMachineList(machineRows, workspaces) {
   }
   for (const workspace of workspaces) {
     if (!machineMap.has(workspace.machine)) {
+      const machineDns = inferMachineDns(workspace.machine, workspace.machine_dns);
       machineMap.set(workspace.machine, {
         machine: workspace.machine,
-        machine_dns: String(workspace.machine_dns || "").trim(),
+        machine_dns: machineDns,
         reported_at: String(workspace.updated_at || "").trim(),
         session_count: 0,
-        online: Boolean(workspace.machine_dns),
+        online: Boolean(machineDns),
       });
     }
   }
@@ -558,14 +730,14 @@ function materializeState(payload) {
   ui.codexLaunchFlags = normalizeCodexLaunchFlags(payload.codex_launch_flags);
   ui.serverWorkspaces = sortWorkspaces(Array.isArray(payload.workspaces) ? payload.workspaces : []);
   syncLocalWorkspaces();
-  reconcileLocalWorkspaces(ui.serverWorkspaces);
-  ui.workspaces = sortWorkspaces([...ui.localWorkspaces, ...ui.serverWorkspaces]);
+  ui.workspaces = sortWorkspaces(materializeManualWorkspaces(ui.serverWorkspaces));
+  reconcileActiveManualWorkspace();
   ui.machines = buildMachineList(payload.machines, [...ui.serverWorkspaces, ...ui.localWorkspaces]);
   ui.visibleTabCount = ui.workspaces.length
     ? Math.min(Math.max(ui.visibleTabCount, TAB_RENDER_BATCH), ui.workspaces.length)
     : TAB_RENDER_BATCH;
   ui.selectedWorkspaceIds = new Set(
-    [...ui.selectedWorkspaceIds].filter((workspaceId) => ui.serverWorkspaces.some((workspace) => workspace.id === workspaceId)),
+    [...ui.selectedWorkspaceIds].filter((workspaceId) => ui.workspaces.some((workspace) => workspace.id === workspaceId && !workspace.is_local)),
   );
 }
 
@@ -794,17 +966,25 @@ function reorderTabStrip(workspaces, allWorkspaces) {
 }
 
 function hasPendingEvent(workspace) {
-  if (workspace.is_local) {
-    return false;
-  }
   return Boolean(workspace.needs_attention);
 }
 
 function deriveDisplayStatus(workspace) {
-  if (workspace.local_status === "new") {
+  if (workspace.local_status === "new" && !workspace.session_id && !workspace.latest_event_id) {
     return "new";
   }
-  return String(workspace.display_state || workspace.activity_state || "idle");
+  return normalizeDisplayStatus(workspace.display_state || workspace.activity_state || workspace.latest_event_status);
+}
+
+function normalizeDisplayStatus(state) {
+  const value = String(state || "").trim();
+  if (value === "new" || value === "done" || value === "seen") {
+    return value;
+  }
+  if (value === "needs_input" || value === "awaiting_approval" || value === "ask") {
+    return "ask";
+  }
+  return "working";
 }
 
 function isRecentTimestamp(value, maxAgeMs) {
@@ -847,59 +1027,35 @@ function buildTabSubtitle(workspace) {
 
 function formatStateLabel(state) {
   switch (state) {
-    case "awaiting_approval":
-      return "apr";
-    case "planning":
-      return "pln";
     case "working":
-      return "wrk";
-    case "needs_input":
+      return "working";
+    case "ask":
       return "ask";
     case "done":
-      return "fin";
+      return "done";
     case "seen":
-      return "see";
-    case "stale":
-      return "stl";
-    case "errored":
-      return "err";
-    case "starting":
-      return "str";
-    case "idle":
-      return "idl";
+      return "seen";
     case "new":
       return "new";
     default:
-      return "std";
+      return "working";
   }
 }
 
 function formatStatusText(state) {
   switch (state) {
-    case "awaiting_approval":
-      return "Awaiting approval";
-    case "planning":
-      return "Planning";
     case "working":
       return "Working";
-    case "needs_input":
-      return "Needs input";
+    case "ask":
+      return "Ask";
     case "done":
       return "Done";
     case "seen":
       return "Seen";
-    case "stale":
-      return "Stale";
-    case "errored":
-      return "Errored";
-    case "starting":
-      return "Starting";
-    case "idle":
-      return "Idle";
     case "new":
       return "New";
     default:
-      return "Unknown";
+      return "Working";
   }
 }
 
@@ -958,16 +1114,9 @@ function renderShell(workspaces) {
     item.tab.querySelector(".workspace-tab-subtitle").textContent = buildTabSubtitle(workspace);
     item.tab.querySelector(".workspace-tab-status").textContent = formatStateLabel(displayStatus);
     item.tab.querySelector(".workspace-tab-number").textContent = String(index + 1);
-    item.shell.classList.toggle("is-starting", displayStatus === "starting");
-    item.shell.classList.toggle("is-planning", displayStatus === "planning");
-    item.shell.classList.toggle("is-working", displayStatus === "working");
-    item.shell.classList.toggle("is-awaiting_approval", displayStatus === "awaiting_approval");
-    item.shell.classList.toggle("is-done", displayStatus === "done");
-    item.shell.classList.toggle("is-seen", displayStatus === "seen");
-    item.shell.classList.toggle("is-needs_input", displayStatus === "needs_input");
-    item.shell.classList.toggle("is-stale", displayStatus === "stale");
-    item.shell.classList.toggle("is-errored", displayStatus === "errored");
-    item.shell.classList.toggle("is-new", displayStatus === "new");
+    for (const status of VISIBLE_STATUSES) {
+      item.shell.classList.toggle(`is-${status}`, displayStatus === status);
+    }
     item.shell.classList.toggle("is-archived", Boolean(workspace.archived));
     item.shell.classList.toggle("has-pending", isPending);
     item.tab.classList.toggle("show-hints", ui.hintMode);
@@ -1000,10 +1149,14 @@ function renderState(payload) {
   materializeState(payload);
   renderShell(ui.workspaces);
   renderDrawer();
+  activateLocationTarget();
 }
 
 function notificationStatusForWorkspace(workspace) {
-  if (!workspace || workspace.is_local || workspace.archived || !workspace.needs_attention) {
+  if (!workspace || workspace.archived || !workspace.needs_attention) {
+    return "";
+  }
+  if (workspace.is_local && !workspace.session_id) {
     return "";
   }
   const attentionKind = String(workspace.attention_kind || "").trim();
@@ -1130,7 +1283,7 @@ function activate(id, options = {}) {
     if (item) {
       item.shell.classList.toggle("is-active", active);
       item.tab.setAttribute("aria-selected", String(active));
-    item.tab.setAttribute("tabindex", active ? "0" : "-1");
+      item.tab.setAttribute("tabindex", active ? "0" : "-1");
       if (active && !options.preserveScroll) {
         item.shell.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
       }
@@ -1156,7 +1309,8 @@ function activate(id, options = {}) {
       item.shell.classList.remove("has-pending");
       item.tab.querySelector(".workspace-tab-pending").hidden = true;
     }
-    if (!workspace.is_local && workspace.attention_kind === "completion_unseen") {
+    const acknowledgeId = workspaceAcknowledgeId(workspace);
+    if (workspace.attention_kind === "completion_unseen" && acknowledgeId) {
       const acknowledgedEventId = workspace.latest_event_id;
       workspace.needs_attention = false;
       workspace.attention_kind = "";
@@ -1165,7 +1319,7 @@ function activate(id, options = {}) {
         item.shell.classList.add("is-seen");
         item.shell.classList.remove("is-done");
       }
-      void acknowledgeWorkspace(workspace.id, acknowledgedEventId)
+      void acknowledgeWorkspace(acknowledgeId, acknowledgedEventId)
         .then(() => refresh())
         .catch(() => {});
     }
@@ -1173,14 +1327,15 @@ function activate(id, options = {}) {
 }
 
 function ensureFrameLoaded(workspace) {
-  if (ui.loadedFrames.has(workspace.id)) {
-    return;
-  }
   const panel = ui.panels.get(workspace.id);
   if (!panel || !workspace.code_server_url) {
     return;
   }
   const iframe = panel.querySelector(".workspace-frame");
+  if (ui.loadedFrames.has(workspace.id) && iframe.getAttribute("src") === workspace.code_server_url) {
+    return;
+  }
+  panel.classList.remove("is-ready");
   iframe.src = workspace.code_server_url;
   iframe.title = `${workspace.title} workspace`;
   ui.loadedFrames.add(workspace.id);
@@ -1552,9 +1707,13 @@ function currentNewWorkspaceMachine() {
   return ui.machines.find((machine) => machine.machine === newWorkspaceMachine.value) || null;
 }
 
+function knownWorkspacePool() {
+  return [...ui.localWorkspaces, ...ui.serverWorkspaces];
+}
+
 function recentFoldersForMachine(machineName) {
   return [...new Set(
-    ui.workspaces
+    knownWorkspacePool()
       .filter((workspace) => workspace.machine === machineName)
       .map((workspace) => workspace.cwd)
       .filter(Boolean),
@@ -1716,7 +1875,7 @@ function renderDrawer() {
   const tableScrollTop = catalogTableShell ? catalogTableShell.scrollTop : 0;
 
   drawerTitle.textContent = "Klimkit Switchboard";
-  drawerEyebrow.textContent = "All tabs";
+  drawerEyebrow.textContent = "Manual tabs";
 
   syncSelectOptions(
     catalogMachineFilter,
@@ -1754,7 +1913,7 @@ function addLocalWorkspace(machine, folder) {
     machine_dns: String(machine.machine_dns || "").trim(),
     cwd: normalizedFolder,
     folder_name: folderName,
-    code_server_url: buildWorkspaceCodeServerUrl(machine.machine_dns, normalizedFolder),
+    code_server_url: buildWorkspaceCodeServerUrl(machine.machine, machine.machine_dns, normalizedFolder),
     same_origin_helper_url: "",
     title: folderName,
     branch: "workspace",
@@ -2100,6 +2259,7 @@ function wireEvents() {
   window.addEventListener("keydown", maybeRequestNotificationPermission, true);
   window.addEventListener("keydown", handleKeydown, true);
   window.addEventListener("keyup", handleKeyup, true);
+  window.addEventListener("hashchange", () => activateLocationTarget({ focusTab: true }));
   window.addEventListener("blur", () => updateHintMode(false));
 }
 

@@ -11,7 +11,10 @@ class DocsStaticTests(unittest.TestCase):
         first_paragraph = next(
             paragraph
             for paragraph in text.split("\n\n")
-            if paragraph and not paragraph.startswith("#") and not paragraph.startswith("!")
+            if paragraph
+            and not paragraph.startswith("#")
+            and not paragraph.startswith("!")
+            and not paragraph.startswith("[!")
         )
 
         self.assertIn("agent-ready machine", first_paragraph)
@@ -29,6 +32,26 @@ class DocsStaticTests(unittest.TestCase):
             self.assertIn(term, security)
         self.assertIn("uv run python -m unittest discover -s tests -q", contributing)
         self.assertIn("KLIMKIT_RUN_CODEX_SMOKE=1", contributing)
+
+    def test_switchboard_static_uses_manual_tabs_and_simplified_statuses(self) -> None:
+        index = (ROOT / "src" / "klimkit" / "apps" / "switchboard" / "static" / "index.html").read_text(encoding="utf-8")
+        app = (ROOT / "src" / "klimkit" / "apps" / "switchboard" / "static" / "app.js").read_text(encoding="utf-8")
+        hook = (ROOT / "packs" / "codex" / "hooks" / "stop-notify.sh").read_text(encoding="utf-8")
+
+        self.assertIn("Manual tabs", index)
+        self.assertNotIn("workspace-drawer-logo", index)
+        for status in ('value="new"', 'value="working"', 'value="ask"', 'value="done"', 'value="seen"'):
+            self.assertIn(status, index)
+        for abbreviated_status in ('return "wrk"', 'return "fin"', 'return "see"'):
+            self.assertNotIn(abbreviated_status, app)
+        for old_status in ("Planning", "Awaiting approval", "Needs input", "Stale", "Errored", "Starting", "Idle"):
+            self.assertNotIn(old_status, index)
+        self.assertIn("materializeManualWorkspaces", app)
+        self.assertIn("activateLocationTarget", app)
+        self.assertIn("/proxy/4721/#{target}", hook)
+        self.assertNotIn("Quick open on this Mac", hook)
+        self.assertNotIn("43123", hook)
+        self.assertFalse((ROOT / "src" / "klimkit" / "apps" / "macos" / "codex-focus").exists())
 
 
 if __name__ == "__main__":

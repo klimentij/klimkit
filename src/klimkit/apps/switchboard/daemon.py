@@ -10,6 +10,7 @@ import os
 import queue
 import re
 import shlex
+import shutil
 import socket
 import sqlite3
 import ssl
@@ -74,6 +75,12 @@ TRIVIAL_MESSAGES = {
 }
 ACTIVE_STATES = {"starting", "planning", "working", "needs_input", "awaiting_approval"}
 LOCAL_CODEX_TASK_LABEL = "Klimkit: Start Codex"
+TAILSCALE_COMMAND_CANDIDATES = (
+    "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+    "/opt/homebrew/bin/tailscale",
+    "/usr/local/bin/tailscale",
+    "/usr/bin/tailscale",
+)
 
 
 class ThreadingHTTPServer(BaseThreadingHTTPServer):
@@ -355,24 +362,121 @@ def stable_json_hash(payload: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=True).encode("utf-8")).hexdigest()
 
 
+def tailscale_command() -> str:
+    command = shutil.which("tailscale")
+    if command:
+        return command
+    for candidate in TAILSCALE_COMMAND_CANDIDATES:
+        if Path(candidate).exists():
+            return candidate
+    return "tailscale"
+
+
+def load_tailscale_status_payload() -> dict[str, Any]:
+    result = subprocess.run(
+        [tailscale_command(), "status", "--json"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    payload = json.loads(result.stdout)
+    return payload if isinstance(payload, dict) else {}
+
+
+def tailnet_suffix_from_status(payload: dict[str, Any]) -> str:
+    suffix = str(payload.get("MagicDNSSuffix") or "").strip().strip(".")
+    if suffix:
+        return suffix
+    current_tailnet = payload.get("CurrentTailnet")
+    if isinstance(current_tailnet, dict):
+        return str(current_tailnet.get("MagicDNSSuffix") or "").strip().strip(".")
+    return ""
+
+
+def strip_local_hostname(machine: str) -> str:
+    name = str(machine or "").strip().strip(".")
+    if name.lower().endswith(".local"):
+        return name[:-6]
+    return name
+
+
+def dns_label_from_machine(machine: str) -> str:
+    label = strip_local_hostname(machine).split(".", 1)[0].lower()
+    label = re.sub(r"[^a-z0-9-]+", "-", label)
+    label = re.sub(r"-{2,}", "-", label).strip("-")
+    return label
+
+
+def machine_label_root(label: str) -> str:
+    return re.sub(r"-\d+$", "", str(label or "").strip("-"))
+
+
+def infer_tailnet_dns_name(machine: str, suffix: str) -> str:
+    label = dns_label_from_machine(machine)
+    normalized_suffix = str(suffix or "").strip().strip(".")
+    if not label or not normalized_suffix:
+        return ""
+    return f"{label}.{normalized_suffix}"
+
+
+def peer_dns_candidates(payload: dict[str, Any]) -> list[tuple[str, str, str]]:
+    peers: list[dict[str, Any]] = []
+    self_info = payload.get("Self")
+    if isinstance(self_info, dict):
+        peers.append(self_info)
+    peer_map = payload.get("Peer")
+    if isinstance(peer_map, dict):
+        peers.extend(peer for peer in peer_map.values() if isinstance(peer, dict))
+    candidates: list[tuple[str, str, str]] = []
+    for peer in peers:
+        dns_name = str(peer.get("DNSName") or "").strip().strip(".")
+        if not dns_name:
+            continue
+        host_name = str(peer.get("HostName") or "").strip()
+        dns_label = dns_name.split(".", 1)[0]
+        candidates.append((dns_name, dns_label_from_machine(host_name), dns_label_from_machine(dns_label)))
+    return candidates
+
+
+def resolve_machine_dns_from_status(machine: str, payload: dict[str, Any]) -> str:
+    label = dns_label_from_machine(machine)
+    if not label:
+        return ""
+    candidates = peer_dns_candidates(payload)
+    exact = [
+        dns_name
+        for dns_name, host_label, dns_label in candidates
+        if label and (label == host_label or label == dns_label)
+    ]
+    if len(set(exact)) == 1:
+        return exact[0]
+    label_root = machine_label_root(label)
+    fuzzy = [
+        dns_name
+        for dns_name, host_label, dns_label in candidates
+        if label_root and label_root in {machine_label_root(host_label), machine_label_root(dns_label)}
+    ]
+    if len(set(fuzzy)) == 1:
+        return fuzzy[0]
+    return infer_tailnet_dns_name(machine, tailnet_suffix_from_status(payload))
+
+
 def detect_machine_identity(config: AppConfig) -> MachineIdentity:
     machine = config.machine_id or socket.gethostname()
     dns_name = config.machine_dns
     if config.machine_id and config.machine_dns:
         return MachineIdentity(machine=config.machine_id, dns_name=config.machine_dns.rstrip("."))
     try:
-        result = subprocess.run(
-            ["tailscale", "status", "--json"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        payload = json.loads(result.stdout)
+        payload = load_tailscale_status_payload()
         self_info = payload.get("Self") or {}
         machine = str(self_info.get("HostName") or machine).strip() or machine
         dns_name = str(self_info.get("DNSName") or dns_name).strip().rstrip(".")
+        if not dns_name:
+            dns_name = resolve_machine_dns_from_status(machine, payload)
     except Exception:
         pass
+    if dns_name:
+        machine = strip_local_hostname(machine)
     return MachineIdentity(machine=machine, dns_name=dns_name)
 
 
@@ -991,11 +1095,31 @@ class StateStore:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self._lock = threading.Lock()
+        self._tailscale_status_cache: dict[str, Any] = {}
+        self._tailscale_status_cache_at = 0.0
         self._init_db()
 
     def close(self) -> None:
         with self._lock:
             self.conn.close()
+
+    def tailscale_status_payload(self) -> dict[str, Any]:
+        now = time.time()
+        if self._tailscale_status_cache and now - self._tailscale_status_cache_at < 15:
+            return self._tailscale_status_cache
+        try:
+            payload = load_tailscale_status_payload()
+        except Exception:
+            payload = {}
+        self._tailscale_status_cache = payload
+        self._tailscale_status_cache_at = now
+        return payload
+
+    def resolve_machine_dns(self, machine: str, machine_dns: str) -> str:
+        explicit_dns = str(machine_dns or "").strip().strip(".")
+        if explicit_dns:
+            return explicit_dns
+        return resolve_machine_dns_from_status(machine, self.tailscale_status_payload())
 
     def _init_db(self) -> None:
         with self._lock:
@@ -1238,7 +1362,7 @@ class StateStore:
         machine = str(payload.get("machine") or "").strip()
         if not machine:
             raise ValueError("missing required field: machine")
-        machine_dns = str(payload.get("machine_dns") or "").strip()
+        machine_dns = self.resolve_machine_dns(machine, str(payload.get("machine_dns") or ""))
         generated_at = str(payload.get("generated_at") or iso_now()).strip()
         sessions = payload.get("sessions")
         if not isinstance(sessions, list):
@@ -1280,6 +1404,7 @@ class StateStore:
     def upsert_machine_heartbeat(self, machine: str, machine_dns: str, generated_at: str, session_count: int) -> None:
         if not machine:
             return
+        resolved_machine_dns = self.resolve_machine_dns(machine, machine_dns)
         with self._lock:
             self.conn.execute(
                 """
@@ -1291,7 +1416,7 @@ class StateStore:
                   reported_at = excluded.reported_at,
                   session_count = excluded.session_count
                 """,
-                (machine, machine_dns, generated_at, generated_at, session_count),
+                (machine, resolved_machine_dns, generated_at, generated_at, session_count),
             )
             self.conn.commit()
 
@@ -1330,15 +1455,16 @@ class StateStore:
                 created_at = existing_created_at
 
             cwd = str(session.get("cwd") or "")
-            resolved_machine_dns = machine_dns or str(session.get("machine_dns") or "")
+            resolved_machine = machine or str(session.get("machine") or "")
+            resolved_machine_dns = self.resolve_machine_dns(resolved_machine, machine_dns or str(session.get("machine_dns") or ""))
             derived_code_server_url = build_code_server_url(
-                MachineIdentity(machine=machine or str(session.get("machine") or ""), dns_name=resolved_machine_dns),
+                MachineIdentity(machine=resolved_machine, dns_name=resolved_machine_dns),
                 cwd,
             )
 
             payload = {
                 "session_id": session_id,
-                "machine": machine,
+                "machine": resolved_machine,
                 "machine_dns": resolved_machine_dns,
                 "cwd": cwd,
                 "folder_name": str(session.get("folder_name") or folder_name_from_path(cwd)),
@@ -1463,7 +1589,10 @@ class StateStore:
             ) or hook_created_at
 
             resolved_machine = machine or (str(existing["machine"]) if existing else "")
-            resolved_machine_dns = machine_dns or (str(existing["machine_dns"]) if existing else "")
+            resolved_machine_dns = self.resolve_machine_dns(
+                resolved_machine,
+                machine_dns or (str(existing["machine_dns"]) if existing else ""),
+            )
             resolved_cwd = cwd or (str(existing["cwd"]) if existing else "")
             resolved_folder = (
                 folder_name_from_path(resolved_cwd)

@@ -150,6 +150,8 @@ def _run_status(description: str) -> tuple[str, str]:
         return "reloaded", "ok"
     if "enable" in lowered:
         return "enabled", "ok"
+    if "tailscale serve" in lowered:
+        return "served", "ok"
     return "ran", "ok"
 
 
@@ -261,16 +263,18 @@ def _apply_notification_text(
 ) -> str:
     actions = manifest.get("actions")
     action_count = len(actions) if isinstance(actions, list) else 0
+    command_label = command_name.replace("-", " ")
     parts = [
-        f"Klimkit {command_name} on {socket.gethostname()}:",
-        f"{action_count} actions",
-        _changed_summary(manifest),
-        _service_summary(config, manifest, services_skipped=services_skipped),
+        f"✅ Klimkit {command_label}",
+        f"🖥 Machine: {socket.gethostname()}",
+        f"📦 Actions: {action_count}",
+        f"📝 Changes: {_changed_summary(manifest)}",
+        f"🔁 Live: {_service_summary(config, manifest, services_skipped=services_skipped)}",
     ]
     switchboard_url = _notification_switchboard_url(config)
     if switchboard_url:
-        parts.append(switchboard_url)
-    return " ".join(parts)
+        parts.append(f"🔗 {switchboard_url}")
+    return "\n".join(parts)
 
 
 def _send_apply_notification(

@@ -5,6 +5,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib import error, request
+from unittest import mock
 
 from klimkit.apps.switchboard import daemon as MODULE
 
@@ -747,6 +748,60 @@ class SwitchboardTests(unittest.TestCase):
             finally:
                 store.close()
 
+    def test_upsert_resolves_missing_machine_dns_from_tailscale_peer(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = MODULE.StateStore(Path(tmpdir))
+            try:
+                with mock.patch.object(
+                    MODULE,
+                    "load_tailscale_status_payload",
+                    return_value={
+                        "MagicDNSSuffix": "tail11c448.ts.net",
+                        "Peer": {
+                            "peer-1": {
+                                "HostName": "MacBook Air (23)",
+                                "DNSName": "macbook-air-23.tail11c448.ts.net.",
+                            }
+                        },
+                    },
+                ):
+                    store.apply_snapshot(
+                        {
+                            "machine": "MacBook-Air-8.local",
+                            "machine_dns": "",
+                            "generated_at": "2026-04-17T10:00:00Z",
+                            "sessions": [
+                                {
+                                    "session_id": "thread-mac",
+                                    "cwd": "/Users/klim/coding-ops",
+                                    "folder_name": "coding-ops",
+                                    "branch": "main",
+                                    "title": "Mac session",
+                                    "detail": "Working.",
+                                    "activity_state": "working",
+                                    "created_at": "2026-04-17T09:00:00Z",
+                                    "updated_at": "2026-04-17T10:00:00Z",
+                                    "latest_event_id": "turn-mac",
+                                    "latest_event_status": "working",
+                                    "latest_event_message": "",
+                                    "latest_event_created_at": "2026-04-17T10:00:00Z",
+                                    "needs_attention": False,
+                                    "attention_kind": "",
+                                    "approval_policy": "never",
+                                }
+                            ],
+                        }
+                    )
+
+                state = store.build_state("workstation", stale_after_seconds=180, retention_days=3650)
+                self.assertEqual(state["machines"][0]["machine_dns"], "macbook-air-23.tail11c448.ts.net")
+                self.assertEqual(
+                    state["workspaces"][0]["code_server_url"],
+                    "https://macbook-air-23.tail11c448.ts.net/?folder=/Users/klim/coding-ops",
+                )
+            finally:
+                store.close()
+
     def test_archive_endpoint_returns_400_for_malformed_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             running = start_server(build_config(Path(tmpdir)))
@@ -1337,7 +1392,8 @@ class SwitchboardTests(unittest.TestCase):
         self.assertIn("notificationStatusForWorkspace", script)
         self.assertIn("notificationMemoryKeyForWorkspace", script)
         self.assertIn("notificationSignatureForWorkspace", script)
-        self.assertIn("reconcileLocalWorkspaces", script)
+        self.assertIn("materializeManualWorkspaces", script)
+        self.assertIn("mergeWorkspaceStatus", script)
         self.assertIn("findServerWorkspaceForLocal", script)
         self.assertIn('tag: signature', script)
         self.assertIn('console.warn("Failed to show Switchboard notification"', script)

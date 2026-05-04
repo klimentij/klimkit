@@ -1,12 +1,25 @@
 #!/bin/bash
-set -euo pipefail
+set -Eeuo pipefail
+
+trap 'printf "{\"continue\":true}\n"; exit 0' ERR
 
 payload="$(cat)"
 
 KLIMKIT_CONFIG="${KLIMKIT_CONFIG:-$HOME/klimkit/.klimkit/local/klimkit.toml}"
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python3 || true)}"
+
+if [[ -z "$PYTHON_BIN" ]]; then
+  printf '{"continue":true}\n'
+  exit 0
+fi
+
+if [[ ! -x "$PYTHON_BIN" ]]; then
+  printf '{"continue":true}\n'
+  exit 0
+fi
 
 telegram_json="$(
-  KLIMKIT_CONFIG="$KLIMKIT_CONFIG" /usr/bin/python3 -c '
+  KLIMKIT_CONFIG="$KLIMKIT_CONFIG" "$PYTHON_BIN" -c '
 import json
 import os
 from pathlib import Path
@@ -34,12 +47,12 @@ print(json.dumps({
 '
 )"
 
-TELEGRAM_ENABLED="${KLIMKIT_TELEGRAM_ENABLED:-$(printf '%s' "$telegram_json" | /usr/bin/python3 -c 'import json, sys; print(str(json.load(sys.stdin).get("enabled", False)).lower())')}"
-BOT_TOKEN="${KLIMKIT_TELEGRAM_BOT_TOKEN:-$(printf '%s' "$telegram_json" | /usr/bin/python3 -c 'import json, sys; print(json.load(sys.stdin).get("bot_token", ""))')}"
-CHAT_ID="${KLIMKIT_TELEGRAM_CHAT_ID:-$(printf '%s' "$telegram_json" | /usr/bin/python3 -c 'import json, sys; print(json.load(sys.stdin).get("chat_id", ""))')}"
+TELEGRAM_ENABLED="${KLIMKIT_TELEGRAM_ENABLED:-$(printf '%s' "$telegram_json" | "$PYTHON_BIN" -c 'import json, sys; print(str(json.load(sys.stdin).get("enabled", False)).lower())')}"
+BOT_TOKEN="${KLIMKIT_TELEGRAM_BOT_TOKEN:-$(printf '%s' "$telegram_json" | "$PYTHON_BIN" -c 'import json, sys; print(json.load(sys.stdin).get("bot_token", ""))')}"
+CHAT_ID="${KLIMKIT_TELEGRAM_CHAT_ID:-$(printf '%s' "$telegram_json" | "$PYTHON_BIN" -c 'import json, sys; print(json.load(sys.stdin).get("chat_id", ""))')}"
 
 metadata_json="$(
-  printf '%s' "$payload" | /usr/bin/python3 -c '
+  printf '%s' "$payload" | "$PYTHON_BIN" -c '
 import json
 import fcntl
 import time
@@ -161,7 +174,6 @@ elif seen_turn_before(session_id, turn_id):
     skip_notification = True
 
 remote_url = None
-quick_open_url = None
 try:
     tailscale_status = subprocess.run(
         ["tailscale", "status", "--json"],
@@ -174,12 +186,14 @@ try:
     host = str(self_info.get("HostName") or host).strip() or host
     dns_name = (self_info.get("DNSName") or "").rstrip(".")
     if dns_name:
-        folder_query = urllib.parse.quote(folder, safe="/")
-        remote_url = f"https://{dns_name}/?folder={folder_query}"
-        quick_open_url = "http://127.0.0.1:43123/open?url=" + urllib.parse.quote(remote_url, safe="")
+        target = urllib.parse.urlencode({
+            "session": session_id,
+            "machine": host,
+            "folder": folder,
+        })
+        remote_url = f"https://{dns_name}/proxy/4721/#{target}"
 except Exception:
     remote_url = None
-    quick_open_url = None
 
 def load_thread_title(session_id: str) -> str:
     if not session_id:
@@ -269,15 +283,8 @@ parts = [
 if remote_url:
     parts.extend([
         "",
-        "🔗 <b>Open from phone / any Tailscale device</b>",
+        "🔗 <b>Open in Klimkit Switchboard</b>",
         remote_url,
-    ])
-
-if quick_open_url:
-    parts.extend([
-        "",
-        "⚡ <b>Quick open on this Mac</b>",
-        quick_open_url,
     ])
 
 notification = "\n".join(parts)
@@ -321,11 +328,11 @@ print(json.dumps({
 )"
 
 notification="$(
-  printf '%s' "$metadata_json" | /usr/bin/python3 -c 'import json, sys; data=json.load(sys.stdin); print(data["text"])'
+  printf '%s' "$metadata_json" | "$PYTHON_BIN" -c 'import json, sys; data=json.load(sys.stdin); print(data["text"])'
 )"
 
 parse_mode="$(
-  printf '%s' "$metadata_json" | /usr/bin/python3 -c '
+  printf '%s' "$metadata_json" | "$PYTHON_BIN" -c '
 import json
 import sys
 
@@ -335,7 +342,7 @@ print(data.get("parse_mode", ""))
 )"
 
 disable_web_page_preview="$(
-  printf '%s' "$metadata_json" | /usr/bin/python3 -c '
+  printf '%s' "$metadata_json" | "$PYTHON_BIN" -c '
 import json
 import sys
 
@@ -344,8 +351,9 @@ print("true" if data.get("disable_web_page_preview") else "false")
 '
 )"
 
-telegram_enabled_lc="${TELEGRAM_ENABLED,,}"
+telegram_enabled_lc="$(printf '%s' "$TELEGRAM_ENABLED" | tr '[:upper:]' '[:lower:]')"
 if [[ "$telegram_enabled_lc" =~ ^(1|true|yes|on)$ && -n "$notification" && -n "$BOT_TOKEN" && -n "$CHAT_ID" ]] && command -v curl >/dev/null 2>&1; then
+  CURL_BIN="$(command -v curl)"
   curl_args=(
     -fsS --retry 2 --max-time 10
     -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
@@ -358,7 +366,7 @@ if [[ "$telegram_enabled_lc" =~ ^(1|true|yes|on)$ && -n "$notification" && -n "$
     curl_args+=(--data-urlencode "parse_mode=${parse_mode}")
   fi
 
-  /usr/bin/curl "${curl_args[@]}" >/dev/null 2>&1 || true
+  "$CURL_BIN" "${curl_args[@]}" >/dev/null 2>&1 || true
 fi
 
 printf '{"continue":true}\n'

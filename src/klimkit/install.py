@@ -115,6 +115,37 @@ def _normalized_switchboard_backend_url(value: str) -> str:
     return backend_url
 
 
+def _tailscale_serve_action(action_id: str, description: str, *, path: str, target_url: str) -> Action:
+    serve_path = path.strip() or "/"
+    if not serve_path.startswith("/"):
+        serve_path = "/" + serve_path
+    command = (
+        "sh",
+        "-c",
+        "command -v tailscale >/dev/null 2>&1 || "
+        "{ echo 'tailscale not found; skipping Tailscale Serve' >&2; exit 0; }; "
+        "tailscale status --json >/dev/null 2>&1 || "
+        "{ echo 'tailscale unavailable; skipping Tailscale Serve' >&2; exit 0; }; "
+        "output=$(tailscale serve --bg --yes --set-path "
+        f"{shlex.quote(serve_path)} {shlex.quote(target_url)}"
+        " 2>&1) && { printf '%s\\n' \"$output\"; exit 0; }; "
+        "status=$?; printf '%s\\n' \"$output\" >&2; "
+        "case \"$output\" in "
+        "*'Access denied: serve config denied'*) "
+        "echo 'tailscale serve skipped; run: sudo tailscale set --operator=$USER' >&2; exit 0 ;; "
+        "*) exit \"$status\" ;; "
+        "esac",
+    )
+    return Action(
+        id=action_id,
+        kind="run_command",
+        target=Path("tailscale"),
+        description=description,
+        command=command,
+        component="tailscale",
+    )
+
+
 def _role_flags(profile: str) -> tuple[bool, bool]:
     role = profile.strip().lower().replace("_", "-") or "first-vm"
     if role in {"client", "client-only", "second-vm", "second"}:
@@ -145,7 +176,7 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
         live_sync_enabled=True,
         live_sync_interval_seconds=5,
         live_sync_ref="origin/main",
-        switchboard_agent_enabled=client_enabled and not server_enabled,
+        switchboard_agent_enabled=client_enabled or server_enabled,
         switchboard_enabled=server_enabled,
         configure_services=True,
         install_code_server_if_missing=client_enabled,
@@ -225,7 +256,9 @@ def render_config(config: InstallConfig) -> str:
             f"auto_sync_interval_seconds = {config.live_sync_interval_seconds}",
             "# Git ref watched by auto_sync. Default tracks the shared main branch.",
             f"auto_sync_ref = {json.dumps(config.live_sync_ref)}",
-            "# switchboard_agent: report this VM to a central Switchboard. Requires switchboard.backend_url.",
+            "# switchboard_agent: report this VM's local Codex sessions to Switchboard.",
+            "# If switchboard.server is enabled and backend_url is empty, the local server URL is used.",
+            "# Client-only VMs must set switchboard.agent.backend_url to the first VM.",
             f"switchboard_agent = {str(config.switchboard_agent_enabled).lower()}",
             "",
             "[services]",
@@ -264,9 +297,11 @@ def render_config(config: InstallConfig) -> str:
             f"stale_after_seconds = {config.switchboard_stale_after_seconds}",
             "",
             "[switchboard.agent]",
-            "# Enable this VM to report local Codex sessions to the central Switchboard.",
+            "# Enable this VM to report local Codex sessions to Switchboard.",
+            "# First VMs may leave backend_url empty; Klimkit reports to the local server.",
+            "# Client-only VMs must set this to the first VM's /switchboard URL.",
             f"enabled = {str(config.switchboard_agent_enabled).lower()}",
-            "# Central Switchboard URL, for example https://server.example.ts.net/switchboard.",
+            "# Remote central Switchboard URL, for example https://server.example.ts.net/switchboard.",
             f"backend_url = {json.dumps(config.switchboard_backend_url)}",
             "# Shared bearer token for agent-to-server reporting.",
             f"auth_token = {json.dumps(config.switchboard_auth_token)}",
@@ -389,7 +424,7 @@ def parse_config(raw: str) -> InstallConfig:
     server_enabled = _bool(components.get("server"), default_server_enabled)
     state_dir = expand_path(str(paths.get("state_dir", KLIMKIT_STATE_DIR)))
     server_enabled_default = _bool(components.get("switchboard"), server_enabled)
-    agent_enabled_default = _bool(workers.get("switchboard_agent"), client_enabled and not server_enabled)
+    agent_enabled_default = _bool(workers.get("switchboard_agent"), client_enabled or server_enabled)
     auth_token = str(
         switchboard_agent.get(
             "auth_token",
@@ -485,7 +520,7 @@ def load_config(path: Path = KLIMKIT_CONFIG_FILE) -> InstallConfig:
 
 def validate_config(config: InstallConfig) -> list[str]:
     errors: list[str] = []
-    if config.switchboard_agent_enabled and not config.switchboard_backend_url:
+    if config.switchboard_agent_enabled and not config.switchboard_backend_url and not config.switchboard_enabled:
         errors.append(
             "[switchboard.agent] enabled = true requires backend_url, "
             "for example https://<first-vm>.<tailnet>.ts.net/switchboard"
@@ -647,6 +682,26 @@ def build_plan(
                 )
             )
 
+    if config.tailscale_serve_enabled and config.configure_services and not skip_services:
+        if config.code_server_enabled:
+            actions.append(
+                _tailscale_serve_action(
+                    "tailscale-serve-code-server",
+                    "configure Tailscale Serve for code-server",
+                    path="/",
+                    target_url="http://127.0.0.1:8080",
+                )
+            )
+        if config.switchboard_enabled:
+            actions.append(
+                _tailscale_serve_action(
+                    "tailscale-serve-switchboard",
+                    "configure Tailscale Serve for Switchboard",
+                    path=config.switchboard_base_path,
+                    target_url=f"http://127.0.0.1:{config.switchboard_port}{config.switchboard_base_path}",
+                )
+            )
+
     if config.supervisor_enabled and config.configure_services and not skip_services:
         if platform.system() == "Darwin":
             actions.append(
@@ -759,6 +814,7 @@ def _component_name(component: str) -> str:
         "service": "Services",
         "switchboard": "Switchboard",
         "switchboard-agent": "Switchboard Agent",
+        "tailscale": "Tailscale",
     }
     return names.get(component, component.replace("-", " ").title())
 

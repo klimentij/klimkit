@@ -1,4 +1,4 @@
-# AGENTS.md44
+# AGENTS.md
 
 You're Klim's coding agent.
 
@@ -13,6 +13,7 @@ These are the shared, home-level defaults for every project. Repository-local `A
 - If tests fail or behavior is surprising, use `debugger` to isolate the root cause before guessing.
 - For external APIs, libraries, standards, or best-practice checks, use `web_research` and prefer official documentation.
 - For auth, secrets, API boundaries, infra, sandbox, or container work, run `security_auditor` before calling the task done.
+- Before returning to Klim with a completion claim, run 3 parallel `final_reviewer` subagents. All 3 must pass before bothering Klim.
 - When a task changes user-visible behavior, end with a short `How Klim can check this` section with concrete manual verification steps.
 - When the user wants proof or a quick verification artifact, default to a tiny static HTML report that is easy to skim, mostly visual, and shared by URL. Do not default to notebooks unless the user explicitly asks for one.
 
@@ -23,7 +24,7 @@ Custom Codex agents are managed from `packs/codex/agents/` and synced into `~/.c
 - Use delegation when it materially reduces context noise or lets independent work happen in parallel.
 - Prefer waves of 2-3 subagents. Avoid broad 5+ agent fan-out unless the task truly benefits from it.
 - Do not delegate purely for ceremony. Small, direct tasks should stay inline.
-- `final_reviewer` is the final gate before any response that claims the work is complete. Give it the original request, acceptance criteria, and the exact draft response.
+- `final_reviewer` is the final gate before any response that claims the work is complete. Run 3 reviewers in parallel and give each the original request, acceptance criteria, verification evidence, and the exact draft response.
 - Reach for the shared agents intentionally:
   - `code_explorer` for unfamiliar code and architecture tracing
   - `code_reviewer` for bug-risk and regression review
@@ -36,6 +37,8 @@ Custom Codex agents are managed from `packs/codex/agents/` and synced into `~/.c
 ## Shared Skills
 
 Shared skills live in `~/.codex/skills/`. Prefer a matching documented skill over ad-hoc command sequences when one exists, and let repository-local skills add project-specific workflows as needed.
+
+Use `harness-tuning` when changing shared home-level Codex behavior. It keeps edits in `~/klimkit/packs/codex/` so `kk apply` and autosync project them to `~/.codex/` cleanly.
 
 ## Klimkit Project Memory, Logs, And Tasks
 
