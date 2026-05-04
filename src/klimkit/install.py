@@ -36,6 +36,7 @@ EXEC_MODE = 0o755
 @dataclass(frozen=True)
 class InstallConfig:
     profile: str
+    human_name: str
     repo_root: Path
     client_enabled: bool
     server_enabled: bool
@@ -167,6 +168,7 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
     client_enabled, server_enabled = _role_flags(profile)
     return InstallConfig(
         profile=_profile_from_roles(client_enabled=client_enabled, server_enabled=server_enabled),
+        human_name="Human",
         repo_root=OPS_REPO_ROOT,
         client_enabled=client_enabled,
         server_enabled=server_enabled,
@@ -230,6 +232,10 @@ def render_config(config: InstallConfig) -> str:
             "# Klimkit local machine config.",
             "# Edit this file, then run `kk preview` or `kk apply`.",
             "# This is the only human-edited Klimkit config; other files are generated projections.",
+            "",
+            "[operator]",
+            "# Display name injected into projected harness instructions.",
+            f"human_name = {json.dumps(config.human_name)}",
             "",
             "[paths]",
             "# Repo checkout Klimkit should apply from.",
@@ -405,6 +411,7 @@ def parse_config(raw: str) -> InstallConfig:
     data = tomllib.loads(raw) if raw.strip() else {}
     paths = data.get("paths", {})
     machine = data.get("machine", {})
+    operator = data.get("operator", {})
     components = data.get("components", {})
     workers = data.get("workers", {})
     services = data.get("services", {})
@@ -433,6 +440,7 @@ def parse_config(raw: str) -> InstallConfig:
     ).strip()
     return InstallConfig(
         profile=_profile_from_roles(client_enabled=client_enabled, server_enabled=server_enabled),
+        human_name=str(operator.get("human_name", operator.get("name", "Human"))).strip() or "Human",
         repo_root=expand_path(str(paths.get("repo_root", machine.get("repo_root", OPS_REPO_ROOT)))),
         client_enabled=client_enabled,
         server_enabled=server_enabled,
@@ -536,6 +544,7 @@ def _template_text(path: Path, config: InstallConfig, *, config_path: Path = KLI
         "__PYTHON_BIN__": shutil.which("python3") or "python3",
         "__UV_BIN__": shutil.which("uv") or "uv",
         "__STATE_DIR__": str(KLIMKIT_STATE_DIR),
+        "__HUMAN_NAME__": config.human_name,
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
@@ -555,7 +564,7 @@ def _file_action(
 ) -> Action:
     content = (
         _template_text(source, config, config_path=config_path)
-        if config is not None and source.suffix in {".service", ".plist"}
+        if config is not None and (source.suffix in {".service", ".plist"} or component == "codex")
         else None
     )
     return Action(
@@ -578,6 +587,8 @@ def _dir_actions(
     *,
     component: str,
     exclude_prefixes: tuple[str, ...] = (),
+    config: InstallConfig | None = None,
+    config_path: Path = KLIMKIT_CONFIG_FILE,
 ) -> list[Action]:
     actions: list[Action] = []
     if not source_root.exists():
@@ -595,6 +606,8 @@ def _dir_actions(
                 f"{description}: {relative}",
                 component=component,
                 mode=mode,
+                config=config,
+                config_path=config_path,
             )
         )
     return actions
@@ -631,6 +644,8 @@ def build_plan(
                         projection.target,
                         projection.description,
                         component=projection.component,
+                        config=config,
+                        config_path=config_path,
                     )
                 )
             elif projection.kind == "dir":
@@ -642,6 +657,8 @@ def build_plan(
                         projection.description,
                         component=projection.component,
                         exclude_prefixes=projection.exclude_prefixes,
+                        config=config,
+                        config_path=config_path,
                     )
                 )
 

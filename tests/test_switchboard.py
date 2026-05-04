@@ -1395,6 +1395,8 @@ class SwitchboardTests(unittest.TestCase):
         self.assertIn("materializeManualWorkspaces", script)
         self.assertIn("mergeWorkspaceStatus", script)
         self.assertIn("findServerWorkspaceForLocal", script)
+        self.assertIn("machineIdentityKey", script)
+        self.assertIn("workspaceSortStamp(right).localeCompare(workspaceSortStamp(left))", script)
         self.assertIn('tag: signature', script)
         self.assertIn('console.warn("Failed to show Switchboard notification"', script)
         self.assertIn('panel.setAttribute("aria-hidden", String(!active))', script)
@@ -1404,6 +1406,98 @@ class SwitchboardTests(unittest.TestCase):
         self.assertNotIn('document.title = error instanceof Error ? error.message', script)
         self.assertNotIn('panel.toggleAttribute("hidden", !active)', script)
         self.assertNotIn("ui.notificationMemory[workspace.id] = eventId", script)
+
+    def test_ingest_snapshot_sends_telegram_for_client_attention_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = build_config(Path(tmpdir))
+            config = MODULE.AppConfig(
+                **{
+                    **base.__dict__,
+                    "telegram_enabled": True,
+                    "telegram_bot_token": "token",
+                    "telegram_chat_id": "chat",
+                }
+            )
+            app = MODULE.SwitchboardApp(config)
+            payload = {
+                "machine": "MacBook-Air-8",
+                "machine_dns": "macbook-air-8.tail11c448.ts.net",
+                "generated_at": "2026-05-04T12:34:50Z",
+                "sessions": [
+                    {
+                        "session_id": "thread-mac",
+                        "cwd": "/Users/klim",
+                        "folder_name": "klim",
+                        "branch": "klim",
+                        "title": "hi43",
+                        "detail": "hi43",
+                        "activity_state": "done",
+                        "created_at": "2026-05-04T12:34:43Z",
+                        "updated_at": "2026-05-04T12:34:48Z",
+                        "latest_event_id": "turn-done",
+                        "latest_event_status": "done",
+                        "latest_event_message": "hi43",
+                        "latest_event_created_at": "2026-05-04T12:34:48Z",
+                        "needs_attention": True,
+                        "attention_kind": "completion_unseen",
+                        "approval_policy": "never",
+                    }
+                ],
+            }
+            try:
+                with mock.patch.object(MODULE, "send_telegram_notification", return_value=True) as telegram:
+                    app.ingest_snapshot(payload)
+                    app.ingest_snapshot(payload)
+
+                telegram.assert_called_once()
+                text = telegram.call_args.args[1]
+                self.assertIn("Codex finished on MacBook-Air-8", text)
+                self.assertIn("/Users/klim", text)
+                self.assertIn("hi43", text)
+                self.assertIn("https://workstation.example.ts.net/switchboard/#", text)
+            finally:
+                app.close()
+
+    def test_recent_attention_snapshot_sends_after_telegram_is_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = build_config(Path(tmpdir))
+            app = MODULE.SwitchboardApp(base)
+            payload = {
+                "machine": "MacBook-Air-8",
+                "machine_dns": "macbook-air-8.tail11c448.ts.net",
+                "generated_at": "2026-05-04T12:34:50Z",
+                "sessions": [
+                    {
+                        "session_id": "thread-mac",
+                        "cwd": "/Users/klim",
+                        "folder_name": "klim",
+                        "activity_state": "done",
+                        "latest_event_id": "turn-done",
+                        "latest_event_status": "done",
+                        "latest_event_message": "hi43",
+                        "latest_event_created_at": MODULE.iso_now(),
+                        "needs_attention": True,
+                        "attention_kind": "completion_unseen",
+                    }
+                ],
+            }
+            try:
+                app.ingest_snapshot(payload)
+                app.config = MODULE.AppConfig(
+                    **{
+                        **base.__dict__,
+                        "telegram_enabled": True,
+                        "telegram_bot_token": "token",
+                        "telegram_chat_id": "chat",
+                    }
+                )
+                with mock.patch.object(MODULE, "send_telegram_notification", return_value=True) as telegram:
+                    app.ingest_snapshot(payload)
+                    app.ingest_snapshot(payload)
+
+                telegram.assert_called_once()
+            finally:
+                app.close()
 
 
 if __name__ == "__main__":

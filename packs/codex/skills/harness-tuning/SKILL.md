@@ -1,11 +1,11 @@
 ---
 name: harness-tuning
-description: Tune Klim's shared Codex home-level harness pack safely through the Klimkit repo, not by editing generated files in ~/.codex directly.
+description: Tune __HUMAN_NAME__'s shared Codex home-level harness pack safely through the Klimkit repo, not by editing generated files in ~/.codex directly.
 ---
 
 # Harness Tuning
 
-Use this skill when Klim asks to change shared Codex behavior, subagents, skills, hooks, model defaults, or other home-level harness files.
+Use this skill when __HUMAN_NAME__ asks to change shared Codex behavior, subagents, skills, hooks, model defaults, or other home-level harness files.
 
 ## Ground Rules
 
@@ -14,7 +14,7 @@ Use this skill when Klim asks to change shared Codex behavior, subagents, skills
 - Do not edit generated projections in `~/.codex/` directly. They are overwritten by `kk apply`, `kk pull`, and daemon autosync.
 - Keep pack files hand-authored and reviewable. Avoid generated bulk output unless the user explicitly asks for a generated artifact.
 - After pack edits, run the relevant pack validation tests and then `kk apply` if the current VM should use the change immediately.
-- Push committed pack changes to `main` when Klim wants the update everywhere. Machines with autosync enabled poll `origin/main` every 5 seconds by default, fast-forward, apply projections, restart managed services, and send Telegram summaries when configured.
+- Push committed pack changes to `main` when __HUMAN_NAME__ wants the update everywhere. Machines with autosync enabled poll `origin/main` every 5 seconds by default, fast-forward, apply projections, restart managed services, and send Telegram summaries when configured.
 
 ## Source Map
 

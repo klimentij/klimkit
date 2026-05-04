@@ -21,6 +21,8 @@ class DocsStaticTests(unittest.TestCase):
         self.assertNotIn("Python operator kit", first_paragraph)
         for heading in ("## Tech Stack", "## Single Config", "## Generated Projections", "## Security Model"):
             self.assertIn(heading, text)
+        self.assertIn('human_name = "Human"', text)
+        self.assertIn("__HUMAN_NAME__", text)
         self.assertIn(".klimkit/local/klimkit.toml", text)
         self.assertIn(".klimkit/state/", text)
 

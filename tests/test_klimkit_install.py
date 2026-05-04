@@ -29,6 +29,7 @@ class KlimkitInstallTests(unittest.TestCase):
         parsed = parse_config(render_config(config))
 
         self.assertEqual(parsed.profile, "server")
+        self.assertEqual(parsed.human_name, "Human")
         self.assertTrue(parsed.client_enabled)
         self.assertTrue(parsed.server_enabled)
         self.assertEqual(parsed.repo_root, Path("/tmp/klimkit"))
@@ -43,6 +44,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertIn("auto_sync = true", render_config(config))
         self.assertIn("switchboard_agent = true", render_config(config))
         self.assertIn("auto_sync_interval_seconds = 5", render_config(config))
+        self.assertIn('human_name = "Human"', render_config(config))
         self.assertIn("enable = true", render_config(config))
         self.assertIn("[switchboard.server]", render_config(config))
         self.assertIn("[notifications.telegram]", render_config(config))
@@ -127,6 +129,23 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertEqual(config_action.mode, 0o600)
         self.assertIn("[switchboard.server]", config_action.content or "")
         self.assertIn("[switchboard.agent]", config_action.content or "")
+
+    def test_codex_pack_projects_human_name_template(self) -> None:
+        config = replace(default_config(), repo_root=ROOT, human_name="Ada")
+
+        actions = build_plan(config, skip_services=True)
+        agents_action = next(action for action in actions if action.id == "codex-agents-md")
+        skill_action = next(action for action in actions if action.id.endswith("harness-tuning/SKILL.md"))
+
+        self.assertIsNotNone(agents_action.content)
+        self.assertIsNotNone(skill_action.content)
+        assert agents_action.content is not None
+        assert skill_action.content is not None
+        self.assertIn("You're Ada's coding agent.", agents_action.content)
+        self.assertIn("Before returning to Ada", agents_action.content)
+        self.assertIn("when Ada asks", skill_action.content)
+        self.assertNotIn("__HUMAN_NAME__", agents_action.content)
+        self.assertNotIn("Klim's coding agent", agents_action.content)
 
     def test_single_config_uses_private_backend_settings(self) -> None:
         config = replace(

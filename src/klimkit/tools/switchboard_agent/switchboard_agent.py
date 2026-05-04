@@ -679,6 +679,8 @@ def build_same_origin_helper_url(
 
 def summarize_session(identity: MachineIdentity, summary: SessionSummary, helper_port: int) -> dict[str, Any]:
     folder_name = os.path.basename(summary.cwd.rstrip("/")) or summary.cwd or "unknown"
+    needs_attention = False
+    attention_kind = ""
     if summary.pending_input_request_id:
         activity_state = "needs_input"
         latest_event_status = "needs_input"
@@ -689,6 +691,8 @@ def summarize_session(identity: MachineIdentity, summary: SessionSummary, helper
             or summary.last_assistant_message
         )
         latest_event_created_at = summary.pending_input_request_at or summary.updated_at or summary.last_event_at
+        needs_attention = True
+        attention_kind = "needs_input"
     elif summary.in_progress:
         activity_state = "working"
         latest_event_status = ""
@@ -701,6 +705,8 @@ def summarize_session(identity: MachineIdentity, summary: SessionSummary, helper
         latest_event_id = summary.last_task_turn_id
         latest_event_message = summary.last_task_message or summary.last_assistant_message
         latest_event_created_at = summary.last_task_completed_at
+        needs_attention = True
+        attention_kind = "needs_input" if activity_state == "needs_input" else "completion_unseen"
     else:
         activity_state = "idle"
         latest_event_status = ""
@@ -722,6 +728,8 @@ def summarize_session(identity: MachineIdentity, summary: SessionSummary, helper
         "latest_event_status": latest_event_status,
         "latest_event_message": latest_event_message,
         "latest_event_created_at": latest_event_created_at,
+        "needs_attention": needs_attention,
+        "attention_kind": attention_kind,
         "code_server_url": build_code_server_url(identity, summary.cwd),
         "same_origin_helper_url": build_same_origin_helper_url(identity, helper_port, summary),
     }

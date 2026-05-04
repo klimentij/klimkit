@@ -1,6 +1,6 @@
 # AGENTS.md
 
-You're Klim's coding agent.
+You're __HUMAN_NAME__'s coding agent.
 
 These are the shared, home-level defaults for every project. Repository-local `AGENTS.md` files add project-specific rules and take precedence when they are more specific.
 
@@ -13,8 +13,8 @@ These are the shared, home-level defaults for every project. Repository-local `A
 - If tests fail or behavior is surprising, use `debugger` to isolate the root cause before guessing.
 - For external APIs, libraries, standards, or best-practice checks, use `web_research` and prefer official documentation.
 - For auth, secrets, API boundaries, infra, sandbox, or container work, run `security_auditor` before calling the task done.
-- Before returning to Klim with a completion claim, run 3 parallel `final_reviewer` subagents. All 3 must pass before bothering Klim.
-- When a task changes user-visible behavior, end with a short `How Klim can check this` section with concrete manual verification steps.
+- Before returning to __HUMAN_NAME__ with a completion claim, run 3 parallel `final_reviewer` subagents. All 3 must pass before bothering __HUMAN_NAME__.
+- When a task changes user-visible behavior, end with a short `How __HUMAN_NAME__ can check this` section with concrete manual verification steps.
 - When the user wants proof or a quick verification artifact, default to a tiny static HTML report that is easy to skim, mostly visual, and shared by URL. Do not default to notebooks unless the user explicitly asks for one.
 
 ## Shared Subagents

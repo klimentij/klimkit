@@ -192,6 +192,8 @@ class SwitchboardAgentTests(unittest.TestCase):
             self.assertEqual(session["branch"], "main")
             self.assertEqual(session["created_at"], "2026-04-15T09:45:00Z")
             self.assertEqual(session["activity_state"], "needs_input")
+            self.assertTrue(session["needs_attention"])
+            self.assertEqual(session["attention_kind"], "needs_input")
             self.assertEqual(session["latest_event_id"], "turn-1")
             self.assertEqual(
                 session["code_server_url"],
@@ -307,6 +309,55 @@ class SwitchboardAgentTests(unittest.TestCase):
             self.assertEqual(payload["latest_event_status"], "needs_input")
             self.assertEqual(payload["latest_event_id"], "call-123")
             self.assertEqual(payload["latest_event_message"], "Implement this plan?")
+            self.assertTrue(payload["needs_attention"])
+            self.assertEqual(payload["attention_kind"], "needs_input")
+
+    def test_completed_session_requests_completion_notification(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-2026-04-16T23-00-00-thread-4.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-16T23:00:00Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-4",
+                                    "cwd": "/Users/klim",
+                                    "git": {"branch": "main"},
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-04-16T23:00:05Z",
+                                "type": "event_msg",
+                                "payload": {
+                                    "type": "task_complete",
+                                    "turn_id": "turn-done",
+                                    "last_agent_message": "hi43",
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            payload = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="MacBook-Air-8", dns_name="macbook-air-8.tail11c448.ts.net"),
+                summary,
+                4632,
+            )
+
+            self.assertEqual(payload["activity_state"], "done")
+            self.assertEqual(payload["latest_event_status"], "done")
+            self.assertTrue(payload["needs_attention"])
+            self.assertEqual(payload["attention_kind"], "completion_unseen")
 
     def test_should_send_snapshot_respects_hash_and_heartbeat(self):
         with tempfile.TemporaryDirectory() as tmpdir:

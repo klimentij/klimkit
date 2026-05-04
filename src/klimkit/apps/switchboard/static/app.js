@@ -194,8 +194,12 @@ function isAbsolutePath(path) {
   return String(path || "").startsWith("/");
 }
 
+function machineIdentityKey(machine) {
+  return dnsLabelFromMachine(machine) || String(machine || "").trim().toLowerCase();
+}
+
 function machineFolderKey(machine, cwd) {
-  return `${String(machine || "").trim().toLowerCase()}::${normalizePath(cwd)}`;
+  return `${machineIdentityKey(machine)}::${normalizePath(cwd)}`;
 }
 
 function workspaceIdentityKey(workspace) {
@@ -599,7 +603,7 @@ function findServerWorkspaceForLocal(localWorkspace, serverWorkspaces, claimedSe
       }
       return Boolean(workspaceSortStamp(workspace));
     })
-    .sort((left, right) => workspaceSortStamp(left).localeCompare(workspaceSortStamp(right)))[0] || null;
+    .sort((left, right) => workspaceSortStamp(right).localeCompare(workspaceSortStamp(left)))[0] || null;
 }
 
 function mergeWorkspaceStatus(localWorkspace, serverWorkspace) {

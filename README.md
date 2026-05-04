@@ -80,10 +80,15 @@ Task artifacts and repo-work notes under `.klimkit/` are intentionally trackable
 The default first VM enables both roles:
 
 ```toml
+[operator]
+human_name = "Human"
+
 [components]
 client = true
 server = true
 ```
+
+`operator.human_name` is injected into projected Codex harness instructions so the source pack can stay generic while each machine can address its human operator by the configured name.
 
 Client-only VMs report to the first VM:
 
@@ -147,6 +152,8 @@ Codex keeps its default home at `~/.codex`. Klimkit treats that directory as a m
 ## Harness Pack
 
 The active Codex home-level harness is source-controlled in `packs/codex/` and projected into `~/.codex/` by `kk apply`, `kk pull`, and daemon autosync.
+
+Codex pack files may contain the `__HUMAN_NAME__` token. Klimkit replaces it with `[operator].human_name` during projection.
 
 Current pack contents:
 

@@ -34,6 +34,7 @@ except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib
 
 from klimkit.paths import KLIMKIT_CONFIG_FILE, KLIMKIT_STATE_DIR
+from klimkit.notifications import send_telegram_notification
 
 DEFAULT_CONFIG_PATH = KLIMKIT_CONFIG_FILE
 STATIC_DIR = Path(__file__).with_name("static")
@@ -118,6 +119,9 @@ class AppConfig:
     machine_id: str
     machine_dns: str
     trusted_codex_launch_bypass_sandbox: bool
+    telegram_enabled: bool = False
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -225,6 +229,12 @@ def load_config(path: Path) -> AppConfig:
     collector_config = {**raw.get("collector", {})}
     machine_config = raw.get("machine", {})
     trusted_launch_config = raw.get("trusted_local_agent_launch", {})
+    notifications_config = raw.get("notifications", {}) if isinstance(raw.get("notifications", {}), dict) else {}
+    telegram_config = (
+        notifications_config.get("telegram", {})
+        if isinstance(notifications_config.get("telegram", {}), dict)
+        else {}
+    )
 
     def nested(section: str, key: str) -> Any:
         if section == "paths":
@@ -281,6 +291,9 @@ def load_config(path: Path) -> AppConfig:
         trusted_codex_launch_bypass_sandbox=bool(
             trusted_launch_config.get("bypass_codex_approvals_and_sandbox", True)
         ),
+        telegram_enabled=bool(telegram_config.get("enabled", False)),
+        telegram_bot_token=str(telegram_config.get("bot_token", "")).strip(),
+        telegram_chat_id=str(telegram_config.get("chat_id", "")).strip(),
     )
 
 
@@ -1293,6 +1306,25 @@ class StateStore:
             )
             self.conn.commit()
 
+    def session_notification_state(self, session_id: str) -> dict[str, str | bool]:
+        with self._lock:
+            row = self.conn.execute(
+                """
+                SELECT latest_event_id, latest_event_created_at, needs_attention, last_seen_event_id
+                FROM session_state
+                WHERE session_id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+        if row is None:
+            return {}
+        return {
+            "latest_event_id": str(row["latest_event_id"]),
+            "latest_event_created_at": str(row["latest_event_created_at"]),
+            "needs_attention": bool(row["needs_attention"]),
+            "last_seen_event_id": str(row["last_seen_event_id"]),
+        }
+
     def enqueue_event(self, event: dict[str, Any]) -> None:
         with self._lock:
             self.conn.execute(
@@ -1951,8 +1983,10 @@ class SwitchboardApp:
         machines.sort(key=lambda item: str(item.get("machine", "")) if isinstance(item, dict) else "")
 
     def ingest_snapshot(self, payload: dict[str, Any]) -> dict[str, Any]:
+        notifications = self._attention_notifications_from_snapshot(payload)
         count = self.store.apply_snapshot(payload)
         self.broadcaster.publish_invalidate("snapshot")
+        self._send_telegram_notifications(notifications)
         return {"status": "accepted", "session_count": count}
 
     def ingest_events(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -1963,8 +1997,10 @@ class SwitchboardApp:
             normalized = [payload]
         else:
             raise ValueError("invalid event payload")
+        notifications = self._attention_notifications_from_events(normalized)
         applied = self.store.apply_event_batch(normalized)
         self.broadcaster.publish_invalidate("events")
+        self._send_telegram_notifications(notifications)
         return {"status": "accepted", "applied": applied}
 
     def set_archive_state(self, session_id: str, archived: bool) -> dict[str, Any]:
@@ -2028,6 +2064,178 @@ class SwitchboardApp:
             "settings_path": str(settings_path),
             "task_label": LOCAL_CODEX_TASK_LABEL,
         }
+
+    def _attention_notifications_from_snapshot(self, payload: dict[str, Any]) -> list[dict[str, str]]:
+        machine = str(payload.get("machine") or "").strip()
+        machine_dns = str(payload.get("machine_dns") or "").strip()
+        generated_at = str(payload.get("generated_at") or iso_now()).strip()
+        sessions = payload.get("sessions")
+        if not machine or not isinstance(sessions, list):
+            return []
+        notifications: list[dict[str, str]] = []
+        for session in sessions:
+            if not isinstance(session, dict):
+                continue
+            notification = self._attention_notification_from_session(
+                machine=machine,
+                machine_dns=machine_dns,
+                generated_at=generated_at,
+                session=session,
+            )
+            if notification:
+                notifications.append(notification)
+        return notifications
+
+    def _attention_notifications_from_events(self, events: list[dict[str, Any]]) -> list[dict[str, str]]:
+        notifications: list[dict[str, str]] = []
+        for event in events:
+            event_type = str(event.get("type") or "")
+            if event_type == "session_upsert":
+                session = event.get("session")
+                if isinstance(session, dict):
+                    notification = self._attention_notification_from_session(
+                        machine=str(event.get("machine") or "").strip(),
+                        machine_dns=str(event.get("machine_dns") or "").strip(),
+                        generated_at=str(event.get("generated_at") or event.get("created_at") or iso_now()).strip(),
+                        session=session,
+                    )
+                    if notification:
+                        notifications.append(notification)
+            elif event_type == "hook_hint":
+                notification = self._attention_notification_from_hook_hint(event)
+                if notification:
+                    notifications.append(notification)
+        return notifications
+
+    def _attention_notification_from_hook_hint(self, event: dict[str, Any]) -> dict[str, str] | None:
+        status = normalize_hook_status(str(event.get("status") or ""))
+        if not status:
+            return None
+        _, attention_kind, needs_attention = hook_status_to_activity(status)
+        session = {
+            "session_id": str(event.get("session_id") or ""),
+            "cwd": str(event.get("cwd") or ""),
+            "folder_name": folder_name_from_path(str(event.get("cwd") or "")),
+            "title": str(event.get("title") or ""),
+            "activity_state": status,
+            "latest_event_id": str(event.get("event_id") or ""),
+            "latest_event_status": status,
+            "latest_event_message": str(event.get("message") or ""),
+            "latest_event_created_at": str(event.get("created_at") or event.get("generated_at") or ""),
+            "needs_attention": needs_attention,
+            "attention_kind": attention_kind,
+        }
+        return self._attention_notification_from_session(
+            machine=str(event.get("machine") or "").strip(),
+            machine_dns=str(event.get("machine_dns") or "").strip(),
+            generated_at=str(event.get("generated_at") or event.get("created_at") or iso_now()).strip(),
+            session=session,
+        )
+
+    def _attention_notification_from_session(
+        self,
+        *,
+        machine: str,
+        machine_dns: str,
+        generated_at: str,
+        session: dict[str, Any],
+    ) -> dict[str, str] | None:
+        session_id = str(session.get("session_id") or session.get("id") or "").strip()
+        event_id = str(session.get("latest_event_id") or "").strip()
+        if not session_id or not event_id:
+            return None
+        attention_kind = str(session.get("attention_kind") or "").strip()
+        needs_attention = bool(session.get("needs_attention"))
+        if not needs_attention and attention_kind not in {"completion_unseen", "needs_input", "awaiting_approval", "error"}:
+            return None
+        created_at = str(session.get("latest_event_created_at") or session.get("updated_at") or generated_at).strip()
+        if not self._should_send_telegram_for_event(session_id, event_id, created_at):
+            return None
+        cwd = str(session.get("cwd") or "").strip()
+        folder = str(session.get("folder_name") or folder_name_from_path(cwd) or "workspace").strip()
+        status = str(session.get("latest_event_status") or session.get("activity_state") or "").strip()
+        message = clip_text(str(session.get("latest_event_message") or session.get("detail") or "").strip(), 220)
+        title = clip_text(str(session.get("title") or folder).strip(), 80)
+        resolved_machine = machine or str(session.get("machine") or "").strip()
+        resolved_dns = self.store.resolve_machine_dns(resolved_machine, machine_dns or str(session.get("machine_dns") or ""))
+        return {
+            "session_id": session_id,
+            "event_id": event_id,
+            "machine": resolved_machine,
+            "machine_dns": resolved_dns,
+            "cwd": cwd,
+            "folder": folder,
+            "status": status,
+            "attention_kind": attention_kind,
+            "title": title,
+            "message": message,
+            "created_at": created_at,
+            "switchboard_url": self._switchboard_url_for_session(resolved_machine, cwd, session_id),
+        }
+
+    def _should_send_telegram_for_event(self, session_id: str, event_id: str, created_at: str) -> bool:
+        previous = self.store.session_notification_state(session_id)
+        if not previous:
+            return True
+        if str(previous.get("last_seen_event_id") or "") == event_id:
+            return False
+        if str(previous.get("latest_event_id") or "") != event_id:
+            return True
+        if is_recent(created_at, 15 * 60):
+            return True
+        return False
+
+    def _switchboard_url_for_session(self, machine: str, cwd: str, session_id: str) -> str:
+        if not self.identity.dns_name:
+            return ""
+        query = parse.urlencode({"session": session_id, "machine": machine, "folder": cwd})
+        return f"https://{self.identity.dns_name}{self.config.base_path}/#{query}"
+
+    def _send_telegram_notifications(self, notifications: list[dict[str, str]]) -> None:
+        if not notifications or not self.config.telegram_enabled:
+            return
+        for notification in notifications:
+            key = "telegram_notified:" + ":".join(
+                [
+                    notification["machine"],
+                    notification["session_id"],
+                    notification["event_id"],
+                ]
+            )
+            if self.store.get_runtime_state(key):
+                continue
+            text = self._format_telegram_notification(notification)
+            try:
+                sent = send_telegram_notification(self.config, text)
+            except Exception:
+                sent = False
+            if sent:
+                self.store.set_runtime_state(key, iso_now())
+
+    def _format_telegram_notification(self, notification: dict[str, str]) -> str:
+        attention_kind = notification.get("attention_kind", "")
+        status = notification.get("status", "")
+        if attention_kind == "needs_input" or status == "needs_input":
+            headline = "Codex needs input"
+        elif attention_kind == "awaiting_approval" or status == "awaiting_approval":
+            headline = "Codex needs approval"
+        elif attention_kind == "error" or status == "error":
+            headline = "Codex errored"
+        else:
+            headline = "Codex finished"
+        lines = [
+            f"{headline} on {notification.get('machine', 'unknown')}",
+            f"{notification.get('folder', 'workspace')} · {notification.get('cwd', '')}",
+        ]
+        title = notification.get("title", "")
+        message = notification.get("message", "")
+        if title and title != notification.get("folder"):
+            lines.append(title)
+        if message:
+            lines.append(message)
+        if notification.get("switchboard_url"):
+            lines.append(notification["switchboard_url"])
+        return "\n".join(line for line in lines if line)
 
     def start_background_workers(self) -> None:
         if self.config.collector_enabled:
