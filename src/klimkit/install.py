@@ -4,8 +4,10 @@ import datetime as dt
 import json
 import os
 import platform
+import shlex
 import shutil
 import subprocess
+import textwrap
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -588,28 +590,105 @@ def _ansi_cell(text: str, width: int, code: str, *, color: bool) -> str:
     return _ansi(f"{text:<{width}}", code, color=color)
 
 
+def _plan_width() -> int:
+    columns = shutil.get_terminal_size((104, 20)).columns
+    return max(78, min(columns, 108))
+
+
+def _rule(width: int, *, color: bool) -> str:
+    return "  " + _ansi("-" * min(width - 2, 88), "38;2;47;65;56", color=color)
+
+
+def _component_name(component: str) -> str:
+    names = {
+        "core": "Core",
+        "codex": "Codex",
+        "code-server": "Code Server",
+        "service": "Services",
+        "switchboard": "Switchboard",
+        "switchboard-agent": "Switchboard Agent",
+    }
+    return names.get(component, component.replace("-", " ").title())
+
+
+def _kind_label(action: Action) -> tuple[str, str]:
+    labels = {
+        "run_command": ("run", "38;2;244;188;103"),
+        "manual_step": ("manual", "38;2;240;123;95"),
+        "ensure_file": ("ensure", "38;2;119;199;255"),
+        "write_file": ("write", "38;2;126;240;175"),
+    }
+    return labels.get(action.kind, (action.kind, "38;2;166;200;182"))
+
+
+def _action_detail(action: Action) -> tuple[str, str]:
+    if action.kind == "run_command":
+        return "$", shlex.join(action.command)
+    return "->", str(action.target)
+
+
+def _detail_lines(prefix: str, value: str, *, width: int, color: bool) -> list[str]:
+    indent = " " * 10
+    marker_width = 2
+    available = max(36, width - len(indent) - marker_width - 1)
+    wrapped = textwrap.wrap(
+        value,
+        width=available,
+        break_long_words=False,
+        break_on_hyphens=False,
+    ) or [""]
+    lines = []
+    for index, line in enumerate(wrapped):
+        marker = prefix if index == 0 else " " * marker_width
+        lines.append(f"{indent}{_ansi(marker, '38;2;111;141;126', color=color)} {line}")
+    return lines
+
+
+def _component_groups(actions: list[Action]) -> list[tuple[str, list[Action]]]:
+    groups: list[tuple[str, list[Action]]] = []
+    by_component: dict[str, list[Action]] = {}
+    for action in actions:
+        if action.component not in by_component:
+            by_component[action.component] = []
+            groups.append((action.component, by_component[action.component]))
+        by_component[action.component].append(action)
+    return groups
+
+
 def format_plan(actions: list[Action], *, config_path: Path = KLIMKIT_CONFIG_FILE, color: bool = False) -> str:
+    width = _plan_width()
+    groups = _component_groups(actions)
     lines = [
         _ansi("Klimkit Setup Preview", "1;38;2;126;240;175", color=color),
         "",
         f"  {'config':<9} {config_path.expanduser()}",
         f"  {'manifest':<9} {KLIMKIT_MANIFEST_FILE}",
+        f"  {'actions':<9} {len(actions)}",
         "",
+        _rule(width, color=color),
         _ansi("Plan", "1;38;2;166;200;182", color=color),
     ]
-    for action in actions:
-        if action.kind == "run_command":
-            lines.append(f"  {_ansi_cell('run', 7, '38;2;244;188;103', color=color)} {action.description}")
-            lines.append(f"          $ {' '.join(action.command)}")
-        elif action.kind == "manual_step":
-            lines.append(f"  {_ansi_cell('manual', 7, '38;2;240;123;95', color=color)} {action.description}")
-            lines.append(f"          -> {action.target}")
-        elif action.kind == "ensure_file":
-            lines.append(f"  {_ansi_cell('ensure', 7, '38;2;119;199;255', color=color)} {action.description}")
-            lines.append(f"          -> {action.target}")
-        else:
-            lines.append(f"  {_ansi_cell('write', 7, '38;2;126;240;175', color=color)} {action.description}")
-            lines.append(f"          -> {action.target}")
+    if not actions:
+        lines.append("  No actions. This machine is already aligned with the current config.")
+    for component, component_actions in groups:
+        count = len(component_actions)
+        suffix = "action" if count == 1 else "actions"
+        lines.extend(
+            [
+                "",
+                _rule(width, color=color),
+                f"  {_ansi(_component_name(component), '1;38;2;237;255;245', color=color)} "
+                f"{_ansi(f'{count} {suffix}', '38;2;111;141;126', color=color)}",
+                _rule(width, color=color),
+            ]
+        )
+        for index, action in enumerate(component_actions):
+            label, label_color = _kind_label(action)
+            detail_prefix, detail_value = _action_detail(action)
+            lines.append(f"  {_ansi_cell(label, 7, label_color, color=color)} {action.description}")
+            lines.extend(_detail_lines(detail_prefix, detail_value, width=width, color=color))
+            if index != len(component_actions) - 1:
+                lines.append("")
     return "\n".join(lines) + "\n"
 
 
