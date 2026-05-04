@@ -492,7 +492,12 @@ def cmd_apply(args: argparse.Namespace) -> int:
     if validation_errors:
         _print_apply_blockers(validation_errors)
         return 1
-    actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
+    actions = build_plan(
+        config,
+        skip_services=_skip_services(args),
+        restart_services=not bool(getattr(args, "defer_service_restart", False)),
+        config_path=args.config,
+    )
     manifest_path = _manifest_path(config)
     manifest = apply_plan(actions, manifest_path=manifest_path, backup_root=config.backups_dir)
     print(_header("apply", "Local plan applied."))

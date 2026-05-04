@@ -81,6 +81,22 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertEqual(apply_plan_mock.call_args.kwargs["manifest_path"], cli.KLIMKIT_MANIFEST_FILE)
             self.assertIn("actions    0", stdout.getvalue())
 
+    def test_apply_can_defer_service_restart_for_daemon_autosync(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "klimkit.toml"
+            stdout = io.StringIO()
+
+            with (
+                redirect_stdout(stdout),
+                mock.patch.object(cli, "build_plan", return_value=[]) as build_plan_mock,
+                mock.patch.object(cli, "apply_plan", return_value={"actions": [], "changed": []}),
+            ):
+                result = cli.main(["--config", str(config_path), "apply", "--defer-service-restart"])
+
+            self.assertEqual(result, 0)
+            build_plan_mock.assert_called_once()
+            self.assertFalse(build_plan_mock.call_args.kwargs["restart_services"])
+
     def test_uninstall_without_confirmation_flag_uninstalls(self) -> None:
         stdout = io.StringIO()
 

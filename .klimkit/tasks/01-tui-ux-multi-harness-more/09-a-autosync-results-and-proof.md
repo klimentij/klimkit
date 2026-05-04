@@ -21,7 +21,7 @@ Agent-authored result for `07-h-autosync-and-live-apply.md`.
 uv run python -m unittest discover -s tests -q
 ```
 
-Result: `Ran 99 tests in 6.790s`, `OK (skipped=1)`.
+Result: `Ran 100 tests in 6.790s`, `OK (skipped=1)`.
 
 ```bash
 uv run coverage run -m unittest discover -s tests -q
