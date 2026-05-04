@@ -1,4 +1,4 @@
-# AGENTS.md
+# AGENTS.md42
 
 You're Klim's coding agent.
 
