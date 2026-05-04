@@ -1,6 +1,6 @@
 import tempfile
 import unittest
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -122,7 +122,31 @@ class KlimkitSupervisorTests(unittest.TestCase):
 
         self.assertEqual(config.profile, "server")
         self.assertTrue(config.manage_switchboard)
+        self.assertTrue(config.live_sync_enabled)
+        self.assertEqual(config.live_sync_interval_seconds, 5)
+        self.assertEqual(config.fetch_ref, "origin/main")
+
+    def test_load_machine_config_allows_autosync_interval_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "machine.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[workers]",
+                        "auto_sync = false",
+                        "auto_sync_interval_seconds = 17",
+                        'auto_sync_ref = "origin/release"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = MODULE.load_machine_config(config_path)
+
         self.assertFalse(config.live_sync_enabled)
+        self.assertEqual(config.live_sync_interval_seconds, 17)
+        self.assertEqual(config.fetch_ref, "origin/release")
 
     def test_load_machine_config_uses_single_switchboard_agent_section(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -175,6 +199,145 @@ class KlimkitSupervisorTests(unittest.TestCase):
         self.assertFalse(any(mapping.repo_path == "packs/codex/hooks.json" for mapping in mappings))
         skills = next(mapping for mapping in mappings if mapping.repo_path == "packs/codex/skills")
         self.assertEqual(skills.exclude_prefixes, (".system/",))
+
+    def test_auto_sync_once_fast_forwards_applies_and_restarts(self) -> None:
+        config = MODULE.SupervisorConfig(
+            profile="server",
+            repo_root=Path("/tmp/klimkit"),
+            machine_config_path=Path("/tmp/machine.toml"),
+            live_sync_enabled=True,
+            live_sync_interval_seconds=5,
+            fetch_ref="origin/main",
+            switchboard_agent_enabled=False,
+            manage_switchboard=True,
+        )
+        git_calls: list[tuple[str, ...]] = []
+
+        def fake_git_output(_repo_root: Path, *args: str) -> str:
+            git_calls.append(args)
+            if args == ("rev-parse", "HEAD"):
+                return "oldrevision"
+            if args == ("status", "--porcelain"):
+                return ""
+            if args == ("diff", "--name-only", "oldrevision", "newrevision"):
+                return "packs/codex/AGENTS.md\nsrc/klimkit/apps/switchboard/daemon.py\n"
+            if args == ("merge", "--ff-only", "newrevision"):
+                return ""
+            raise AssertionError(args)
+
+        state: dict[str, object] = {}
+        stdout = StringIO()
+        with (
+            redirect_stdout(stdout),
+            mock.patch.object(MODULE, "fetch_remote", return_value="newrevision"),
+            mock.patch.object(MODULE, "git_output", side_effect=fake_git_output),
+            mock.patch.object(MODULE, "is_ancestor", return_value=True) as ancestor_mock,
+            mock.patch.object(MODULE, "save_supervisor_state") as save_mock,
+            mock.patch.object(MODULE, "run_apply_for_autosync", return_value="apply ok") as apply_mock,
+            mock.patch.object(MODULE, "send_telegram_notification", return_value=True) as telegram_mock,
+            mock.patch.object(MODULE, "restart_managed_service", return_value="restarted systemd user service") as restart_mock,
+        ):
+            summary = MODULE.auto_sync_once(config, state)
+
+        ancestor_mock.assert_called_once_with(Path("/tmp/klimkit"), "oldrevision", "newrevision")
+        apply_mock.assert_called_once_with(config)
+        telegram_mock.assert_called_once()
+        notification_text = telegram_mock.call_args.args[1]
+        self.assertIn("oldrevi -> newrevi", notification_text)
+        self.assertIn("Switchboard", notification_text)
+        restart_mock.assert_called_once_with()
+        save_mock.assert_called_once()
+        self.assertIn(("merge", "--ff-only", "newrevision"), git_calls)
+        self.assertIn("oldrevi..newrevi", summary)
+        self.assertIn("2 changed files", summary)
+        self.assertEqual(state["auto_sync"]["changed_files"], [
+            "packs/codex/AGENTS.md",
+            "src/klimkit/apps/switchboard/daemon.py",
+        ])
+
+    def test_fetch_remote_updates_remote_tracking_ref(self) -> None:
+        completed = mock.Mock()
+        completed.returncode = 0
+        completed.stdout = ""
+        completed.stderr = ""
+
+        with (
+            mock.patch.object(MODULE.subprocess, "run", return_value=completed) as run_mock,
+            mock.patch.object(MODULE, "git_output", return_value="newrevision") as git_output_mock,
+        ):
+            revision = MODULE.fetch_remote(Path("/tmp/klimkit"), "origin/main")
+
+        self.assertEqual(revision, "newrevision")
+        self.assertEqual(
+            run_mock.call_args.args[0],
+            ["git", "fetch", "--quiet", "origin", "main:refs/remotes/origin/main"],
+        )
+        git_output_mock.assert_called_once_with(
+            Path("/tmp/klimkit"),
+            "rev-parse",
+            "refs/remotes/origin/main",
+        )
+
+    def test_autosync_telegram_sender_posts_short_summary(self) -> None:
+        config = MODULE.SupervisorConfig(
+            profile="client",
+            repo_root=Path("/tmp/klimkit"),
+            machine_config_path=Path("/tmp/machine.toml"),
+            live_sync_enabled=True,
+            live_sync_interval_seconds=5,
+            fetch_ref="origin/main",
+            switchboard_agent_enabled=False,
+            manage_switchboard=False,
+            telegram_enabled=True,
+            telegram_bot_token="bot-token",
+            telegram_chat_id="chat-id",
+        )
+        update = MODULE.CheckoutUpdate(
+            previous_revision="abcdef123456",
+            new_revision="123456abcdef",
+            changed_files=("packs/codex/AGENTS.md", "README.md"),
+        )
+
+        with (
+            mock.patch.object(MODULE.socket, "gethostname", return_value="vm-1"),
+            mock.patch.object(MODULE.request, "urlopen") as urlopen_mock,
+        ):
+            urlopen_mock.return_value.__enter__.return_value.read.return_value = b'{"ok":true}'
+            sent = MODULE.send_telegram_notification(config, MODULE.autosync_notification_text(config, update))
+
+        self.assertTrue(sent)
+        req = urlopen_mock.call_args.args[0]
+        self.assertIn("botbot-token/sendMessage", req.full_url)
+        body = req.data.decode("utf-8")
+        self.assertIn("chat_id=chat-id", body)
+        self.assertIn("vm-1", body)
+        self.assertIn("Codex+pack", body)
+
+    def test_auto_sync_once_does_not_apply_when_main_is_unchanged(self) -> None:
+        config = MODULE.SupervisorConfig(
+            profile="server",
+            repo_root=Path("/tmp/klimkit"),
+            machine_config_path=Path("/tmp/machine.toml"),
+            live_sync_enabled=True,
+            live_sync_interval_seconds=5,
+            fetch_ref="origin/main",
+            switchboard_agent_enabled=False,
+            manage_switchboard=True,
+        )
+
+        with (
+            mock.patch.object(MODULE, "fetch_remote", return_value="samerevision"),
+            mock.patch.object(MODULE, "git_output", return_value="samerevision"),
+            mock.patch.object(MODULE, "save_supervisor_state") as save_mock,
+            mock.patch.object(MODULE, "run_apply_for_autosync") as apply_mock,
+            mock.patch.object(MODULE, "restart_managed_service") as restart_mock,
+        ):
+            summary = MODULE.auto_sync_once(config, {})
+
+        self.assertEqual(summary, "autosync: main unchanged")
+        save_mock.assert_called_once()
+        apply_mock.assert_not_called()
+        restart_mock.assert_not_called()
 
 
 if __name__ == "__main__":

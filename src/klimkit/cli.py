@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -125,6 +126,90 @@ def _print_changed_files(manifest: dict[str, object]) -> None:
         print(_status(status, target, "ok" if status in {"created", "updated"} else "warn"))
 
 
+def _run_status(description: str) -> tuple[str, str]:
+    lowered = description.lower()
+    if "restart" in lowered:
+        return "restarted", "ok"
+    if "reload" in lowered:
+        return "reloaded", "ok"
+    if "enable" in lowered:
+        return "enabled", "ok"
+    return "ran", "ok"
+
+
+def _display_host(host: str) -> str:
+    host = host.strip() or "127.0.0.1"
+    if host in {"0.0.0.0", "::"}:
+        return "127.0.0.1"
+    if ":" in host and not host.startswith("["):
+        return f"[{host}]"
+    return host
+
+
+def _switchboard_url(config: object) -> str | None:
+    if not bool(getattr(config, "switchboard_enabled", False)):
+        return None
+    host = _display_host(str(getattr(config, "switchboard_host", "127.0.0.1")))
+    port = int(getattr(config, "switchboard_port", 4721))
+    base_path = str(getattr(config, "switchboard_base_path", "/switchboard")).strip() or "/switchboard"
+    if not base_path.startswith("/"):
+        base_path = "/" + base_path
+    base_path = base_path.rstrip("/") + "/"
+    return f"http://{host}:{port}{base_path}"
+
+
+def _print_live_report(config: object, manifest: dict[str, object], *, services_skipped: bool) -> None:
+    actions = manifest.get("actions")
+    run_actions = (
+        [
+            item
+            for item in actions
+            if isinstance(item, dict) and item.get("kind") == "run_command" and item.get("status") == "ran"
+        ]
+        if isinstance(actions, list)
+        else []
+    )
+
+    print()
+    print(_section("Live"))
+    if run_actions:
+        for item in run_actions:
+            description = str(item.get("description", "command"))
+            status, style = _run_status(description)
+            print(_status(status, description, style))
+    elif services_skipped:
+        print(_status("skipped", "service reload/restart skipped by --skip-services", "warn"))
+    elif bool(getattr(config, "supervisor_enabled", False)) and bool(getattr(config, "configure_services", False)):
+        print(_status("unchanged", "no service command ran", "warn"))
+
+    url = _switchboard_url(config)
+    if url:
+        print(_status("url", f"Switchboard: {url}", "ok"))
+
+    if bool(getattr(config, "codex_enabled", False)):
+        print(_status("live", f"Codex projection: {Path.home() / '.codex'}", "ok"))
+
+    if bool(getattr(config, "code_server_enabled", False)):
+        settings_path = Path.home() / ".local" / "share" / "code-server" / "User" / "settings.json"
+        print(_status("live", f"code-server settings: {settings_path}", "ok"))
+
+    if bool(getattr(config, "switchboard_agent_enabled", False)):
+        backend_url = str(getattr(config, "switchboard_backend_url", "")).strip()
+        helper_host = _display_host(str(getattr(config, "switchboard_agent_helper_host", "127.0.0.1")))
+        helper_port = int(getattr(config, "switchboard_agent_helper_port", 4632))
+        if backend_url:
+            print(_status("reports", f"Switchboard agent backend: {backend_url}", "ok"))
+        print(_status("url", f"Switchboard helper: http://{helper_host}:{helper_port}/", "ok"))
+
+    if run_actions or (bool(getattr(config, "supervisor_enabled", False)) and not services_skipped):
+        check_command = (
+            "launchctl print gui/$(id -u)/com.klim.klimkit"
+            if platform.system() == "Darwin"
+            else "systemctl --user status klimkit.service --no-pager"
+        )
+        print(_status("check", check_command, "muted"))
+
+
 def _manifest_path(config: object) -> Path:
     state_dir = getattr(config, "state_dir")
     if not isinstance(state_dir, Path):
@@ -144,7 +229,7 @@ def _format_welcome() -> str:
         _command_row("kk setup", "create config and show the plan"),
         _command_row("kk setup --client-only", "create a second-VM/client-only config"),
         _command_row("kk preview", "show what would change"),
-        _command_row("kk apply", "write managed files and services"),
+        _command_row("kk apply", "write managed files, restart services, and report URLs"),
         _command_row("kk doctor", "diagnose local setup"),
         _command_row("kk serve", "run Switchboard"),
         _command_row("kk update", "pull the checkout only"),
@@ -219,10 +304,15 @@ def build_parser() -> argparse.ArgumentParser:
         subparsers,
         "apply",
         help="Apply the install plan.",
-        description="Apply the current TOML plan, writing backups and the install manifest.",
+        description="Apply the current TOML plan, restart managed services, and report what is live.",
         examples="  kk apply\n  kk apply --skip-services",
     )
     apply.add_argument("--skip-services", action="store_true", help="Do not start or enable services.")
+    apply.add_argument(
+        "--defer-service-restart",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
 
     _add_command(
         subparsers,
@@ -241,8 +331,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_command(
         subparsers,
         "sync-live",
-        help="Fetch and sync live-managed Codex assets once.",
-        description="Run one explicit live-sync pass for managed Codex assets and templates.",
+        help="Run one autosync pass now.",
+        description="Fetch main, fast-forward this checkout when possible, apply projections, and restart services.",
         examples="  kk sync-live\n  kk --config /path/to/klimkit.toml sync-live",
     )
     _add_command(
@@ -342,7 +432,11 @@ def cmd_setup(args: argparse.Namespace) -> int:
         config_path.write_text(render_config(config), encoding="utf-8")
         config_path.chmod(0o600)
         updated = True
-    actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
+    actions = build_plan(
+        config,
+        skip_services=_skip_services(args),
+        config_path=args.config,
+    )
     validation_errors = validate_config(config)
     suffix = " (created)" if created else " (updated)" if updated else ""
     print(_header("setup", "Config prepared; no files were applied."))
@@ -373,7 +467,12 @@ def cmd_preview(args: argparse.Namespace) -> int:
         print(_error("Config is missing; run `kk setup` first."), file=sys.stderr)
         return 1
     config = load_config(args.config)
-    actions = build_plan(config, skip_services=_skip_services(args), config_path=args.config)
+    actions = build_plan(
+        config,
+        skip_services=_skip_services(args),
+        restart_services=not bool(getattr(args, "defer_service_restart", False)),
+        config_path=args.config,
+    )
     print(
         format_plan(
             actions,
@@ -400,6 +499,7 @@ def cmd_apply(args: argparse.Namespace) -> int:
     print(_kv("actions", len(manifest["actions"])))
     _print_changed_files(manifest)
     print(_kv("manifest", manifest_path))
+    _print_live_report(config, manifest, services_skipped=_skip_services(args))
     return 0
 
 
@@ -483,6 +583,7 @@ def cmd_pull(args: argparse.Namespace) -> int:
     print(_kv("actions", len(manifest["actions"])))
     _print_changed_files(manifest)
     print(_kv("manifest", manifest_path))
+    _print_live_report(config, manifest, services_skipped=_skip_services(args))
     return 0
 
 

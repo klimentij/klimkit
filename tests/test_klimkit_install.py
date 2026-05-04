@@ -33,10 +33,14 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertTrue(parsed.server_enabled)
         self.assertEqual(parsed.repo_root, Path("/tmp/klimkit"))
         self.assertTrue(parsed.switchboard_enabled)
-        self.assertFalse(parsed.live_sync_enabled)
+        self.assertTrue(parsed.live_sync_enabled)
+        self.assertEqual(parsed.live_sync_interval_seconds, 5)
+        self.assertEqual(parsed.live_sync_ref, "origin/main")
         self.assertTrue(parsed.install_code_server_if_missing)
         self.assertEqual(parsed.state_dir, ROOT / ".klimkit" / "state")
         self.assertIn("only human-edited Klimkit config", render_config(config))
+        self.assertIn("auto_sync = true", render_config(config))
+        self.assertIn("auto_sync_interval_seconds = 5", render_config(config))
         self.assertIn("enable = true", render_config(config))
         self.assertIn("[switchboard.server]", render_config(config))
         self.assertIn("[notifications.telegram]", render_config(config))
@@ -55,7 +59,7 @@ class KlimkitInstallTests(unittest.TestCase):
 
         self.assertEqual(config.profile, "client")
         self.assertTrue(config.codex_enabled)
-        self.assertFalse(config.live_sync_enabled)
+        self.assertTrue(config.live_sync_enabled)
         self.assertFalse(config.switchboard_enabled)
         self.assertTrue(config.switchboard_agent_enabled)
 
@@ -401,6 +405,76 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertIn(f"KLIMKIT_CONFIG={config_path}", service.content or "")
         self.assertIn("ExecStart=", service.content or "")
         self.assertNotIn(".config/" + "klim" + "ki", service.content or "")
+
+    def test_linux_service_plan_reloads_enables_and_restarts(self) -> None:
+        config = replace(
+            default_config("server"),
+            repo_root=ROOT,
+            codex_enabled=False,
+            code_server_enabled=False,
+            supervisor_enabled=True,
+            configure_services=True,
+        )
+
+        with mock.patch("klimkit.install.platform.system", return_value="Linux"):
+            actions = build_plan(config, config_path=Path("/tmp/klimkit.toml"))
+
+        service_commands = [action for action in actions if action.component == "service" and action.kind == "run_command"]
+        self.assertEqual([action.id for action in service_commands], [
+            "systemd-daemon-reload",
+            "systemd-enable-klimkit",
+            "systemd-restart-klimkit",
+        ])
+        self.assertEqual(service_commands[0].command, ("systemctl", "--user", "daemon-reload"))
+        self.assertEqual(service_commands[1].command, ("systemctl", "--user", "enable", "klimkit.service"))
+        self.assertEqual(service_commands[2].command, ("systemctl", "--user", "restart", "klimkit.service"))
+
+    def test_linux_service_plan_can_defer_restart_for_daemon_autosync(self) -> None:
+        config = replace(
+            default_config("server"),
+            repo_root=ROOT,
+            codex_enabled=False,
+            code_server_enabled=False,
+            supervisor_enabled=True,
+            configure_services=True,
+        )
+
+        with mock.patch("klimkit.install.platform.system", return_value="Linux"):
+            actions = build_plan(config, config_path=Path("/tmp/klimkit.toml"), restart_services=False)
+
+        service_commands = [action for action in actions if action.component == "service" and action.kind == "run_command"]
+        self.assertEqual([action.id for action in service_commands], [
+            "systemd-daemon-reload",
+            "systemd-enable-klimkit",
+        ])
+
+    def test_apply_plan_records_run_commands_as_live_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            manifest_path = root / "state" / "install" / "manifest.json"
+            backup_root = root / "backups"
+
+            with mock.patch("klimkit.install.subprocess.run") as run_mock:
+                manifest = apply_plan(
+                    [
+                        Action(
+                            id="systemd-restart-klimkit",
+                            kind="run_command",
+                            target=Path("systemctl"),
+                            description="restart Klimkit user service",
+                            command=("systemctl", "--user", "restart", "klimkit.service"),
+                            component="service",
+                        )
+                    ],
+                    manifest_path=manifest_path,
+                    backup_root=backup_root,
+                    managed_roots=(root,),
+                )
+
+            run_mock.assert_called_once_with(["systemctl", "--user", "restart", "klimkit.service"], check=True)
+            self.assertEqual(manifest["actions"][0]["status"], "ran")
+            self.assertEqual(manifest["actions"][0]["description"], "restart Klimkit user service")
+            self.assertEqual(manifest["actions"][0]["component"], "service")
 
     def test_installer_rejects_options_and_documents_kk_flow(self) -> None:
         result = subprocess.run(

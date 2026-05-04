@@ -157,6 +157,8 @@ kk pull
 
 `kk pull` fast-forwards the current branch from its upstream and then applies the local config. It refuses to pull over dirty local changes.
 
+The daemon also autosyncs by default: every 5 seconds it fetches `origin/main`, fast-forwards the checkout when `main` is ahead, applies projections, and restarts the managed service.
+
 ## Common Commands
 
 ```bash
@@ -165,7 +167,7 @@ kk setup           # create .klimkit/local/klimkit.toml and show the plan
 kk setup --client-only
 kk setup --server-only
 kk preview         # render planned projections, installers, and services
-kk apply           # apply the plan, write backups, and update the manifest
+kk apply           # apply the plan, restart managed services, and report live URLs
 kk doctor          # diagnose config, repo, uv, and git
 kk serve           # run Switchboard in the foreground
 kk update          # fast-forward the current checkout
@@ -191,6 +193,37 @@ Expose it inside a tailnet with:
 tailscale serve --bg --set-path /switchboard http://127.0.0.1:4721/switchboard
 tailscale serve status
 ```
+
+## Making Changes Live
+
+`kk apply` writes managed projections, reloads the service manager when services are enabled, restarts `klimkit.service`, and prints what changed plus the local URLs that are now live.
+
+After editing this repo on the current VM:
+
+```bash
+kk apply
+```
+
+After pulling changes onto another VM:
+
+```bash
+kk pull
+```
+
+Use `--skip-services` only when you intentionally want to write files without touching the running service.
+
+Autosync is enabled in new configs:
+
+```toml
+[workers]
+auto_sync = true
+auto_sync_interval_seconds = 5
+auto_sync_ref = "origin/main"
+```
+
+Set `auto_sync = false` only on a VM where you want manual `kk pull` control.
+
+When `[notifications.telegram]` is enabled, each successful autosync sends one short message with the hostname, role, commit range, changed file count, changed areas, and restart status.
 
 ## Repository Layout
 

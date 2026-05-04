@@ -216,6 +216,59 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn("Changed Files", stdout.getvalue())
             self.assertIn("/tmp/changed.txt", stdout.getvalue())
 
+    def test_apply_reports_live_service_restart_and_urls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "klimkit.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[components]",
+                        "client = true",
+                        "server = true",
+                        "",
+                        "[switchboard.server]",
+                        "enabled = true",
+                        'host = "127.0.0.1"',
+                        "port = 4721",
+                        'base_path = "/switchboard"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+
+            with (
+                redirect_stdout(stdout),
+                mock.patch.object(cli, "build_plan", return_value=[]),
+                mock.patch.object(
+                    cli,
+                    "apply_plan",
+                    return_value={
+                        "actions": [
+                            {
+                                "id": "systemd-restart-klimkit",
+                                "kind": "run_command",
+                                "description": "restart Klimkit user service",
+                                "status": "ran",
+                            }
+                        ],
+                        "changed": [],
+                    },
+                ),
+            ):
+                result = cli.main(["--config", str(config_path), "apply"])
+
+            self.assertEqual(result, 0)
+            output = stdout.getvalue()
+            self.assertIn("Live", output)
+            self.assertIn("restarted", output)
+            self.assertIn("restart Klimkit user service", output)
+            self.assertIn("Switchboard: http://127.0.0.1:4721/switchboard/", output)
+            self.assertIn("Codex projection:", output)
+            self.assertIn("code-server settings:", output)
+            self.assertIn("systemctl --user status klimkit.service --no-pager", output)
+
     def test_setup_role_flag_previews_existing_config_conversion(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "klimkit.toml"

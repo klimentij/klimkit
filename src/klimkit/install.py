@@ -43,6 +43,8 @@ class InstallConfig:
     code_server_enabled: bool
     supervisor_enabled: bool
     live_sync_enabled: bool
+    live_sync_interval_seconds: int
+    live_sync_ref: str
     switchboard_agent_enabled: bool
     switchboard_enabled: bool
     configure_services: bool
@@ -140,7 +142,9 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
         codex_enabled=client_enabled,
         code_server_enabled=client_enabled,
         supervisor_enabled=client_enabled or server_enabled,
-        live_sync_enabled=False,
+        live_sync_enabled=True,
+        live_sync_interval_seconds=5,
+        live_sync_ref="origin/main",
         switchboard_agent_enabled=client_enabled and not server_enabled,
         switchboard_enabled=server_enabled,
         configure_services=True,
@@ -181,6 +185,8 @@ def with_role(config: InstallConfig, profile: str) -> InstallConfig:
         code_server_enabled=role.code_server_enabled,
         supervisor_enabled=role.supervisor_enabled,
         live_sync_enabled=role.live_sync_enabled,
+        live_sync_interval_seconds=role.live_sync_interval_seconds,
+        live_sync_ref=role.live_sync_ref,
         switchboard_agent_enabled=role.switchboard_agent_enabled,
         switchboard_enabled=role.switchboard_enabled,
         install_code_server_if_missing=role.install_code_server_if_missing,
@@ -213,8 +219,12 @@ def render_config(config: InstallConfig) -> str:
             f"supervisor = {str(config.supervisor_enabled).lower()}",
             "",
             "[workers]",
-            "# live_sync: periodically fetch Git and copy Codex assets. Default false; use `kk pull` instead.",
-            f"live_sync = {str(config.live_sync_enabled).lower()}",
+            "# auto_sync: daemon fetches main, fast-forwards this checkout, applies projections, and restarts services.",
+            f"auto_sync = {str(config.live_sync_enabled).lower()}",
+            "# Check interval for auto_sync. Keep small on personal VMs; default is 5 seconds.",
+            f"auto_sync_interval_seconds = {config.live_sync_interval_seconds}",
+            "# Git ref watched by auto_sync. Default tracks the shared main branch.",
+            f"auto_sync_ref = {json.dumps(config.live_sync_ref)}",
             "# switchboard_agent: report this VM to a central Switchboard. Requires switchboard.backend_url.",
             f"switchboard_agent = {str(config.switchboard_agent_enabled).lower()}",
             "",
@@ -394,7 +404,18 @@ def parse_config(raw: str) -> InstallConfig:
         codex_enabled=_bool(codex.get("enabled", components.get("codex")), client_enabled),
         code_server_enabled=_bool(code_server.get("enabled", components.get("code_server")), client_enabled),
         supervisor_enabled=_bool(components.get("supervisor"), client_enabled or server_enabled),
-        live_sync_enabled=_bool(workers.get("live_sync"), False),
+        live_sync_enabled=_bool(workers.get("auto_sync"), True),
+        live_sync_interval_seconds=max(
+            1,
+            int(
+                workers.get(
+                    "auto_sync_interval_seconds",
+                    workers.get("sync_interval_seconds", workers.get("live_sync_interval_seconds", 5)),
+                )
+            ),
+        ),
+        live_sync_ref=str(workers.get("auto_sync_ref", workers.get("fetch_ref", "origin/main"))).strip()
+        or "origin/main",
         switchboard_agent_enabled=_bool(switchboard_agent.get("enabled"), agent_enabled_default),
         switchboard_enabled=_bool(switchboard_server.get("enabled"), server_enabled_default),
         configure_services=_bool(services.get("enable", services.get("configure")), True),
@@ -548,6 +569,7 @@ def build_plan(
     config: InstallConfig,
     *,
     skip_services: bool = False,
+    restart_services: bool = True,
     config_path: Path = KLIMKIT_CONFIG_FILE,
 ) -> list[Action]:
     repo = config.repo_root
@@ -639,22 +661,23 @@ def build_plan(
                     config_path=config_path,
                 )
             )
-            actions.append(
-                Action(
-                    id="launchd-start-klimkit",
-                    kind="run_command",
-                    target=Path("launchctl"),
-                    description="restart Klimkit launchd agent",
-                    command=(
-                        "sh",
-                        "-c",
-                        f"launchctl bootout gui/$(id -u) {home}/Library/LaunchAgents/com.klim.klimkit.plist >/dev/null 2>&1 || true; "
-                        f"launchctl bootstrap gui/$(id -u) {home}/Library/LaunchAgents/com.klim.klimkit.plist; "
-                        f"launchctl kickstart -k gui/$(id -u)/com.klim.klimkit",
-                    ),
-                    component="service",
+            if restart_services:
+                actions.append(
+                    Action(
+                        id="launchd-start-klimkit",
+                        kind="run_command",
+                        target=Path("launchctl"),
+                        description="restart Klimkit launchd agent",
+                        command=(
+                            "sh",
+                            "-c",
+                            f"launchctl bootout gui/$(id -u) {home}/Library/LaunchAgents/com.klim.klimkit.plist >/dev/null 2>&1 || true; "
+                            f"launchctl bootstrap gui/$(id -u) {home}/Library/LaunchAgents/com.klim.klimkit.plist; "
+                            f"launchctl kickstart -k gui/$(id -u)/com.klim.klimkit",
+                        ),
+                        component="service",
+                    )
                 )
-            )
         else:
             for source in sorted((repo / "templates" / "systemd" / "user").glob("*.service")):
                 actions.append(
@@ -670,14 +693,35 @@ def build_plan(
                 )
             actions.append(
                 Action(
-                    id="systemd-start-klimkit",
+                    id="systemd-daemon-reload",
                     kind="run_command",
                     target=Path("systemctl"),
-                    description="enable and restart Klimkit user service",
-                    command=("systemctl", "--user", "enable", "--now", "klimkit.service"),
+                    description="reload systemd user manager",
+                    command=("systemctl", "--user", "daemon-reload"),
                     component="service",
                 )
             )
+            actions.append(
+                Action(
+                    id="systemd-enable-klimkit",
+                    kind="run_command",
+                    target=Path("systemctl"),
+                    description="enable Klimkit user service",
+                    command=("systemctl", "--user", "enable", "klimkit.service"),
+                    component="service",
+                )
+            )
+            if restart_services:
+                actions.append(
+                    Action(
+                        id="systemd-restart-klimkit",
+                        kind="run_command",
+                        target=Path("systemctl"),
+                        description="restart Klimkit user service",
+                        command=("systemctl", "--user", "restart", "klimkit.service"),
+                        component="service",
+                    )
+                )
 
     return actions
 
@@ -891,7 +935,15 @@ def apply_plan(
             _write_manifest(manifest_path, manifest)
             subprocess.run(list(action.command), check=True)
             manifest["actions"].append(
-                {"id": action.id, "kind": action.kind, "target": str(action.target), "command": list(action.command)}
+                {
+                    "id": action.id,
+                    "kind": action.kind,
+                    "target": str(action.target),
+                    "description": action.description,
+                    "command": list(action.command),
+                    "component": action.component,
+                    "status": "ran",
+                }
             )
             _write_manifest(manifest_path, manifest)
             continue
@@ -913,6 +965,8 @@ def apply_plan(
                         "kind": action.kind,
                         "target": str(action.target),
                         "source": str(action.source or ""),
+                        "description": action.description,
+                        "component": action.component,
                         "backup": "",
                         "hash": _hash_file(action.target),
                     }
@@ -935,6 +989,8 @@ def apply_plan(
                 "kind": action.kind,
                 "target": str(action.target),
                 "source": str(action.source or ""),
+                "description": action.description,
+                "component": action.component,
                 "backup": backup,
                 "hash": _hash_file(action.target),
             }

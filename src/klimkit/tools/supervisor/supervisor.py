@@ -6,12 +6,14 @@ import argparse
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
+from urllib import parse, request
 
 from klimkit.harnesses.codex import codex_harness
 from klimkit.install import default_config, parse_config, render_config, with_role
@@ -59,6 +61,16 @@ class SupervisorConfig:
     fetch_ref: str
     switchboard_agent_enabled: bool
     manage_switchboard: bool
+    telegram_enabled: bool = False
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
+
+@dataclass(frozen=True)
+class CheckoutUpdate:
+    previous_revision: str
+    new_revision: str
+    changed_files: tuple[str, ...]
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -75,7 +87,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     sync_live_parser = subparsers.add_parser(
         "sync-live-once",
-        help="Manually fetch origin and sync only live-managed prompts/config into $HOME once.",
+        help="Manually fetch main, fast-forward this checkout, apply projections, and restart once.",
     )
     sync_live_parser.add_argument(
         "--config",
@@ -117,10 +129,13 @@ def load_machine_config(path: Path) -> SupervisorConfig:
         repo_root=config.repo_root,
         machine_config_path=path.expanduser(),
         live_sync_enabled=config.live_sync_enabled,
-        live_sync_interval_seconds=60,
-        fetch_ref="origin/main",
+        live_sync_interval_seconds=config.live_sync_interval_seconds,
+        fetch_ref=config.live_sync_ref,
         switchboard_agent_enabled=config.switchboard_agent_enabled,
         manage_switchboard=config.switchboard_enabled,
+        telegram_enabled=config.telegram_enabled,
+        telegram_bot_token=config.telegram_bot_token,
+        telegram_chat_id=config.telegram_chat_id,
     )
 
 
@@ -161,14 +176,189 @@ def git_output(repo_root: Path, *args: str) -> str:
 
 def fetch_remote(repo_root: Path, fetch_ref: str) -> str:
     remote, branch = fetch_ref.split("/", 1)
-    subprocess.run(
-        ["git", "fetch", "--quiet", remote, branch],
+    remote_tracking_ref = f"refs/remotes/{remote}/{branch}"
+    result = subprocess.run(
+        ["git", "fetch", "--quiet", remote, f"{branch}:{remote_tracking_ref}"],
         cwd=repo_root,
         text=True,
         capture_output=True,
         check=False,
     )
-    return git_output(repo_root, "rev-parse", fetch_ref)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "git fetch failed").strip()
+        raise RuntimeError(detail)
+    return git_output(repo_root, "rev-parse", remote_tracking_ref)
+
+
+def is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    detail = (result.stderr or result.stdout or "git merge-base failed").strip()
+    raise RuntimeError(detail)
+
+
+def changed_files_between(repo_root: Path, previous_revision: str, new_revision: str) -> tuple[str, ...]:
+    output = git_output(repo_root, "diff", "--name-only", previous_revision, new_revision)
+    return tuple(line.strip() for line in output.splitlines() if line.strip())
+
+
+def fast_forward_checkout(config: SupervisorConfig) -> CheckoutUpdate | None:
+    new_revision = fetch_remote(config.repo_root, config.fetch_ref)
+    previous_revision = git_output(config.repo_root, "rev-parse", "HEAD")
+    if new_revision == previous_revision:
+        return None
+    dirty = git_output(config.repo_root, "status", "--porcelain")
+    if dirty.strip():
+        raise RuntimeError("autosync refused: Klimkit checkout has uncommitted changes")
+    if not is_ancestor(config.repo_root, previous_revision, new_revision):
+        raise RuntimeError(
+            f"autosync refused: {config.fetch_ref} is not a fast-forward from current HEAD"
+        )
+    changed_files = changed_files_between(config.repo_root, previous_revision, new_revision)
+    git_output(config.repo_root, "merge", "--ff-only", new_revision)
+    return CheckoutUpdate(
+        previous_revision=previous_revision,
+        new_revision=new_revision,
+        changed_files=changed_files,
+    )
+
+
+def run_apply_for_autosync(config: SupervisorConfig) -> str:
+    command = [
+        str(config.repo_root / "klimkit"),
+        "--config",
+        str(config.machine_config_path),
+        "apply",
+        "--defer-service-restart",
+    ]
+    result = subprocess.run(
+        command,
+        cwd=config.repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    output = "\n".join(part.strip() for part in (result.stdout, result.stderr) if part.strip())
+    if result.returncode != 0:
+        raise RuntimeError(output or "autosync apply failed")
+    return output
+
+
+def summarize_changed_files(changed_files: tuple[str, ...]) -> str:
+    groups: list[str] = []
+    if any(path.startswith("packs/codex/") for path in changed_files):
+        groups.append("Codex pack")
+    if any(
+        path.startswith("src/klimkit/apps/switchboard/")
+        or path.startswith("src/klimkit/tools/switchboard_agent/")
+        for path in changed_files
+    ):
+        groups.append("Switchboard")
+    if any(
+        path.startswith("src/klimkit/")
+        or path.startswith("templates/")
+        or path in {"klimkit", "install.sh", "pyproject.toml", "uv.lock"}
+        for path in changed_files
+    ):
+        groups.append("Klimkit code")
+    if any(path.startswith(".github/") for path in changed_files):
+        groups.append("CI")
+    if any(path.endswith(".md") for path in changed_files):
+        groups.append("docs")
+    if not groups:
+        groups.append("repo files")
+    return ", ".join(groups[:4])
+
+
+def autosync_notification_text(config: SupervisorConfig, update: CheckoutUpdate) -> str:
+    machine = socket.gethostname()
+    summary = summarize_changed_files(update.changed_files)
+    return (
+        f"Klimkit autosync on {machine}: "
+        f"{config.profile}, "
+        f"{update.previous_revision[:7]} -> {update.new_revision[:7]}, "
+        f"{len(update.changed_files)} files ({summary}); applied projections; restarting service."
+    )
+
+
+def send_telegram_notification(config: SupervisorConfig, text: str) -> bool:
+    if not config.telegram_enabled or not config.telegram_bot_token or not config.telegram_chat_id:
+        return False
+    endpoint = f"https://api.telegram.org/bot{config.telegram_bot_token}/sendMessage"
+    payload = parse.urlencode(
+        {
+            "chat_id": config.telegram_chat_id,
+            "text": text,
+            "disable_web_page_preview": "true",
+        }
+    ).encode("utf-8")
+    req = request.Request(
+        endpoint,
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    with request.urlopen(req, timeout=10) as response:
+        response.read()
+    return True
+
+
+def restart_managed_service() -> str:
+    if sys.platform == "darwin":
+        command = (
+            "sh",
+            "-c",
+            "launchctl kickstart -k gui/$(id -u)/com.klim.klimkit",
+        )
+        label = "launchd agent"
+    else:
+        command = ("systemctl", "--user", "restart", "klimkit.service")
+        label = "systemd user service"
+    subprocess.run(list(command), check=True)
+    return f"restarted {label}"
+
+
+def auto_sync_once(config: SupervisorConfig, state: dict[str, Any]) -> str:
+    update = fast_forward_checkout(config)
+    auto_state = state.setdefault("auto_sync", {})
+    if update is None:
+        auto_state["last_checked_ref"] = config.fetch_ref
+        save_supervisor_state(state)
+        return "autosync: main unchanged"
+
+    auto_state.update(
+        {
+            "previous_revision": update.previous_revision,
+            "current_revision": update.new_revision,
+            "changed_files": list(update.changed_files),
+            "applied_at": time.time(),
+        }
+    )
+    save_supervisor_state(state)
+    apply_output = run_apply_for_autosync(config)
+    if apply_output:
+        print(apply_output, flush=True)
+    notification = autosync_notification_text(config, update)
+    try:
+        if send_telegram_notification(config, notification):
+            print("klimkit: sent autosync Telegram notification", flush=True)
+    except Exception as exc:
+        print(f"klimkit warning (telegram): {exc}", file=sys.stderr, flush=True)
+    restart_summary = restart_managed_service()
+    return (
+        "autosync: updated "
+        f"{update.previous_revision[:7]}..{update.new_revision[:7]}, "
+        f"{len(update.changed_files)} changed files, {restart_summary}"
+    )
 
 
 def object_id(repo_root: Path, revision: str, repo_path: str) -> str:
@@ -389,10 +579,10 @@ def daemon_loop(config: SupervisorConfig) -> int:
             run_supervisor_step("central", lambda: ensure_central_processes(config, processes))
 
         if config.live_sync_enabled and now >= next_live_sync_at:
-            changes = run_supervisor_step("live sync", lambda: sync_live_managed_paths(config, state))
-            if changes is not None:
-                if changes:
-                    print("klimkit: live sync updated " + ", ".join(changes), flush=True)
+            summary = run_supervisor_step("autosync", lambda: auto_sync_once(config, state))
+            if summary is not None:
+                if summary != "autosync: main unchanged":
+                    print(f"klimkit: {summary}", flush=True)
                 next_live_sync_at = now + config.live_sync_interval_seconds
 
         if config.switchboard_agent_enabled and now >= next_switchboard_report_at:
@@ -404,7 +594,7 @@ def daemon_loop(config: SupervisorConfig) -> int:
                 switchboard_config = load_switchboard_config(config.machine_config_path)
                 next_switchboard_report_at = now + switchboard_config.interval_seconds
 
-        time.sleep(5)
+        time.sleep(1)
 
     terminate_processes(processes)
     return 0
@@ -425,11 +615,7 @@ def main(argv: list[str]) -> int:
     config = load_machine_config(args.config.expanduser())
 
     if args.command == "sync-live-once":
-        changes = sync_live_managed_paths(config, load_supervisor_state())
-        if changes:
-            print("klimkit: live sync updated " + ", ".join(changes), flush=True)
-        else:
-            print("klimkit: live sync unchanged", flush=True)
+        print("klimkit: " + auto_sync_once(config, load_supervisor_state()), flush=True)
         return 0
 
     if args.command == "daemon":
