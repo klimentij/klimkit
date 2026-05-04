@@ -77,6 +77,9 @@ Result: setup created a single commented TOML at `/tmp/klimkit-proof.toml`; prev
 
 - Security audit second pass: PASS.
 - Code review second pass: PASS.
+- Final reviewer pass 1: PASS.
+- Final reviewer pass 2: PASS.
+- Final reviewer pass 3: PASS.
 
 ## Known Limits
 
