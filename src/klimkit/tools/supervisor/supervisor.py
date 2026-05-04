@@ -342,7 +342,12 @@ def restart_managed_service() -> str:
     else:
         command = ("systemctl", "--user", "restart", "klimkit.service")
         label = "systemd user service"
-    subprocess.run(list(command), check=True)
+    try:
+        subprocess.run(list(command), check=True)
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode == -signal.SIGTERM:
+            return f"restarted {label}"
+        raise
     return f"restarted {label}"
 
 

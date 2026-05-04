@@ -314,6 +314,16 @@ class KlimkitSupervisorTests(unittest.TestCase):
         self.assertIn("vm-1", body)
         self.assertIn("Codex+pack", body)
 
+    def test_restart_managed_service_treats_self_restart_sigterm_as_success(self) -> None:
+        with mock.patch.object(
+            MODULE.subprocess,
+            "run",
+            side_effect=MODULE.subprocess.CalledProcessError(-MODULE.signal.SIGTERM, ["systemctl"]),
+        ):
+            summary = MODULE.restart_managed_service()
+
+        self.assertIn("restarted", summary)
+
     def test_auto_sync_once_does_not_apply_when_main_is_unchanged(self) -> None:
         config = MODULE.SupervisorConfig(
             profile="server",
