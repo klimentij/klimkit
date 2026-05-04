@@ -13,3 +13,4 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-04T12:27:30Z: Fixed the Codex stop notification hook to be macOS Bash 3 compatible and fail open when optional hook dependencies are unavailable.
 - 2026-05-04T12:56:00Z: Implemented Switchboard client attention Telegram fanout, fixed local/server machine identity merging for status updates, added harness human-name templating, and verified multi-machine status transitions with browser screenshots.
 - 2026-05-04T12:57:00Z: Wrote the open-source readiness review for `01-tui-ux-multi-harness-more` with launch blockers, preparedness level, and QA evidence.
+- 2026-05-04T13:08:00Z: Recaptured the `NEW` status QA screenshot so both `odev` and `MacBook-Air-8.local` tabs are visibly in `NEW` state after final-review feedback.

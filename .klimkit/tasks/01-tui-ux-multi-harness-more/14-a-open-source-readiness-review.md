@@ -207,7 +207,7 @@ Manual browser QA was completed against the live Switchboard at `http://127.0.0.
 - `odev`
 - `MacBook-Air-8.local`, merged with server events from `MacBook-Air-8`
 
-The QA used synthetic sessions under `/tmp/klimkit-qa/20260504124758/` and captured browser notification calls in-page because headless Chrome cannot show OS notification toasts in a screenshot.
+The later status QA used synthetic sessions under `/tmp/klimkit-qa/20260504124758/` and captured browser notification calls in-page because headless Chrome cannot show OS notification toasts in a screenshot. The `NEW` proof screenshot was recaptured with fresh manual tabs under `/tmp/klimkit-qa/new-proof/` after final-review feedback found that the original first screenshot was taken before tabs rendered.
 
 Screenshots:
 
