@@ -842,6 +842,21 @@ class SwitchboardTests(unittest.TestCase):
             finally:
                 running.close()
 
+    def test_tokenless_loopback_allows_self_tailscale_host_header(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            running = start_server(build_config(Path(tmpdir)))
+            try:
+                req = request.Request(
+                    running.base_url + "/api/state",
+                    headers={"Host": "workstation.example.ts.net"},
+                    method="GET",
+                )
+                with request.urlopen(req, timeout=5) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                self.assertEqual(payload["machines"][0]["machine"], "workstation")
+            finally:
+                running.close()
+
     def test_state_exposes_effective_codex_launch_flags(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             running = start_server(build_config(Path(tmpdir), trusted_bypass=False))

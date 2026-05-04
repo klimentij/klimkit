@@ -2353,7 +2353,7 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
         return content_type == "application/json"
 
     def _is_same_origin_request(self) -> bool:
-        if not self.app.config.backend_auth_token and not self._is_trusted_loopback_host_header():
+        if not self.app.config.backend_auth_token and not self._is_trusted_tokenless_host_header():
             return False
         expected = self._request_origin()
         origin = str(self.headers.get("Origin") or "").strip()
@@ -2376,6 +2376,13 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
         if not host:
             return True
         return is_loopback_host(host)
+
+    def _is_trusted_tokenless_host_header(self) -> bool:
+        if self._is_trusted_loopback_host_header():
+            return True
+        host = host_header_hostname(str(self.headers.get("Host") or "").strip())
+        dns_name = self.app.identity.dns_name.strip().rstrip(".").lower()
+        return bool(host and dns_name and host == dns_name)
 
     def _handle_stream(self) -> None:
         subscriber = self.app.broadcaster.subscribe()
@@ -2447,7 +2454,7 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
         token = self.app.config.backend_auth_token
         if token:
             return self._presented_token() == token
-        return is_loopback_host(self.client_address[0]) and self._is_trusted_loopback_host_header()
+        return is_loopback_host(self.client_address[0]) and self._is_trusted_tokenless_host_header()
 
     def _presented_token(self) -> str:
         header_token = str(self.headers.get("X-Switchboard-Token", "")).strip()
