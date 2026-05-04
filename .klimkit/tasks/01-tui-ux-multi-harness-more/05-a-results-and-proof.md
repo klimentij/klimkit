@@ -31,7 +31,7 @@ uv run coverage run -m unittest discover -s tests -q
 uv run coverage report -m
 ```
 
-Result: tests passed under coverage, total package coverage reported at `75%`.
+Result: tests passed under coverage, total package coverage reported at `76%`.
 
 ```bash
 uv run python -m unittest tests.test_codex_pack_validation -q
