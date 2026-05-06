@@ -13,6 +13,7 @@ Klimkit keeps an agent-ready machine reproducible. One repo owns the local instr
 ## Table of Contents
 
 - [Quick Install](#quick-install)
+- [Release Status](#release-status)
 - [Tech Stack](#tech-stack)
 - [Single Config](#single-config)
 - [Generated Projections](#generated-projections)
@@ -49,6 +50,12 @@ kk                 # show paths and setup commands
 ```
 
 The installer reuses the local checkout, installs the `kk` launcher into `~/.local/bin`, and leaves config creation plus service changes to explicit `kk` commands. Push profile changes to your fork, then run `kk pull` on each other machine.
+
+## Release Status
+
+Current release: [`v0.1.0`](https://github.com/klimentij/klimkit/releases/tag/v0.1.0).
+
+`v0.1.0` is the first operator-preview release for trusted personal fleets. The recommended path is still fork-first: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
 
 ## Tech Stack
 
