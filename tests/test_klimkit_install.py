@@ -10,6 +10,7 @@ from unittest import mock
 
 from klimkit.install import (
     Action,
+    TAILSCALE_SERVE_SKIPPED_EXIT,
     apply_plan,
     build_plan,
     capture_code_server_profile,
@@ -313,6 +314,7 @@ class KlimkitInstallTests(unittest.TestCase):
         command = " ".join(serve_action.command)
         self.assertIn("tailscale serve --bg --yes --set-path / http://127.0.0.1:8080", command)
         self.assertIn("sudo tailscale set --operator=$USER", command)
+        self.assertIn("exit 78", command)
         self.assertFalse(any(action.id == "tailscale-serve-switchboard" for action in actions))
 
     def test_apply_writes_manifest_backup_and_uninstall_scope(self) -> None:
@@ -633,6 +635,40 @@ class KlimkitInstallTests(unittest.TestCase):
             self.assertEqual(manifest["actions"][0]["status"], "ran")
             self.assertEqual(manifest["actions"][0]["description"], "restart Klimkit user service")
             self.assertEqual(manifest["actions"][0]["component"], "service")
+
+    def test_apply_plan_records_tailscale_serve_permission_skip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            manifest_path = root / "state" / "install" / "manifest.json"
+            backup_root = root / "backups"
+
+            with mock.patch("klimkit.install.subprocess.run") as run_mock:
+                run_mock.side_effect = subprocess.CalledProcessError(
+                    TAILSCALE_SERVE_SKIPPED_EXIT,
+                    ["sh", "-c", "tailscale serve"],
+                )
+                manifest = apply_plan(
+                    [
+                        Action(
+                            id="tailscale-serve-code-server",
+                            kind="run_command",
+                            target=Path("tailscale"),
+                            description="configure Tailscale Serve for code-server",
+                            command=("sh", "-c", "tailscale serve"),
+                            component="tailscale",
+                        )
+                    ],
+                    manifest_path=manifest_path,
+                    backup_root=backup_root,
+                    managed_roots=(root,),
+                )
+
+            self.assertEqual(manifest["actions"][0]["status"], "skipped")
+            self.assertEqual(
+                manifest["actions"][0]["reason"],
+                "tailscale serve operator permission required",
+            )
+            self.assertIn("sudo tailscale set --operator=$USER", manifest["actions"][0]["message"])
 
     def test_installer_rejects_options_and_documents_kk_flow(self) -> None:
         result = subprocess.run(

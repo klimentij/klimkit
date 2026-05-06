@@ -32,6 +32,7 @@ from .paths import (
 CONFIG_MODE = 0o600
 FILE_MODE = 0o644
 EXEC_MODE = 0o755
+TAILSCALE_SERVE_SKIPPED_EXIT = 78
 
 
 @dataclass(frozen=True)
@@ -135,7 +136,8 @@ def _tailscale_serve_action(action_id: str, description: str, *, path: str, targ
         "status=$?; printf '%s\\n' \"$output\" >&2; "
         "case \"$output\" in "
         "*'Access denied: serve config denied'*) "
-        "echo 'tailscale serve skipped; run: sudo tailscale set --operator=$USER' >&2; exit 0 ;; "
+        "echo 'tailscale serve skipped; run: sudo tailscale set --operator=$USER' >&2; "
+        f"exit {TAILSCALE_SERVE_SKIPPED_EXIT} ;; "
         "*) exit \"$status\" ;; "
         "esac",
     )
@@ -1115,7 +1117,26 @@ def apply_plan(
             continue
         if action.kind == "run_command":
             _write_manifest(manifest_path, manifest)
-            subprocess.run(list(action.command), check=True)
+            try:
+                subprocess.run(list(action.command), check=True)
+            except subprocess.CalledProcessError as exc:
+                if action.component == "tailscale" and exc.returncode == TAILSCALE_SERVE_SKIPPED_EXIT:
+                    manifest["actions"].append(
+                        {
+                            "id": action.id,
+                            "kind": action.kind,
+                            "target": str(action.target),
+                            "description": action.description,
+                            "command": list(action.command),
+                            "component": action.component,
+                            "status": "skipped",
+                            "reason": "tailscale serve operator permission required",
+                            "message": f"{action.description} skipped; run sudo tailscale set --operator=$USER",
+                        }
+                    )
+                    _write_manifest(manifest_path, manifest)
+                    continue
+                raise
             manifest["actions"].append(
                 {
                     "id": action.id,

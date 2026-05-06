@@ -348,6 +348,63 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn("code-server settings:", output)
             self.assertIn("systemctl --user status klimkit.service --no-pager", output)
 
+    def test_apply_reports_tailscale_serve_permission_skip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "klimkit.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[components]",
+                        "client = true",
+                        "server = true",
+                        "",
+                        "[switchboard.server]",
+                        "enabled = true",
+                        'host = "127.0.0.1"',
+                        "port = 4721",
+                        'base_path = "/switchboard"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+
+            with (
+                redirect_stdout(stdout),
+                mock.patch.object(cli, "build_plan", return_value=[]),
+                mock.patch.object(cli, "_tailscale_dns_name", return_value="odev.tail11c448.ts.net"),
+                mock.patch.object(
+                    cli,
+                    "apply_plan",
+                    return_value={
+                        "actions": [
+                            {
+                                "id": "tailscale-serve-code-server",
+                                "kind": "run_command",
+                                "description": "configure Tailscale Serve for code-server",
+                                "component": "tailscale",
+                                "status": "skipped",
+                                "reason": "tailscale serve operator permission required",
+                                "message": (
+                                    "configure Tailscale Serve for code-server skipped; "
+                                    "run sudo tailscale set --operator=$USER"
+                                ),
+                            }
+                        ],
+                        "changed": [],
+                    },
+                ),
+            ):
+                result = cli.main(["--config", str(config_path), "apply"])
+
+            self.assertEqual(result, 0)
+            output = stdout.getvalue()
+            self.assertIn("skipped", output)
+            self.assertIn("configure Tailscale Serve for code-server skipped", output)
+            self.assertIn("sudo tailscale set --operator=$USER", output)
+            self.assertNotIn("served", output)
+
     def test_apply_sends_telegram_summary_when_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "klimkit.toml"

@@ -436,6 +436,57 @@ class SwitchboardTests(unittest.TestCase):
             self.assertFalse(projection["needs_attention"])
             self.assertEqual(projection["attention_kind"], "")
 
+    def test_completed_summary_with_what_changed_is_done_unseen(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-done-summary.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-05-06T04:00:00Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-done-summary",
+                                    "cwd": "/repo",
+                                    "git": {"branch": "main"},
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-05-06T04:10:00Z",
+                                "type": "event_msg",
+                                "payload": {
+                                    "type": "task_complete",
+                                    "turn_id": "turn-done",
+                                    "last_agent_message": (
+                                        "What changed:\n"
+                                        "- Updated Switchboard.\n\n"
+                                        "How Klim can check this:\n"
+                                        "1. Run kk pull."
+                                    ),
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            projection = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net"),
+                summary,
+            )
+
+            self.assertEqual(projection["activity_state"], "done")
+            self.assertEqual(projection["latest_event_status"], "done")
+            self.assertTrue(projection["needs_attention"])
+            self.assertEqual(projection["attention_kind"], "completion_unseen")
+
     def test_parse_rollout_uses_folder_name_when_thread_title_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -1488,6 +1539,13 @@ class SwitchboardTests(unittest.TestCase):
                 }
             )
             app = MODULE.SwitchboardApp(config)
+            full_completion_message = (
+                "What changed:\n"
+                "- Fixed the Switchboard done status classifier.\n"
+                "- Updated the Tailscale Serve permission skip report.\n\n"
+                "Verification:\n"
+                "- The full completion body reached Telegram, including this tail sentinel."
+            )
             payload = {
                 "machine": "MacBook-Air-8",
                 "machine_dns": "macbook-air-8.tail11c448.ts.net",
@@ -1505,7 +1563,7 @@ class SwitchboardTests(unittest.TestCase):
                         "updated_at": "2026-05-04T12:34:48Z",
                         "latest_event_id": "turn-done",
                         "latest_event_status": "done",
-                        "latest_event_message": "hi43",
+                        "latest_event_message": full_completion_message,
                         "latest_event_created_at": "2026-05-04T12:34:48Z",
                         "needs_attention": True,
                         "attention_kind": "completion_unseen",
@@ -1524,7 +1582,7 @@ class SwitchboardTests(unittest.TestCase):
                 self.assertIn("<b>Codex finished</b>", text)
                 self.assertIn("<code>MacBook-Air-8</code>", text)
                 self.assertIn("/Users/klim", text)
-                self.assertIn("hi43", text)
+                self.assertIn(full_completion_message, text)
                 self.assertIn("https://workstation.example.ts.net/switchboard/#", text)
             finally:
                 app.close()

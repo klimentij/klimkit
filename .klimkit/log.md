@@ -19,3 +19,4 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-06T00:54:33Z: Formatted Switchboard Telegram attention messages, suppressed subagent completion Telegram notifications, and projected the updated Codex Stop hook with `kk apply --skip-services`.
 - 2026-05-06T03:41:35Z: Changed code-server user settings projection to seed defaults without overwriting local preferences during `kk pull` or autosync.
 - 2026-05-06T03:59:40Z: Added the managed code-server profile capture/sync flow, captured ODev code-server settings and extensions, hid archived Switchboard tabs from the tab bar, and updated the README install path to fork-first local install.
+- 2026-05-06T04:22:37Z: Fixed Switchboard completion summaries that start with `What changed:`, explicit Tailscale Serve permission skips, and full done-message Telegram notification coverage.

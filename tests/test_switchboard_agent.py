@@ -415,6 +415,58 @@ class SwitchboardAgentTests(unittest.TestCase):
             self.assertFalse(payload["needs_attention"])
             self.assertEqual(payload["attention_kind"], "")
 
+    def test_completed_summary_with_what_changed_is_done_unseen(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-2026-05-06T04-10-00-thread-done-summary.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-05-06T04:00:00Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-done-summary",
+                                    "cwd": "/home/user/klimkit",
+                                    "git": {"branch": "main"},
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-05-06T04:10:00Z",
+                                "type": "event_msg",
+                                "payload": {
+                                    "type": "task_complete",
+                                    "turn_id": "turn-done",
+                                    "last_agent_message": (
+                                        "What changed:\n"
+                                        "- Updated Switchboard.\n\n"
+                                        "How Klim can check this:\n"
+                                        "1. Run kk pull."
+                                    ),
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            payload = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net"),
+                summary,
+                4632,
+            )
+
+            self.assertEqual(payload["activity_state"], "done")
+            self.assertEqual(payload["latest_event_status"], "done")
+            self.assertTrue(payload["needs_attention"])
+            self.assertEqual(payload["attention_kind"], "completion_unseen")
+
     def test_should_send_snapshot_respects_hash_and_heartbeat(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             conn = MODULE.init_db(Path(tmpdir))
@@ -438,6 +490,7 @@ class SwitchboardAgentTests(unittest.TestCase):
             conn = MODULE.init_db(root / "agent-state")
             try:
                 legacy_payload = {
+                    "_parser_version": MODULE.CACHE_VERSION,
                     "session_id": "thread-legacy",
                     "cwd": "/home/user/klimkit",
                     "branch": "main",
@@ -471,6 +524,50 @@ class SwitchboardAgentTests(unittest.TestCase):
             self.assertIsNotNone(summary)
             assert summary is not None
             self.assertEqual(summary.created_at, "2026-04-15T10:00:00Z")
+
+    def test_cached_summary_ignores_stale_parser_version(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-stale-cache.jsonl"
+            rollout.write_text("{}", encoding="utf-8")
+            stat = rollout.stat()
+            conn = MODULE.init_db(root / "agent-state")
+            try:
+                stale_payload = {
+                    "_parser_version": MODULE.CACHE_VERSION - 1,
+                    "session_id": "thread-stale",
+                    "cwd": "/home/user/klimkit",
+                    "branch": "main",
+                    "created_at": "2026-04-15T10:00:00Z",
+                    "updated_at": "2026-04-15T10:30:00Z",
+                    "title": "Stale cache",
+                    "last_event_at": "2026-04-15T10:00:00Z",
+                    "last_assistant_message": "",
+                    "last_agent_message": "",
+                    "last_task_message": "",
+                    "last_task_turn_id": "",
+                    "last_task_completed_at": "",
+                    "pending_input_request_id": "",
+                    "pending_input_request_at": "",
+                    "pending_input_request_message": "",
+                    "is_subagent": False,
+                    "in_progress": False,
+                    "current_turn_id": "",
+                }
+                conn.execute(
+                    """
+                    INSERT INTO rollout_cache(path, size, mtime_ns, summary_json)
+                    VALUES(?, ?, ?, ?)
+                    """,
+                    (str(rollout), stat.st_size, stat.st_mtime_ns, json.dumps(stale_payload)),
+                )
+                conn.commit()
+
+                summary = MODULE.cached_summary(conn, rollout, stat)
+            finally:
+                conn.close()
+
+            self.assertIsNone(summary)
 
     def test_build_snapshot_sorts_by_latest_state_change_not_created_at(self):
         with tempfile.TemporaryDirectory() as tmpdir:

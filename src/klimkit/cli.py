@@ -132,19 +132,31 @@ def _print_changed_files(manifest: dict[str, object]) -> None:
 
 
 def _run_actions(manifest: dict[str, object]) -> list[dict[str, object]]:
+    return [
+        item
+        for item in _command_actions(manifest)
+        if item.get("status") == "ran"
+    ]
+
+
+def _command_actions(manifest: dict[str, object]) -> list[dict[str, object]]:
     actions = manifest.get("actions")
     return (
         [
             item
             for item in actions
-            if isinstance(item, dict) and item.get("kind") == "run_command" and item.get("status") == "ran"
+            if isinstance(item, dict)
+            and item.get("kind") == "run_command"
+            and item.get("status") in {"ran", "skipped"}
         ]
         if isinstance(actions, list)
         else []
     )
 
 
-def _run_status(description: str) -> tuple[str, str]:
+def _run_status(description: str, *, action_status: str = "ran") -> tuple[str, str]:
+    if action_status == "skipped":
+        return "skipped", "warn"
     lowered = description.lower()
     if "restart" in lowered:
         return "restarted", "ok"
@@ -234,9 +246,12 @@ def _changed_summary(manifest: dict[str, object]) -> str:
 
 
 def _service_summary(config: object, manifest: dict[str, object], *, services_skipped: bool) -> str:
-    run_actions = _run_actions(manifest)
-    if run_actions:
-        descriptions = [str(item.get("description") or "service command") for item in run_actions]
+    command_actions = _command_actions(manifest)
+    if command_actions:
+        descriptions = [
+            str(item.get("message") or item.get("description") or "service command")
+            for item in command_actions
+        ]
         return "services: " + "; ".join(descriptions)
     if services_skipped:
         return "services skipped"
@@ -313,15 +328,18 @@ def _print_live_report(
     services_skipped: bool,
     telegram_status: tuple[str, str] | None = None,
 ) -> None:
-    run_actions = _run_actions(manifest)
+    command_actions = _command_actions(manifest)
+    ran_actions = _run_actions(manifest)
 
     print()
     print(_section("Live"))
-    if run_actions:
-        for item in run_actions:
+    if command_actions:
+        for item in command_actions:
             description = str(item.get("description", "command"))
-            status, style = _run_status(description)
-            print(_status(status, description, style))
+            action_status = str(item.get("status") or "ran")
+            status, style = _run_status(description, action_status=action_status)
+            message = str(item.get("message") or description)
+            print(_status(status, message, style))
     elif services_skipped:
         print(_status("skipped", "service reload/restart skipped by --skip-services", "warn"))
     elif bool(getattr(config, "supervisor_enabled", False)) and bool(getattr(config, "configure_services", False)):
@@ -349,7 +367,7 @@ def _print_live_report(
             print(_status("reports", f"Switchboard agent backend: {backend_url}", "ok"))
         print(_status("url", f"Switchboard helper: http://{helper_host}:{helper_port}/", "ok"))
 
-    if run_actions or (bool(getattr(config, "supervisor_enabled", False)) and not services_skipped):
+    if ran_actions or (bool(getattr(config, "supervisor_enabled", False)) and not services_skipped):
         check_command = (
             "launchctl print gui/$(id -u)/com.klim.klimkit"
             if platform.system() == "Darwin"

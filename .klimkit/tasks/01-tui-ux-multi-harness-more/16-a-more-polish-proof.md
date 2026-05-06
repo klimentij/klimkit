@@ -226,3 +226,36 @@ Archived-hidden tab-bar QA:
 - Confirmed the tab bar rendered only `active @ odev` with `tabCount = 1` and `archivedTabVisible = false`.
 - Opened the catalog with `showArchived = true` and confirmed both active and archived rows were present in the dialog.
 - Screenshot: `16-a-switchboard-archived-hidden-tabbar-proof.png`.
+
+## Follow-up: done/unseen status, Tailscale Serve skip, and full Telegram message
+
+Implemented on 2026-05-06:
+
+- Tightened Switchboard done-message question detection so completion summaries that start with `What changed:` now stay `done` with `completion_unseen`, not `needs_input` / `ASK`.
+- Bumped the Switchboard daemon rollout cache to version 4 and added a parser version to the Switchboard agent cache so stale misclassified summaries are re-parsed.
+- Changed Tailscale Serve permission denial handling so `Access denied: serve config denied` remains non-fatal but records a skipped action instead of a successful served action.
+- Updated CLI Live and apply/pull Telegram summaries to show the skipped Tailscale Serve action and the one-time `sudo tailscale set --operator=$USER` fix.
+- Removed the 220-character notification truncation for Switchboard Telegram attention messages and added a regression that asserts the full done message body, including its tail sentinel, is sent.
+
+Verification:
+
+```text
+$ uv run python -m unittest tests.test_switchboard tests.test_switchboard_agent tests.test_klimkit_install tests.test_klimkit_cli -q
+----------------------------------------------------------------------
+Ran 102 tests in 7.517s
+
+OK
+```
+
+```text
+$ uv run python -m unittest discover -s tests -q
+----------------------------------------------------------------------
+Ran 133 tests in 7.478s
+
+OK (skipped=1)
+```
+
+```text
+$ git diff --check
+# no output
+```

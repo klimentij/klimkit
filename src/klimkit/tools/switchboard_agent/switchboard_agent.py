@@ -31,6 +31,7 @@ from klimkit.paths import KLIMKIT_CONFIG_FILE, KLIMKIT_STATE_DIR
 
 DEFAULT_CONFIG_PATH = KLIMKIT_CONFIG_FILE
 HELPER_STATIC_DIR = Path(__file__).with_name("helper_static")
+CACHE_VERSION = 2
 TIMESTAMP_RE = re.compile(
     r"^(?P<head>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})"
     r"(?P<fraction>\.\d+)?"
@@ -40,7 +41,7 @@ QUESTION_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
         r"\?\s*$",
-        r"\b(clarify|which|what|how would you like|do you want|please provide|let me know)\b",
+        r"\b(please clarify|can you clarify|could you clarify|how would you like|do you want|please provide|let me know)\b",
         r"\b(need your input|need you to choose|waiting for your answer|before I can continue)\b",
     )
 ]
@@ -422,6 +423,7 @@ def load_thread_index(path: Path) -> dict[str, dict[str, Any]]:
 
 def decode_summary(row: sqlite3.Row) -> SessionSummary:
     payload = json.loads(str(row["summary_json"]))
+    payload.pop("_parser_version", None)
     payload.setdefault(
         "created_at",
         earliest_timestamp(
@@ -444,6 +446,12 @@ def cached_summary(conn: sqlite3.Connection, path: Path, stat: os.stat_result) -
     ).fetchone()
     if row is None:
         return None
+    try:
+        payload = json.loads(str(row["summary_json"]))
+    except json.JSONDecodeError:
+        return None
+    if int(payload.get("_parser_version") or 0) != CACHE_VERSION:
+        return None
     return decode_summary(row)
 
 
@@ -453,6 +461,8 @@ def save_cached_summary(
     stat: os.stat_result,
     summary: SessionSummary,
 ) -> None:
+    payload = asdict(summary)
+    payload["_parser_version"] = CACHE_VERSION
     conn.execute(
         """
         INSERT INTO rollout_cache(path, size, mtime_ns, summary_json)
@@ -462,7 +472,7 @@ def save_cached_summary(
           mtime_ns = excluded.mtime_ns,
           summary_json = excluded.summary_json
         """,
-        (str(path), stat.st_size, stat.st_mtime_ns, json.dumps(asdict(summary), ensure_ascii=True)),
+        (str(path), stat.st_size, stat.st_mtime_ns, json.dumps(payload, ensure_ascii=True)),
     )
 
 

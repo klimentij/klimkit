@@ -39,7 +39,7 @@ from klimkit.notifications import send_telegram_message
 
 DEFAULT_CONFIG_PATH = KLIMKIT_CONFIG_FILE
 STATIC_DIR = Path(__file__).with_name("static")
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 DEFAULT_BASE_PATH = "/switchboard"
 AUTH_COOKIE_NAME = "switchboard_token"
 MAX_JSON_BODY_BYTES = 1024 * 1024
@@ -56,7 +56,7 @@ QUESTION_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
         r"\?\s*$",
-        r"\b(clarify|which|what|how would you like|do you want|please provide|let me know)\b",
+        r"\b(please clarify|can you clarify|could you clarify|how would you like|do you want|please provide|let me know)\b",
         r"\b(need your input|need you to choose|waiting for your answer|before I can continue)\b",
     )
 ]
@@ -2164,7 +2164,7 @@ class SwitchboardApp:
         cwd = str(session.get("cwd") or "").strip()
         folder = str(session.get("folder_name") or folder_name_from_path(cwd) or "workspace").strip()
         status = str(session.get("latest_event_status") or session.get("activity_state") or "").strip()
-        message = clip_text(str(session.get("latest_event_message") or session.get("detail") or "").strip(), 220)
+        message = str(session.get("latest_event_message") or session.get("detail") or "").strip()
         title = clip_text(str(session.get("title") or folder).strip(), 80)
         resolved_machine = machine or str(session.get("machine") or "").strip()
         resolved_dns = self.store.resolve_machine_dns(resolved_machine, machine_dns or str(session.get("machine_dns") or ""))
