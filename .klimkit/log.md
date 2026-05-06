@@ -23,3 +23,4 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-06T04:32:26Z: Strengthened the done-message Telegram path from rollout parsing to notification delivery and documented Switchboard Chrome/PWA usage plus keyboard shortcuts.
 - 2026-05-06T04:42:33Z: Added configurable Switchboard loaded-tab retention with a default of five most-recently-used code-server tabs and documented the per-tab RAM tradeoff.
 - 2026-05-06T05:03:27Z: Documented the `v0.1.0` operator-preview release status in README before creating the GitHub release.
+- 2026-05-06T05:07:35Z: Removed the legacy upstream auto-clone path from `install.sh`, documented checkout-local installation, and added installer proof for the fork-first flow.

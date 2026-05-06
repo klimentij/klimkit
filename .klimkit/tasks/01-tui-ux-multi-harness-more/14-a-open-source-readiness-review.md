@@ -36,10 +36,10 @@ The latest work improved production behavior in areas that mattered for the curr
 
 ### 1. Mutable-main install and autosync are too sharp for general open source
 
-Evidence:
+Evidence before the fork-first installer fix:
 
-- `README.md` installs from `https://raw.githubusercontent.com/klimentij/klimkit/main/install.sh`.
-- `install.sh` clones `https://github.com/klimentij/klimkit.git`.
+- An earlier `README.md` revision documented a remote one-line upstream installer.
+- An earlier `install.sh` revision cloned Klim's upstream repo when `~/klimkit` was absent.
 - The supervisor autosync model intentionally fast-forwards from `origin/main` and applies every 5 seconds by default.
 
 Risk:
@@ -56,6 +56,7 @@ Decision for v1:
 
 - Strongly recommend the **fork-first operator repo model** for early public users.
 - Users should fork Klimkit, clone their fork onto each VM, tune `.klimkit/local/` per machine, tune `packs/codex/` in their fork, and autosync from their own `main` branch.
+- 2026-05-06 follow-up: `README.md` now documents fork/clone/`./install.sh`, and `install.sh` refuses to run outside a local Klimkit checkout instead of auto-cloning the upstream repo.
 - Upstream Klimkit remains the source for core fixes and starter-pack improvements, but user forks are the source of truth for live harness behavior.
 - Upstream pack changes should be reviewed by the user's agents and merged selectively, not blindly accepted. This is especially important for `packs/codex/AGENTS.md`, `config.toml`, hooks, agents, and skills.
 - Document an agent-native upstream review workflow: fetch upstream, inspect `main..upstream/main`, separate core changes from harness-pack changes, produce a safe merge plan, then cherry-pick or merge only what the operator wants.
@@ -115,7 +116,7 @@ Recommendation:
 
 - Add a Python matrix for 3.11, 3.12, and 3.13.
 - Add at least one macOS CI job for unit tests and launchd rendering.
-- Add a lightweight shellcheck or install-script smoke test if the project wants to keep `curl | bash` as the primary install path.
+- Add a lightweight shellcheck or install-script smoke test for the checkout-local installer entrypoint.
 
 Decision: need install from cloned fork, ./install! no CI for now
 
@@ -148,8 +149,8 @@ Evidence:
 - `README.md` still says the repo makes a VM behave like "Klim's working environment." 
 Decision-->keep this, i like to keep personal touch 
 
-- The install URL points at `klimentij/klimkit`.
-Decision-->now only ./install no curl
+- The old install URL pointed at `klimentij/klimkit`.
+Decision-->resolved: fork/clone/`./install.sh` only; no remote one-line Klimkit install
 
 - The macOS launchd label uses `com.klim.klimkit`.
 Decision-->should work for any usernmae 

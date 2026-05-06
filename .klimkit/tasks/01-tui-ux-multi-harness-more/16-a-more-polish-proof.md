@@ -63,7 +63,7 @@ Second follow-up paragraph added to `15-h-more-polish.md`:
   - Added regression coverage for managed profile defaults, seed-only opt-out, profile capture, extension list parsing, extension install skipping, the new CLI command, and archived-tab tab-bar filtering.
 
 - `README.md` and `SECURITY.md`
-  - Documented fork-first install with `./install.sh` from the user's own checkout instead of curl-installing Klim's upstream flavor.
+  - Documented fork-first install with `./install.sh` from the user's own checkout instead of a remote one-line install of Klim's upstream flavor.
   - Added a code-server managed profile section covering `managed_profile = true`, `kk code-server capture`, synced settings/keybindings/snippets, and extension IDs.
 
 ## Verification
@@ -158,6 +158,43 @@ OK (skipped=1)
 ```text
 $ git diff --check
 # no output
+```
+
+## Follow-up: checkout-local installer only
+
+Implemented on 2026-05-06:
+
+- Removed the legacy `install.sh` path that cloned Klim's upstream repo when `~/klimkit` was absent.
+- Made `install.sh` resolve the current Git checkout and fail with fork/clone/`./install.sh` instructions when copied or run outside a Klimkit checkout.
+- Updated `README.md` and the open-source readiness note so the supported flow is fork first, clone your fork, then run `./install.sh`.
+- Added an installer regression test proving a copied installer refuses to run outside a cloned fork checkout.
+
+Verification:
+
+```text
+$ uv run python -m unittest tests.test_klimkit_install -q
+----------------------------------------------------------------------
+Ran 29 tests in 0.097s
+
+OK
+```
+
+```text
+$ bash -n install.sh && git diff --check
+# no output
+```
+
+```text
+$ rg -n "raw\\.githubusercontent|klimentij/klimkit\\.git|git clone --branch|First run clones|curl-piping|curl-installing|curl install" README.md install.sh .klimkit/tasks/01-tui-ux-multi-harness-more/14-a-open-source-readiness-review.md .klimkit/tasks/01-tui-ux-multi-harness-more/16-a-more-polish-proof.md
+# no output
+```
+
+```text
+$ uv run python -m unittest discover -s tests -q
+----------------------------------------------------------------------
+Ran 136 tests in 7.585s
+
+OK (skipped=1)
 ```
 
 ```text

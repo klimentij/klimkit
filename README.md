@@ -49,7 +49,7 @@ source ~/.zshrc    # or source ~/.bashrc
 kk                 # show paths and setup commands
 ```
 
-The installer reuses the local checkout, installs the `kk` launcher into `~/.local/bin`, and leaves config creation plus service changes to explicit `kk` commands. Push profile changes to your fork, then run `kk pull` on each other machine.
+The installer reuses the local checkout, installs the `kk` launcher into `~/.local/bin`, and leaves config creation plus service changes to explicit `kk` commands. It must be run from your checkout; Klimkit does not support a remote one-line install or auto-cloning the upstream repo. Push profile changes to your fork, then run `kk pull` on each other machine.
 
 ## Release Status
 

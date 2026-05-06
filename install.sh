@@ -1,23 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="https://github.com/klimentij/klimkit.git"
-BRANCH="main"
-CHECKOUT="$HOME/klimkit"
 BIN_DIR="$HOME/.local/bin"
 UV_VERSION="0.8.3"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 usage() {
   cat <<'EOF'
 Usage: install.sh
 
-Installs or refreshes Klimkit from ~/klimkit and writes the kk launcher into ~/.local/bin.
+Installs or refreshes Klimkit from the current checkout and writes the kk launcher into ~/.local/bin.
 Agentic engineering across machines, under control.
 Configuration and apply are intentionally handled by kk after installation.
 
-First run clones the repo. Later runs use the existing local checkout exactly as-is,
-including uncommitted edits. Use kk update or kk pull when you explicitly want to
-pull from Git.
+Fork and clone Klimkit first, then run ./install.sh from that checkout:
+
+  git clone https://github.com/<you>/klimkit.git ~/klimkit
+  cd ~/klimkit
+  ./install.sh
+
+The installer never downloads Klimkit or clones the upstream repo for you. It
+uses the local checkout exactly as-is, including uncommitted edits. Use kk update
+or kk pull when you explicitly want to pull from Git.
 EOF
 }
 
@@ -107,17 +111,28 @@ if ! have_cmd git; then
   exit 1
 fi
 
+CHECKOUT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$CHECKOUT" || ! -f "$CHECKOUT/pyproject.toml" || ! -d "$CHECKOUT/src/klimkit" ]]; then
+  cat >&2 <<'EOF'
+install.sh must be run from a cloned Klimkit fork checkout.
+
+Fork the repo first, then run:
+
+  git clone https://github.com/<you>/klimkit.git ~/klimkit
+  cd ~/klimkit
+  ./install.sh
+
+This installer does not download Klimkit or clone the upstream repo for you.
+EOF
+  exit 1
+fi
+
 if ! have_cmd uv; then
   install_uv
   export PATH="$BIN_DIR:$PATH"
 fi
 
-if [[ -d "$CHECKOUT/.git" ]]; then
-  printf 'Using existing local checkout: %s\n' "$CHECKOUT"
-else
-  mkdir -p "$(dirname "$CHECKOUT")"
-  git clone --branch "$BRANCH" "$REPO_URL" "$CHECKOUT"
-fi
+printf 'Using local checkout: %s\n' "$CHECKOUT"
 
 mkdir -p "$BIN_DIR"
 

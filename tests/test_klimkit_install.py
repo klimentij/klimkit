@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -686,6 +687,23 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("does not accept options", result.stderr)
         self.assertIn("kk launcher", result.stderr)
+
+    def test_installer_requires_a_cloned_fork_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_script = Path(tmpdir) / "install.sh"
+            shutil.copy2(ROOT / "install.sh", tmp_script)
+
+            result = subprocess.run(
+                ["bash", str(tmp_script)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("cloned Klimkit fork checkout", result.stderr)
+        self.assertIn("git clone https://github.com/<you>/klimkit.git ~/klimkit", result.stderr)
+        self.assertIn("does not download Klimkit or clone the upstream repo", result.stderr)
 
     def test_public_templates_do_not_contain_private_defaults(self) -> None:
         checked_roots = [ROOT / "packs", ROOT / "templates"]
