@@ -7,6 +7,7 @@ import platform
 import shlex
 import shutil
 import subprocess
+import sys
 import textwrap
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -42,6 +43,7 @@ class InstallConfig:
     server_enabled: bool
     codex_enabled: bool
     code_server_enabled: bool
+    code_server_managed_profile: bool
     supervisor_enabled: bool
     live_sync_enabled: bool
     live_sync_interval_seconds: int
@@ -174,6 +176,7 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
         server_enabled=server_enabled,
         codex_enabled=client_enabled,
         code_server_enabled=client_enabled,
+        code_server_managed_profile=True,
         supervisor_enabled=client_enabled or server_enabled,
         live_sync_enabled=True,
         live_sync_interval_seconds=5,
@@ -216,6 +219,7 @@ def with_role(config: InstallConfig, profile: str) -> InstallConfig:
         server_enabled=role.server_enabled,
         codex_enabled=role.codex_enabled,
         code_server_enabled=role.code_server_enabled,
+        code_server_managed_profile=role.code_server_managed_profile,
         supervisor_enabled=role.supervisor_enabled,
         live_sync_enabled=role.live_sync_enabled,
         live_sync_interval_seconds=role.live_sync_interval_seconds,
@@ -274,6 +278,8 @@ def render_config(config: InstallConfig) -> str:
             "[code_server]",
             "# Enable projection of code-server config and user settings.",
             f"enabled = {str(config.code_server_enabled).lower()}",
+            "# managed_profile syncs templates/code-server/User and extensions.txt to every VM.",
+            f"managed_profile = {str(config.code_server_managed_profile).lower()}",
             "# If code-server is missing, `kk apply` may run the upstream network installer.",
             f"install_if_missing = {str(config.install_code_server_if_missing).lower()}",
             "",
@@ -446,6 +452,7 @@ def parse_config(raw: str) -> InstallConfig:
         server_enabled=server_enabled,
         codex_enabled=_bool(codex.get("enabled", components.get("codex")), client_enabled),
         code_server_enabled=_bool(code_server.get("enabled", components.get("code_server")), client_enabled),
+        code_server_managed_profile=_bool(code_server.get("managed_profile"), True),
         supervisor_enabled=_bool(components.get("supervisor"), client_enabled or server_enabled),
         live_sync_enabled=_bool(workers.get("auto_sync"), True),
         live_sync_interval_seconds=max(
@@ -616,6 +623,100 @@ def _dir_actions(
     return actions
 
 
+def code_server_extension_ids(repo_root: Path) -> list[str]:
+    extensions_file = repo_root / "templates" / "code-server" / "extensions.txt"
+    if not extensions_file.exists():
+        return []
+    extensions = []
+    for line in extensions_file.read_text(encoding="utf-8").splitlines():
+        extension = line.split("#", 1)[0].strip()
+        if extension:
+            extensions.append(extension)
+    return sorted(dict.fromkeys(extensions))
+
+
+def installed_code_server_extension_ids(extensions_root: Path | None = None) -> list[str]:
+    extensions_root = extensions_root or Path.home() / ".local" / "share" / "code-server" / "extensions"
+    if not extensions_root.exists():
+        return []
+    extension_ids: list[str] = []
+    for package_json in sorted(extensions_root.glob("*/package.json")):
+        try:
+            payload = json.loads(package_json.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        publisher = str(payload.get("publisher") or "").strip()
+        name = str(payload.get("name") or "").strip()
+        if publisher and name:
+            extension_ids.append(f"{publisher}.{name}")
+    return sorted(dict.fromkeys(extension_ids))
+
+
+def capture_code_server_profile(
+    repo_root: Path,
+    *,
+    user_dir: Path | None = None,
+    extensions_root: Path | None = None,
+) -> dict[str, Any]:
+    user_dir = user_dir or Path.home() / ".local" / "share" / "code-server" / "User"
+    target_user_dir = repo_root / "templates" / "code-server" / "User"
+    target_user_dir.mkdir(parents=True, exist_ok=True)
+
+    copied_user_files: list[str] = []
+    missing_user_files: list[str] = []
+    for filename in ("settings.json", "keybindings.json"):
+        source = user_dir / filename
+        target = target_user_dir / filename
+        if source.exists():
+            shutil.copy2(source, target)
+            copied_user_files.append(filename)
+        else:
+            missing_user_files.append(filename)
+
+    source_snippets = user_dir / "snippets"
+    target_snippets = target_user_dir / "snippets"
+    snippets_copied = False
+    if target_snippets.exists():
+        shutil.rmtree(target_snippets)
+    if source_snippets.exists() and source_snippets.is_dir():
+        shutil.copytree(source_snippets, target_snippets)
+        snippets_copied = True
+
+    extension_ids = installed_code_server_extension_ids(extensions_root)
+    extensions_file = repo_root / "templates" / "code-server" / "extensions.txt"
+    extensions_file.write_text("\n".join(extension_ids) + ("\n" if extension_ids else ""), encoding="utf-8")
+
+    return {
+        "user_files": copied_user_files,
+        "missing_user_files": missing_user_files,
+        "snippets": snippets_copied,
+        "extensions": extension_ids,
+    }
+
+
+def _code_server_extensions_action(repo_root: Path, extension_ids: list[str]) -> Action | None:
+    if not extension_ids:
+        return None
+    extensions_file = repo_root / "templates" / "code-server" / "extensions.txt"
+    command = (
+        sys.executable,
+        "-m",
+        "klimkit.tools.code_server_profile",
+        "install-extensions",
+        str(extensions_file),
+    )
+    return Action(
+        id="code-server-extensions",
+        kind="run_command",
+        target=extensions_file,
+        description=f"install code-server managed profile extensions ({len(extension_ids)})",
+        command=command,
+        component="code-server",
+    )
+
+
 def build_plan(
     config: InstallConfig,
     *,
@@ -681,9 +782,9 @@ def build_plan(
                 "code-server-user",
                 repo / "templates" / "code-server" / "User",
                 home / ".local" / "share" / "code-server" / "User",
-                "code-server user defaults",
+                "code-server managed profile" if config.code_server_managed_profile else "code-server user defaults",
                 component="code-server",
-                kind="ensure_file",
+                kind="write_file" if config.code_server_managed_profile else "ensure_file",
             )
         )
         if config.install_code_server_if_missing and shutil.which("code-server") is None:
@@ -702,6 +803,10 @@ def build_plan(
                     component="external-installer",
                 )
             )
+        if config.code_server_managed_profile:
+            extension_action = _code_server_extensions_action(repo, code_server_extension_ids(repo))
+            if extension_action is not None:
+                actions.append(extension_action)
 
     if config.tailscale_serve_enabled and config.configure_services and not skip_services:
         if config.code_server_enabled:

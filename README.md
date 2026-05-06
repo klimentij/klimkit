@@ -16,6 +16,7 @@ Klimkit keeps an agent-ready machine reproducible. One repo owns the local instr
 - [Tech Stack](#tech-stack)
 - [Single Config](#single-config)
 - [Generated Projections](#generated-projections)
+- [Code-Server Managed Profile](#code-server-managed-profile)
 - [Harness Pack](#harness-pack)
 - [Security Model](#security-model)
 - [Workflow](#workflow)
@@ -27,8 +28,12 @@ Klimkit keeps an agent-ready machine reproducible. One repo owns the local instr
 
 ## Quick Install
 
+Fork this repo first so your machines sync your operator profile, not the upstream default flavor. Then install from your forked checkout:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/klimentij/klimkit/main/install.sh | bash
+git clone https://github.com/<you>/klimkit.git ~/klimkit
+cd ~/klimkit
+./install.sh
 ```
 
 Supported targets are macOS, Linux, and WSL2. Native Windows and Android/Termux are not supported targets yet.
@@ -42,7 +47,7 @@ source ~/.zshrc    # or source ~/.bashrc
 kk                 # show paths and setup commands
 ```
 
-The installer clones or reuses `~/klimkit`, installs the `kk` launcher into `~/.local/bin`, and leaves config creation plus service changes to explicit `kk` commands.
+The installer reuses the local checkout, installs the `kk` launcher into `~/.local/bin`, and leaves config creation plus service changes to explicit `kk` commands. Push profile changes to your fork, then run `kk pull` on each other machine.
 
 ## Tech Stack
 
@@ -142,13 +147,43 @@ Current projections include:
 ~/.codex/agents/
 ~/.codex/skills/
 ~/.config/code-server/config.yaml
-~/.local/share/code-server/User/ defaults on first apply only
+~/.local/share/code-server/User/
+~/.local/share/code-server/extensions/ from templates/code-server/extensions.txt
 ~/.config/systemd/user/klimkit.service
 ~/Library/LaunchAgents/com.klim.klimkit.plist
 ```
 
 Codex keeps its default home at `~/.codex`. Klimkit treats that directory as a managed projection target, while Klimkit's own editable config and runtime state live under `~/klimkit/.klimkit`.
-Klimkit still manages `~/.config/code-server/config.yaml`, but code-server `User` files are seeded only when missing so local preferences such as theme, extension settings, and trusted workspace state survive `kk pull` and autosync.
+Klimkit manages `~/.config/code-server/config.yaml`. When `[code_server] managed_profile = true`, it also treats `templates/code-server/User/` and `templates/code-server/extensions.txt` as the authoritative browser IDE profile for every VM.
+
+## Code-Server Managed Profile
+
+Klimkit can sync one chosen code-server profile across machines. The default is:
+
+```toml
+[code_server]
+enabled = true
+managed_profile = true
+install_if_missing = true
+```
+
+With `managed_profile = true`, every `kk apply`, `kk pull`, and autosync writes:
+
+- `templates/code-server/User/settings.json` to `~/.local/share/code-server/User/settings.json`
+- `templates/code-server/User/keybindings.json` to `~/.local/share/code-server/User/keybindings.json`
+- `templates/code-server/User/snippets/` when snippets are captured
+- `templates/code-server/extensions.txt` as extension IDs to install with code-server
+
+To tune the shared profile, make the changes once in code-server on the source VM, then run:
+
+```bash
+kk code-server capture
+git add templates/code-server README.md SECURITY.md src tests .klimkit
+git commit -m "Sync code-server managed profile"
+git push
+```
+
+Other machines pick it up with `kk pull` or daemon autosync. Set `managed_profile = false` only on a VM that should keep a local-only code-server profile; in that mode Klimkit seeds `User` defaults only when the files are missing.
 
 ## Harness Pack
 
@@ -185,7 +220,7 @@ Klimkit is designed for a trusted personal machine or private tailnet, not arbit
 - Switchboard may run without a token only on loopback. Non-loopback server hosts require `switchboard.server.auth_token`.
 - Tailscale Serve is the intended remote access boundary for Switchboard and code-server.
 - code-server binds to loopback with `auth: none`; `kk apply` configures Tailscale Serve so each client exposes only its own loopback code-server to the private tailnet.
-- The initial code-server user defaults disable workspace trust and allow automatic tasks so the operator box behaves consistently for agent work. Klimkit does not overwrite existing code-server `User` preferences after they are created. Treat this as a trusted-workstation setting.
+- With `[code_server] managed_profile = true`, Klimkit syncs the repo's code-server profile and extension list to every VM. The managed profile disables workspace trust and allows automatic tasks so the operator box behaves consistently for agent work. Treat this as a trusted-workstation setting.
 - Switchboard agent helper binds to loopback by default. Change `switchboard.agent.helper_host` only for a trusted proxy path.
 - Switchboard-launched Codex terminals use trusted-local automation defaults, including sandbox/approval bypass flags when configured.
 - If code-server is missing, `kk apply` may plan an external network installer. Review `kk preview` before applying, or set `code_server.install_if_missing = false`.

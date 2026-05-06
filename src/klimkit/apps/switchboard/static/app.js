@@ -757,8 +757,9 @@ function materializeState(payload) {
   ui.workspaces = sortWorkspaces(materializeManualWorkspaces(ui.serverWorkspaces));
   reconcileActiveManualWorkspace();
   ui.machines = buildMachineList(payload.machines, [...ui.serverWorkspaces, ...ui.localWorkspaces]);
-  ui.visibleTabCount = ui.workspaces.length
-    ? Math.min(Math.max(ui.visibleTabCount, TAB_RENDER_BATCH), ui.workspaces.length)
+  const tabCount = tabBarWorkspaceCount(ui.workspaces);
+  ui.visibleTabCount = tabCount
+    ? Math.min(Math.max(ui.visibleTabCount, TAB_RENDER_BATCH), tabCount)
     : TAB_RENDER_BATCH;
   ui.selectedWorkspaceIds = new Set(
     [...ui.selectedWorkspaceIds].filter((workspaceId) => ui.workspaces.some((workspace) => workspace.id === workspaceId)),
@@ -778,37 +779,47 @@ function ensureTabVisibleById(id) {
   if (!id) {
     return;
   }
-  const index = ui.workspaces.findIndex((workspace) => workspace.id === id);
+  const tabWorkspaces = tabBarWorkspaces(ui.workspaces);
+  const index = tabWorkspaces.findIndex((workspace) => workspace.id === id);
   if (index === -1 || index < ui.visibleTabCount) {
     return;
   }
   ui.visibleTabCount = Math.min(
     Math.ceil((index + 1) / TAB_RENDER_BATCH) * TAB_RENDER_BATCH,
-    ui.workspaces.length,
+    tabWorkspaces.length,
   );
+}
+
+function tabBarWorkspaces(workspaces) {
+  return workspaces.filter((workspace) => !workspace.archived);
+}
+
+function tabBarWorkspaceCount(workspaces = ui.workspaces) {
+  return tabBarWorkspaces(workspaces).length;
 }
 
 function visibleTabWorkspaces(workspaces) {
   ensureTabVisibleById(ui.activeId);
-  return workspaces.filter((workspace, index) => index < ui.visibleTabCount);
+  return tabBarWorkspaces(workspaces).filter((workspace, index) => index < ui.visibleTabCount);
 }
 
 function activeUnarchivedTabCount(workspaces = ui.workspaces) {
-  return workspaces.filter((workspace) => !workspace.archived).length;
+  return tabBarWorkspaceCount(workspaces);
 }
 
 function revealMoreTabs() {
-  if (ui.visibleTabCount >= ui.workspaces.length) {
+  const tabCount = tabBarWorkspaceCount(ui.workspaces);
+  if (ui.visibleTabCount >= tabCount) {
     return;
   }
   const previousScroll = tabStrip.scrollLeft;
-  ui.visibleTabCount = Math.min(ui.visibleTabCount + TAB_RENDER_BATCH, ui.workspaces.length);
+  ui.visibleTabCount = Math.min(ui.visibleTabCount + TAB_RENDER_BATCH, tabCount);
   renderShell(ui.workspaces);
   tabStrip.scrollLeft = previousScroll;
 }
 
 function maybeLoadMoreTabs() {
-  if (ui.visibleTabCount >= ui.workspaces.length) {
+  if (ui.visibleTabCount >= tabBarWorkspaceCount(ui.workspaces)) {
     return;
   }
   const remaining = tabStrip.scrollWidth - (tabStrip.scrollLeft + tabStrip.clientWidth);
@@ -919,10 +930,10 @@ function ensureStructures(allWorkspaces, tabWorkspaces) {
 
 function reorderTabStrip(workspaces, allWorkspaces) {
   const desiredShellOrder = [
-    ...workspaces.filter((workspace) => !workspace.archived).map((workspace) => workspace.id),
-    ...(workspaces.some((workspace) => workspace.archived) ? ["__archive_separator__"] : []),
-    ...workspaces.filter((workspace) => workspace.archived).map((workspace) => workspace.id),
-    ...(allWorkspaces.length > workspaces.length ? [`__more__:${allWorkspaces.length - workspaces.length}`] : []),
+    ...workspaces.map((workspace) => workspace.id),
+    ...(tabBarWorkspaceCount(allWorkspaces) > workspaces.length
+      ? [`__more__:${tabBarWorkspaceCount(allWorkspaces) - workspaces.length}`]
+      : []),
   ];
   const currentShellOrder = [
     ...tabStrip.querySelectorAll(".workspace-tab-item, .workspace-separator, .workspace-more"),
@@ -936,43 +947,31 @@ function reorderTabStrip(workspaces, allWorkspaces) {
     return element.dataset.workspaceId || "";
   });
   if (desiredShellOrder.join("|") === currentShellOrder.join("|")) {
-    ui.orderedWorkspaceIds = allWorkspaces.map((workspace) => workspace.id);
+    ui.orderedWorkspaceIds = tabBarWorkspaces(allWorkspaces).map((workspace) => workspace.id);
     return;
   }
 
   for (const existingMoreButton of tabStrip.querySelectorAll(".workspace-more")) {
     existingMoreButton.remove();
   }
-  const active = [];
-  const archived = [];
 
+  const active = [];
   for (const workspace of workspaces) {
     const item = ui.items.get(workspace.id);
     if (!item) {
       continue;
     }
-    if (workspace.archived) {
-      archived.push(item.shell);
-    } else {
-      active.push(item.shell);
-    }
+    active.push(item.shell);
   }
 
   const fragment = document.createDocumentFragment();
   for (const shell of active) {
     fragment.append(shell);
   }
-  if (archived.length) {
-    const separator = ensureSeparator();
-    separator.querySelector(".workspace-separator-count").textContent = String(archived.length);
-    fragment.append(separator);
-    for (const shell of archived) {
-      fragment.append(shell);
-    }
-  } else if (ui.archiveSeparator) {
+  if (ui.archiveSeparator) {
     ui.archiveSeparator.remove();
   }
-  const hiddenCount = Math.max(allWorkspaces.length - workspaces.length, 0);
+  const hiddenCount = Math.max(tabBarWorkspaceCount(allWorkspaces) - workspaces.length, 0);
   if (hiddenCount > 0) {
     const moreButton = document.createElement("button");
     moreButton.type = "button";
@@ -982,7 +981,7 @@ function reorderTabStrip(workspaces, allWorkspaces) {
     fragment.append(moreButton);
   }
   tabStrip.append(fragment);
-  ui.orderedWorkspaceIds = allWorkspaces.map((workspace) => workspace.id);
+  ui.orderedWorkspaceIds = tabBarWorkspaces(allWorkspaces).map((workspace) => workspace.id);
 }
 
 function hasPendingEvent(workspace) {
@@ -1502,6 +1501,9 @@ async function toggleArchive(workspaceId) {
     if (workspace.is_local) {
       setLocalArchiveStates([workspace.id], archived);
     }
+    if (archived && ui.activeId === workspace.id) {
+      saveActiveId(firstUnarchivedWorkspaceId(new Set([workspace.id])));
+    }
     await refresh();
   } catch (error) {
     console.error(error);
@@ -1538,6 +1540,10 @@ function setLocalArchiveStates(workspaceIds, archived) {
   return updatedIds;
 }
 
+function firstUnarchivedWorkspaceId(excludedIds = new Set()) {
+  return ui.workspaces.find((workspace) => !workspace.archived && !excludedIds.has(workspace.id))?.id || null;
+}
+
 async function applyBatchArchive(archived) {
   const selectedWorkspaces = [...ui.selectedWorkspaceIds]
     .map((workspaceId) => getWorkspaceById(workspaceId))
@@ -1563,6 +1569,9 @@ async function applyBatchArchive(archived) {
       await setArchiveStates(serverSessionIds, archived);
     }
     setLocalArchiveStates(localWorkspaceIds, archived);
+    if (archived && ui.selectedWorkspaceIds.has(ui.activeId)) {
+      saveActiveId(firstUnarchivedWorkspaceId(ui.selectedWorkspaceIds));
+    }
     ui.selectedWorkspaceIds.clear();
     await refresh();
   } catch (error) {

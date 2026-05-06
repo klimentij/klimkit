@@ -1,5 +1,8 @@
 {
   "security.workspace.trust.enabled": false,
   "task.allowAutomaticTasks": "on",
-  "workbench.startupEditor": "none"
+  "workbench.startupEditor": "none",
+  "remote.autoForwardPortsSource": "hybrid",
+  "editor.minimap.enabled": false,
+  "workbench.colorTheme": "Dark 2026"
 }

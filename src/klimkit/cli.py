@@ -13,6 +13,7 @@ from pathlib import Path
 from .install import (
     apply_plan,
     build_plan,
+    capture_code_server_profile,
     ensure_config,
     format_plan,
     load_config,
@@ -34,6 +35,7 @@ EXAMPLES = """examples:
   kk serve
   kk update
   kk pull
+  kk code-server capture
 """
 
 
@@ -380,6 +382,7 @@ def _format_welcome() -> str:
         _command_row("kk serve", "run Switchboard"),
         _command_row("kk update", "pull the checkout only"),
         _command_row("kk pull", "pull current branch and apply this VM"),
+        _command_row("kk code-server capture", "capture current code-server profile into the repo"),
     ]
     if KLIMKIT_CONFIG_FILE.exists():
         try:
@@ -521,6 +524,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     serve.add_argument("--config", dest="switchboard_config", type=Path, default=None, help="Klimkit TOML config path for Switchboard.")
     serve.add_argument("--print-projections", action="store_true", help="Print local projections and exit.")
+
+    code_server = _add_command(
+        subparsers,
+        "code-server",
+        help="Manage the repo-synced code-server profile.",
+        description="Capture and manage the code-server user profile stored under templates/code-server/.",
+        examples="  kk code-server capture",
+    )
+    code_server_subparsers = code_server.add_subparsers(dest="code_server_command", required=True)
+    capture = code_server_subparsers.add_parser(
+        "capture",
+        help="Capture current code-server settings and installed extension IDs.",
+        description="Copy current code-server User settings/keybindings/snippets and extension IDs into templates/code-server/.",
+        epilog="examples:\n  kk code-server capture",
+        formatter_class=HelpFormatter,
+    )
+    capture.add_argument(
+        "--user-dir",
+        type=Path,
+        default=None,
+        help="code-server User directory to capture.",
+    )
+    capture.add_argument(
+        "--extensions-dir",
+        type=Path,
+        default=None,
+        help="code-server extensions directory to inspect.",
+    )
 
     uninstall = _add_command(
         subparsers,
@@ -782,6 +813,29 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return daemon.main(daemon_args)
 
 
+def cmd_code_server(args: argparse.Namespace) -> int:
+    if args.code_server_command != "capture":
+        return 1
+    repo_root = OPS_REPO_ROOT
+    if args.config.expanduser().exists():
+        repo_root = load_config(args.config).repo_root
+    result = capture_code_server_profile(
+        repo_root,
+        user_dir=args.user_dir.expanduser() if args.user_dir else None,
+        extensions_root=args.extensions_dir.expanduser() if args.extensions_dir else None,
+    )
+    user_files = result.get("user_files")
+    missing_user_files = result.get("missing_user_files")
+    extensions = result.get("extensions")
+    print(_header("code-server", "Managed profile captured."))
+    print(_kv("repo", repo_root))
+    print(_kv("user", ", ".join(user_files) if isinstance(user_files, list) and user_files else "none"))
+    if isinstance(missing_user_files, list) and missing_user_files:
+        print(_status("missing", ", ".join(str(item) for item in missing_user_files), "warn"))
+    print(_kv("extensions", len(extensions) if isinstance(extensions, list) else 0))
+    return 0
+
+
 def cmd_uninstall(args: argparse.Namespace) -> int:
     manifest_path = KLIMKIT_MANIFEST_FILE
     if args.config.expanduser().exists():
@@ -810,6 +864,7 @@ def main(argv: list[str] | None = None) -> int:
         "update": cmd_update,
         "pull": cmd_pull,
         "serve": cmd_serve,
+        "code-server": cmd_code_server,
         "uninstall": cmd_uninstall,
     }
     return commands[args.command](args)

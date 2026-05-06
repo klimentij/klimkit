@@ -8,7 +8,7 @@ The default Codex harness is tuned for a dedicated VM or external sandbox where 
 - Tokenless loopback access also rejects non-loopback `Host` headers to reduce DNS-rebinding exposure. If Switchboard is exposed through a proxy, configure a token and HTTPS cookie behavior explicitly.
 - Tailscale Serve is the intended remote exposure layer for Switchboard and code-server.
 - code-server is configured with loopback binding and `auth: none`; `kk apply` configures Tailscale Serve so each client VM exposes its own code-server only inside the private tailnet.
-- The initial code-server user defaults disable workspace trust and enable automatic tasks so agent workflows behave consistently. Existing code-server `User` preferences are not overwritten after first apply. Do not use that profile for untrusted workspaces.
+- With `[code_server] managed_profile = true`, Klimkit syncs the repo's code-server `User` profile and extension list to every VM. The managed profile disables workspace trust and enables automatic tasks for a trusted operator box; do not use it for untrusted workspaces.
 - Switchboard agent helper binds to `127.0.0.1` by default. Only set another `switchboard.agent.helper_host` for a trusted proxy path.
 - Switchboard-launched Codex terminals are trusted-local automation and may use sandbox/approval bypass flags when configured.
 - The projected Codex config may use `sandbox_mode = "danger-full-access"` and `approval_policy = "never"` by default. Keep the VM least-privileged and purpose-built.

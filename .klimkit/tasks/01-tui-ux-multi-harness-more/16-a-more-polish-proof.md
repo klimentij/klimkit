@@ -40,16 +40,31 @@ Follow-up paragraph added to `15-h-more-polish.md`:
 Second follow-up paragraph added to `15-h-more-polish.md`:
 
 - `src/klimkit/install.py`
-  - Changed code-server `User` projection actions from managed writes to seed-only `ensure_file` actions.
-  - `kk apply`, `kk pull`, and daemon autosync still create default `settings.json` and `keybindings.json` on a new VM, but skip those files when they already exist.
-  - Left `~/.config/code-server/config.yaml` managed because it controls the loopback/no-auth serving posture.
+  - Added `[code_server] managed_profile = true` as the default rendered and parsed config.
+  - Uses `templates/code-server/User/` as the authoritative managed profile when `managed_profile = true`, while keeping `managed_profile = false` available for seed-only local profiles.
+  - Adds a managed code-server extension install action from `templates/code-server/extensions.txt`.
+  - Added capture helpers that copy the current code-server `settings.json`, `keybindings.json`, optional snippets, and installed extension IDs into the repo profile.
 
-- `tests/test_klimkit_install.py`
-  - Added regression coverage proving code-server `User` files are planned as `ensure_file` actions.
-  - Added an apply regression test proving an existing code-server `settings.json` with local theme and extension preferences is preserved.
+- `src/klimkit/cli.py`
+  - Added `kk code-server capture` so the source VM can tune code-server once, capture the profile into the repo, commit, and let other VMs sync it with `kk pull`.
+
+- `templates/code-server/User/settings.json`
+  - Captured ODev's current code-server settings, including `workbench.colorTheme = "Dark 2026"`, `editor.minimap.enabled = false`, and `security.workspace.trust.enabled = false`.
+
+- `templates/code-server/extensions.txt`
+  - Captured the four installed ODev extension IDs: `doonfrs.terminal-paste-image-vscode`, `humanrace-ai.claude-paste-ssh`, `openai.chatgpt`, and `tamasfe.even-better-toml`.
+
+- `src/klimkit/apps/switchboard/static/app.js`
+  - Filters archived tabs out of the main tab bar.
+  - Keeps archived workspaces in the catalog/dialog when the archived filter is enabled.
+  - Moves the active tab to another unarchived workspace when the current tab is archived from the tab bar or batch archive action.
+
+- `tests/test_klimkit_install.py`, `tests/test_klimkit_cli.py`, `tests/test_code_server_profile.py`, and `tests/test_switchboard.py`
+  - Added regression coverage for managed profile defaults, seed-only opt-out, profile capture, extension list parsing, extension install skipping, the new CLI command, and archived-tab tab-bar filtering.
 
 - `README.md` and `SECURITY.md`
-  - Documented that code-server `User` defaults are seeded only once and local preferences survive `kk pull`/autosync.
+  - Documented fork-first install with `./install.sh` from the user's own checkout instead of curl-installing Klim's upstream flavor.
+  - Added a code-server managed profile section covering `managed_profile = true`, `kk code-server capture`, synced settings/keybindings/snippets, and extension IDs.
 
 ## Verification
 
@@ -118,22 +133,24 @@ Local plan applied.
 
 Confirmed `packs/codex/hooks/stop-notify.sh` matches `~/.codex/hooks/stop-notify.sh` after projection.
 
-After the code-server preference preservation follow-up:
+After the code-server managed profile and archived-tab follow-up:
 
 ```text
-$ uv run python -m unittest tests.test_klimkit_install -q
+$ uv run python -m unittest tests.test_code_server_profile tests.test_klimkit_install tests.test_klimkit_cli tests.test_switchboard -q
 ----------------------------------------------------------------------
-Ran 24 tests in 0.070s
+Ran 87 tests in 7.442s
 
 OK
 ```
 
 ```text
 $ uv run python -m unittest discover -s tests -q
+installing code-server extension: publisher.example
+code-server extension already installed: publisher.example
 apply ok
 klimkit: sent autosync Telegram notification
 ----------------------------------------------------------------------
-Ran 122 tests in 7.480s
+Ran 128 tests in 7.499s
 
 OK (skipped=1)
 ```
@@ -144,10 +161,53 @@ $ git diff --check
 ```
 
 ```text
-$ uv run kk preview | rg -n "code-server user|code-server config|ensure|write"
+$ uv run kk code-server capture
+Klimkit / code-server
+Managed profile captured.
+  repo       /home/ubuntu/klimkit
+  user       settings.json, keybindings.json
+  extensions 4
+```
+
+```text
+$ cmp -s templates/code-server/User/settings.json ~/.local/share/code-server/User/settings.json && echo settings-match
+settings-match
+```
+
+```text
+$ python3 ... # compare installed extension package metadata with templates/code-server/extensions.txt
+doonfrs.terminal-paste-image-vscode
+humanrace-ai.claude-paste-ssh
+openai.chatgpt
+tamasfe.even-better-toml
+extensions-match
+```
+
+```text
+$ uv run kk preview | rg -n "code-server|managed profile|extensions|write|ensure|run"
 97:  write   code-server config
-100:  ensure  code-server user defaults: keybindings.json
-103:  ensure  code-server user defaults: settings.json
+100:  write   code-server managed profile: keybindings.json
+103:  write   code-server managed profile: settings.json
+106:  run     install code-server managed profile extensions (4)
+```
+
+```text
+$ uv run python -m klimkit.tools.code_server_profile install-extensions templates/code-server/extensions.txt
+code-server extension already installed: doonfrs.terminal-paste-image-vscode
+code-server extension already installed: humanrace-ai.claude-paste-ssh
+code-server extension already installed: openai.chatgpt
+code-server extension already installed: tamasfe.even-better-toml
+```
+
+```text
+$ uv run kk apply --skip-services
+Klimkit / apply
+Local plan applied.
+  actions    30
+  changed    2
+...
+  ran        install code-server managed profile extensions (4)
+  live       code-server settings: /home/ubuntu/.local/share/code-server/User/settings.json
 ```
 
 Browser QA:
@@ -158,3 +218,11 @@ Browser QA:
 - Confirmed the copy button command title begins with `tmux new-session -A -s 'local-qa-repo'`.
 - Opened the catalog, checked the manual-tab row checkbox, confirmed the `ARCHIVE` batch button became enabled, clicked it, and confirmed local storage persisted `"archived": true`.
 - Screenshot: `16-a-switchboard-archive-dialog-proof.png`.
+
+Archived-hidden tab-bar QA:
+
+- Started a temporary Switchboard server at `http://127.0.0.1:4878/switchboard/`.
+- Seeded one active local tab and one archived local tab in browser `localStorage`.
+- Confirmed the tab bar rendered only `active @ odev` with `tabCount = 1` and `archivedTabVisible = false`.
+- Opened the catalog with `showArchived = true` and confirmed both active and archived rows were present in the dialog.
+- Screenshot: `16-a-switchboard-archived-hidden-tabbar-proof.png`.

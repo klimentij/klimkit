@@ -12,7 +12,10 @@ from klimkit.install import (
     Action,
     apply_plan,
     build_plan,
+    capture_code_server_profile,
+    code_server_extension_ids,
     default_config,
+    installed_code_server_extension_ids,
     parse_config,
     render_config,
     uninstall_from_manifest,
@@ -39,6 +42,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertEqual(parsed.live_sync_interval_seconds, 5)
         self.assertEqual(parsed.live_sync_ref, "origin/main")
         self.assertTrue(parsed.install_code_server_if_missing)
+        self.assertTrue(parsed.code_server_managed_profile)
         self.assertEqual(parsed.state_dir, ROOT / ".klimkit" / "state")
         self.assertIn("only human-edited Klimkit config", render_config(config))
         self.assertIn("auto_sync = true", render_config(config))
@@ -178,8 +182,24 @@ class KlimkitInstallTests(unittest.TestCase):
 
         self.assertFalse(any(action.id == "install-code-server" for action in actions))
 
-    def test_code_server_user_settings_are_seeded_not_managed(self) -> None:
+    def test_code_server_user_settings_are_managed_by_default(self) -> None:
         config = replace(default_config("client"), repo_root=ROOT)
+
+        with mock.patch("klimkit.install.shutil.which", return_value="/usr/bin/code-server"):
+            actions = build_plan(config, skip_services=True)
+
+        settings_action = next(
+            action for action in actions if action.id == "code-server-user:settings.json"
+        )
+        keybindings_action = next(
+            action for action in actions if action.id == "code-server-user:keybindings.json"
+        )
+
+        self.assertEqual(settings_action.kind, "write_file")
+        self.assertEqual(keybindings_action.kind, "write_file")
+
+    def test_code_server_user_settings_can_be_seed_only(self) -> None:
+        config = replace(default_config("client"), repo_root=ROOT, code_server_managed_profile=False)
 
         with mock.patch("klimkit.install.shutil.which", return_value="/usr/bin/code-server"):
             actions = build_plan(config, skip_services=True)
@@ -194,7 +214,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertEqual(settings_action.kind, "ensure_file")
         self.assertEqual(keybindings_action.kind, "ensure_file")
 
-    def test_apply_preserves_existing_code_server_user_preferences(self) -> None:
+    def test_seed_only_code_server_profile_preserves_existing_user_preferences(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             home = root / "home"
@@ -219,6 +239,7 @@ class KlimkitInstallTests(unittest.TestCase):
                 default_config("client"),
                 repo_root=ROOT,
                 codex_enabled=False,
+                code_server_managed_profile=False,
                 install_code_server_if_missing=False,
             )
 
@@ -239,6 +260,47 @@ class KlimkitInstallTests(unittest.TestCase):
                 (home / ".local" / "share" / "code-server" / "User" / "keybindings.json").exists()
             )
             self.assertIn({"target": str(settings), "reason": "exists"}, manifest["skipped"])
+
+    def test_managed_code_server_profile_installs_extensions(self) -> None:
+        config = replace(default_config("client"), repo_root=ROOT)
+
+        with mock.patch("klimkit.install.shutil.which", return_value="/usr/bin/code-server"):
+            actions = build_plan(config, skip_services=True)
+
+        extension_ids = code_server_extension_ids(ROOT)
+        extension_action = next(action for action in actions if action.id == "code-server-extensions")
+
+        self.assertGreaterEqual(len(extension_ids), 1)
+        self.assertEqual(extension_action.kind, "run_command")
+        self.assertIn("klimkit.tools.code_server_profile", " ".join(extension_action.command))
+
+    def test_capture_code_server_profile_copies_settings_and_extension_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            user_dir = root / "live" / "User"
+            extensions_root = root / "live" / "extensions"
+            user_dir.mkdir(parents=True)
+            extensions_root.mkdir(parents=True)
+            (user_dir / "settings.json").write_text(
+                json.dumps({"workbench.colorTheme": "Dark 2026", "editor.minimap.enabled": False}) + "\n",
+                encoding="utf-8",
+            )
+            (user_dir / "keybindings.json").write_text("[]\n", encoding="utf-8")
+            package_json = extensions_root / "publisher.example-1.2.3" / "package.json"
+            package_json.parent.mkdir()
+            package_json.write_text(
+                json.dumps({"publisher": "publisher", "name": "example"}),
+                encoding="utf-8",
+            )
+
+            result = capture_code_server_profile(root, user_dir=user_dir, extensions_root=extensions_root)
+
+            captured_settings = root / "templates" / "code-server" / "User" / "settings.json"
+            captured_extensions = root / "templates" / "code-server" / "extensions.txt"
+            self.assertEqual(json.loads(captured_settings.read_text(encoding="utf-8"))["workbench.colorTheme"], "Dark 2026")
+            self.assertEqual(captured_extensions.read_text(encoding="utf-8"), "publisher.example\n")
+            self.assertEqual(result["extensions"], ["publisher.example"])
+            self.assertEqual(installed_code_server_extension_ids(extensions_root), ["publisher.example"])
 
     def test_client_plan_configures_tailscale_serve_for_code_server(self) -> None:
         config = replace(default_config("client"), configure_services=True)

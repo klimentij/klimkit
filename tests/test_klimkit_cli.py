@@ -18,11 +18,11 @@ class KlimkitCliTests(unittest.TestCase):
 
         help_text = parser.format_help()
 
-        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "pull", "serve", "uninstall"]:
+        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "pull", "serve", "code-server", "uninstall"]:
             self.assertIn(command, help_text)
 
     def test_each_command_help_has_examples(self) -> None:
-        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "pull", "serve", "uninstall"]:
+        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "pull", "serve", "code-server", "uninstall"]:
             stdout = io.StringIO()
             with self.subTest(command=command), redirect_stdout(stdout), self.assertRaises(SystemExit) as raised:
                 cli.build_parser().parse_args([command, "--help"])
@@ -48,6 +48,58 @@ class KlimkitCliTests(unittest.TestCase):
         self.assertIn("kk apply", stdout.getvalue())
         self.assertIn("kk update", stdout.getvalue())
         self.assertIn("kk pull", stdout.getvalue())
+
+    def test_code_server_capture_writes_repo_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "klimkit.toml"
+            user_dir = root / "live" / "User"
+            extensions_dir = root / "live" / "extensions"
+            user_dir.mkdir(parents=True)
+            extensions_dir.mkdir(parents=True)
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[paths]",
+                        f'repo_root = "{root}"',
+                        "",
+                        "[components]",
+                        "client = true",
+                        "server = false",
+                        "",
+                        "[workers]",
+                        "switchboard_agent = false",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            (user_dir / "settings.json").write_text('{"workbench.colorTheme": "Dark 2026"}\n', encoding="utf-8")
+            (user_dir / "keybindings.json").write_text("[]\n", encoding="utf-8")
+            package = extensions_dir / "publisher.example-1.0.0" / "package.json"
+            package.parent.mkdir()
+            package.write_text('{"publisher": "publisher", "name": "example"}\n', encoding="utf-8")
+            stdout = io.StringIO()
+
+            with redirect_stdout(stdout):
+                result = cli.main(
+                    [
+                        "--config",
+                        str(config_path),
+                        "code-server",
+                        "capture",
+                        "--user-dir",
+                        str(user_dir),
+                        "--extensions-dir",
+                        str(extensions_dir),
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            self.assertIn("Managed profile captured.", stdout.getvalue())
+            self.assertEqual(
+                (root / "templates" / "code-server" / "extensions.txt").read_text(encoding="utf-8"),
+                "publisher.example\n",
+            )
 
     def test_preview_refuses_to_create_missing_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -1454,6 +1454,10 @@ class SwitchboardTests(unittest.TestCase):
         self.assertIn("findServerWorkspaceForLocal", script)
         self.assertIn("machineIdentityKey", script)
         self.assertIn("setLocalArchiveStates", script)
+        self.assertIn("tabBarWorkspaces", script)
+        self.assertIn("tabBarWorkspaceCount", script)
+        self.assertIn("return tabBarWorkspaces(workspaces).filter", script)
+        self.assertIn("ui.orderedWorkspaceIds = tabBarWorkspaces(allWorkspaces).map", script)
         self.assertIn('const actionLabel = workspace.archived ? "Unarchive" : "Archive";', script)
         self.assertIn("setArchiveStates(serverSessionIds, archived)", script)
         self.assertIn("const visibleArchivableIds = visible.map((workspace) => workspace.id);", script)
@@ -1470,6 +1474,7 @@ class SwitchboardTests(unittest.TestCase):
         self.assertNotIn('workspace.is_local ? "Close"', script)
         self.assertNotIn("closeLocalWorkspace(workspace.id)", script)
         self.assertNotIn("checkbox.disabled = Boolean(workspace.is_local)", script)
+        self.assertNotIn('["__archive_separator__"]', script)
 
     def test_ingest_snapshot_sends_telegram_for_client_attention_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -1,0 +1,4 @@
+doonfrs.terminal-paste-image-vscode
+humanrace-ai.claude-paste-ssh
+openai.chatgpt
+tamasfe.even-better-toml
