@@ -259,3 +259,35 @@ OK (skipped=1)
 $ git diff --check
 # no output
 ```
+
+## Follow-up: final reviewer blocker and Switchboard shortcuts
+
+Implemented on 2026-05-06:
+
+- Fixed the final-review blocker by preserving a separate `latest_event_notification_message` for completion notifications while keeping the compact tab/event summary clipped for UI storage.
+- Added a parser-to-projection-to-Telegram regression with a completion body longer than 300 characters and a tail sentinel beyond the old 240-character projection clip.
+- Added `Control` + `Option` + `0` / `Control` + `Alt` + `0` to open the Switchboard workspace catalog dialog without clicking.
+- Updated `README.md` with Chrome/PWA guidance and Switchboard keyboard shortcuts.
+
+Verification:
+
+```text
+$ uv run python -m unittest tests.test_switchboard tests.test_switchboard_agent tests.test_klimkit_install tests.test_klimkit_cli -q
+----------------------------------------------------------------------
+Ran 103 tests in 7.558s
+
+OK
+```
+
+```text
+$ uv run python -m unittest discover -s tests -q
+----------------------------------------------------------------------
+Ran 134 tests in 7.504s
+
+OK (skipped=1)
+```
+
+```text
+$ git diff --check
+# no output
+```

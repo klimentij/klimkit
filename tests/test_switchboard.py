@@ -484,6 +484,7 @@ class SwitchboardTests(unittest.TestCase):
 
             self.assertEqual(projection["activity_state"], "done")
             self.assertEqual(projection["latest_event_status"], "done")
+            self.assertIn("What changed:", projection["latest_event_notification_message"])
             self.assertTrue(projection["needs_attention"])
             self.assertEqual(projection["attention_kind"], "completion_unseen")
 
@@ -1513,6 +1514,8 @@ class SwitchboardTests(unittest.TestCase):
         self.assertIn("setArchiveStates(serverSessionIds, archived)", script)
         self.assertIn("const visibleArchivableIds = visible.map((workspace) => workspace.id);", script)
         self.assertIn("workspaceSortStamp(right).localeCompare(workspaceSortStamp(left))", script)
+        self.assertIn('event.code === "Digit0" || event.key === "0"', script)
+        self.assertIn('toggleDrawer("catalog");', script)
         self.assertIn('tag: signature', script)
         self.assertIn('console.warn("Failed to show Switchboard notification"', script)
         self.assertIn('panel.setAttribute("aria-hidden", String(!active))', script)
@@ -1584,6 +1587,88 @@ class SwitchboardTests(unittest.TestCase):
                 self.assertIn("/Users/klim", text)
                 self.assertIn(full_completion_message, text)
                 self.assertIn("https://workstation.example.ts.net/switchboard/#", text)
+            finally:
+                app.close()
+
+    def test_long_done_message_flows_from_rollout_to_telegram_notification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            tail_sentinel = "TAIL_SENTINEL_FULL_DONE_MESSAGE"
+            full_completion_message = (
+                "What changed:\n"
+                "- Fixed the status classifier for completed Switchboard sessions.\n"
+                "- Kept the compact UI event summary clipped for tab rendering.\n"
+                "- Carried the full done body separately for notification delivery.\n"
+                "- Added this deliberately long verification sentence so the sentinel sits past the old two hundred forty character projection clip boundary.\n"
+                f"Verification tail: {tail_sentinel}"
+            )
+            self.assertGreater(len(full_completion_message), 300)
+            rollout = root / "rollout-long-done-message.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-05-06T04:00:00Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-long-done",
+                                    "cwd": "/repo",
+                                    "git": {"branch": "main"},
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-05-06T04:10:00Z",
+                                "type": "event_msg",
+                                "payload": {
+                                    "type": "task_complete",
+                                    "turn_id": "turn-long-done",
+                                    "last_agent_message": full_completion_message,
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            projection = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net"),
+                summary,
+            )
+            self.assertEqual(projection["activity_state"], "done")
+            self.assertEqual(projection["latest_event_status"], "done")
+            self.assertNotIn(tail_sentinel, projection["latest_event_message"])
+            self.assertEqual(projection["latest_event_notification_message"], full_completion_message)
+
+            base = build_config(root)
+            config = MODULE.AppConfig(
+                **{
+                    **base.__dict__,
+                    "telegram_enabled": True,
+                    "telegram_bot_token": "token",
+                    "telegram_chat_id": "chat",
+                }
+            )
+            app = MODULE.SwitchboardApp(config)
+            try:
+                payload = {
+                    "machine": "workstation",
+                    "machine_dns": "workstation.example.ts.net",
+                    "generated_at": "2026-05-06T04:10:01Z",
+                    "sessions": [projection],
+                }
+                with mock.patch.object(MODULE, "send_telegram_message", return_value=True) as telegram:
+                    app.ingest_snapshot(payload)
+
+                telegram.assert_called_once()
+                text = telegram.call_args.args[1]
+                self.assertIn(full_completion_message, text)
+                self.assertIn(tail_sentinel, text)
             finally:
                 app.close()
 

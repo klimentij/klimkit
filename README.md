@@ -21,6 +21,7 @@ Klimkit keeps an agent-ready machine reproducible. One repo owns the local instr
 - [Security Model](#security-model)
 - [Workflow](#workflow)
 - [Common Commands](#common-commands)
+- [Switchboard Browser Use](#switchboard-browser-use)
 - [Making Changes Live](#making-changes-live)
 - [Contributing](#contributing)
 - [Repository Layout](#repository-layout)
@@ -38,7 +39,7 @@ cd ~/klimkit
 
 Supported targets are macOS, Linux, and WSL2. Native Windows and Android/Termux are not supported targets yet.
 
-Chrome is recommended for Switchboard because Klimkit dogfoods the UI against Chrome/code-server/Tailscale Serve paths.
+Chrome is the preferred browser for Switchboard because Klimkit dogfoods the UI against Chrome/code-server/Tailscale Serve paths. For the best day-to-day experience, install Switchboard as a Chrome PWA from Chrome's install-app control in the address bar.
 
 After installation:
 
@@ -303,6 +304,19 @@ tailscale serve status
 ```
 
 If Tailscale asks for operator permissions, run `sudo tailscale set --operator=$USER` once and repeat `kk apply`.
+
+## Switchboard Browser Use
+
+Chrome is the preferred Switchboard browser. Installing the Switchboard URL as a Chrome PWA gives the cleanest app window and avoids mixing agent tabs into a normal browsing session.
+
+Switchboard keyboard shortcuts use `Control` + `Option` on macOS, or `Control` + `Alt` on Linux/Windows:
+
+- `Control` + `Option` + `0`: open the workspace catalog dialog.
+- `Control` + `Option` + `1` through `9`: switch to that visible tab number.
+- `Control` + `Option` + `Left` / `Right`: move to the previous or next visible tab.
+- `Control` + `Option` + `F`: open the workspace catalog.
+- `Control` + `Option` + `N`: open the create-workspace dialog.
+- `Escape`: close the open dialog.
 
 ## Making Changes Live
 

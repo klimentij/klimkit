@@ -941,6 +941,7 @@ def summarize_session(identity: MachineIdentity, summary: SessionSummary) -> dic
     latest_event_status = ""
     latest_event_id = ""
     latest_event_message = ""
+    latest_event_notification_message = ""
     latest_event_created_at = ""
     activity_state = "idle"
 
@@ -982,9 +983,13 @@ def summarize_session(identity: MachineIdentity, summary: SessionSummary) -> dic
         else:
             activity_state = "starting"
     elif summary.latest_completion_at:
-        completion_status = classify_done_message(
-            summary.latest_completion_message or summary.latest_agent_message or summary.latest_assistant_message
+        completion_message = (
+            summary.latest_completion_message
+            or summary.latest_agent_message
+            or summary.latest_assistant_message
+            or "Completed."
         )
+        completion_status = classify_done_message(completion_message)
         if completion_status == "needs_input":
             activity_state = "needs_input"
             attention_kind = "needs_input"
@@ -994,13 +999,8 @@ def summarize_session(identity: MachineIdentity, summary: SessionSummary) -> dic
             latest_event_status = "done"
             attention_kind = "" if summary.is_subagent else "completion_unseen"
         latest_event_id = summary.latest_completion_id or summary.session_id
-        latest_event_message = clip_text(
-            summary.latest_completion_message
-            or summary.latest_agent_message
-            or summary.latest_assistant_message
-            or "Completed.",
-            240,
-        )
+        latest_event_message = clip_text(completion_message, 240)
+        latest_event_notification_message = completion_message
         latest_event_created_at = summary.latest_completion_at
     else:
         activity_state = "idle"
@@ -1021,6 +1021,7 @@ def summarize_session(identity: MachineIdentity, summary: SessionSummary) -> dic
         "latest_event_id": latest_event_id,
         "latest_event_status": latest_event_status,
         "latest_event_message": latest_event_message,
+        "latest_event_notification_message": latest_event_notification_message,
         "latest_event_created_at": latest_event_created_at,
         "needs_attention": bool(attention_kind),
         "attention_kind": attention_kind,
@@ -2164,7 +2165,12 @@ class SwitchboardApp:
         cwd = str(session.get("cwd") or "").strip()
         folder = str(session.get("folder_name") or folder_name_from_path(cwd) or "workspace").strip()
         status = str(session.get("latest_event_status") or session.get("activity_state") or "").strip()
-        message = str(session.get("latest_event_message") or session.get("detail") or "").strip()
+        message = str(
+            session.get("latest_event_notification_message")
+            or session.get("latest_event_message")
+            or session.get("detail")
+            or ""
+        ).strip()
         title = clip_text(str(session.get("title") or folder).strip(), 80)
         resolved_machine = machine or str(session.get("machine") or "").strip()
         resolved_dns = self.store.resolve_machine_dns(resolved_machine, machine_dns or str(session.get("machine_dns") or ""))

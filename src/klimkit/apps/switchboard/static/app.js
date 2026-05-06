@@ -1455,6 +1455,11 @@ function handleKeydown(event) {
     toggleDrawer("create");
     return;
   }
+  if (event.code === "Digit0" || event.key === "0") {
+    event.preventDefault();
+    toggleDrawer("catalog");
+    return;
+  }
   if (event.key === "ArrowLeft") {
     event.preventDefault();
     activateAdjacent(-1);

@@ -356,6 +356,7 @@ class SwitchboardAgentTests(unittest.TestCase):
 
             self.assertEqual(payload["activity_state"], "done")
             self.assertEqual(payload["latest_event_status"], "done")
+            self.assertEqual(payload["latest_event_notification_message"], "hi43")
             self.assertTrue(payload["needs_attention"])
             self.assertEqual(payload["attention_kind"], "completion_unseen")
 
@@ -464,6 +465,7 @@ class SwitchboardAgentTests(unittest.TestCase):
 
             self.assertEqual(payload["activity_state"], "done")
             self.assertEqual(payload["latest_event_status"], "done")
+            self.assertEqual(payload["latest_event_notification_message"], payload["latest_event_message"])
             self.assertTrue(payload["needs_attention"])
             self.assertEqual(payload["attention_kind"], "completion_unseen")
 
