@@ -178,6 +178,68 @@ class KlimkitInstallTests(unittest.TestCase):
 
         self.assertFalse(any(action.id == "install-code-server" for action in actions))
 
+    def test_code_server_user_settings_are_seeded_not_managed(self) -> None:
+        config = replace(default_config("client"), repo_root=ROOT)
+
+        with mock.patch("klimkit.install.shutil.which", return_value="/usr/bin/code-server"):
+            actions = build_plan(config, skip_services=True)
+
+        settings_action = next(
+            action for action in actions if action.id == "code-server-user:settings.json"
+        )
+        keybindings_action = next(
+            action for action in actions if action.id == "code-server-user:keybindings.json"
+        )
+
+        self.assertEqual(settings_action.kind, "ensure_file")
+        self.assertEqual(keybindings_action.kind, "ensure_file")
+
+    def test_apply_preserves_existing_code_server_user_preferences(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            home = root / "home"
+            config_path = home / ".klimkit" / "config.toml"
+            manifest_path = home / ".klimkit" / "state" / "install" / "manifest.json"
+            backup_root = home / ".klimkit" / "backups"
+            settings = home / ".local" / "share" / "code-server" / "User" / "settings.json"
+            settings.parent.mkdir(parents=True)
+            settings.write_text(
+                json.dumps(
+                    {
+                        "workbench.colorTheme": "Default Dark Modern",
+                        "minipam.enabled": False,
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            before = settings.read_text(encoding="utf-8")
+            config = replace(
+                default_config("client"),
+                repo_root=ROOT,
+                codex_enabled=False,
+                install_code_server_if_missing=False,
+            )
+
+            with (
+                mock.patch("klimkit.install.Path.home", return_value=home),
+                mock.patch("klimkit.install.shutil.which", return_value="/usr/bin/code-server"),
+            ):
+                actions = build_plan(config, skip_services=True, config_path=config_path)
+                manifest = apply_plan(
+                    actions,
+                    manifest_path=manifest_path,
+                    backup_root=backup_root,
+                    managed_roots=(home,),
+                )
+
+            self.assertEqual(settings.read_text(encoding="utf-8"), before)
+            self.assertTrue(
+                (home / ".local" / "share" / "code-server" / "User" / "keybindings.json").exists()
+            )
+            self.assertIn({"target": str(settings), "reason": "exists"}, manifest["skipped"])
+
     def test_client_plan_configures_tailscale_serve_for_code_server(self) -> None:
         config = replace(default_config("client"), configure_services=True)
 

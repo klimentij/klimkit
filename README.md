@@ -142,12 +142,13 @@ Current projections include:
 ~/.codex/agents/
 ~/.codex/skills/
 ~/.config/code-server/config.yaml
-~/.local/share/code-server/User/
+~/.local/share/code-server/User/ defaults on first apply only
 ~/.config/systemd/user/klimkit.service
 ~/Library/LaunchAgents/com.klim.klimkit.plist
 ```
 
 Codex keeps its default home at `~/.codex`. Klimkit treats that directory as a managed projection target, while Klimkit's own editable config and runtime state live under `~/klimkit/.klimkit`.
+Klimkit still manages `~/.config/code-server/config.yaml`, but code-server `User` files are seeded only when missing so local preferences such as theme, extension settings, and trusted workspace state survive `kk pull` and autosync.
 
 ## Harness Pack
 
@@ -184,7 +185,7 @@ Klimkit is designed for a trusted personal machine or private tailnet, not arbit
 - Switchboard may run without a token only on loopback. Non-loopback server hosts require `switchboard.server.auth_token`.
 - Tailscale Serve is the intended remote access boundary for Switchboard and code-server.
 - code-server binds to loopback with `auth: none`; `kk apply` configures Tailscale Serve so each client exposes only its own loopback code-server to the private tailnet.
-- The code-server template disables workspace trust and allows automatic tasks so the operator box behaves consistently for agent work. Treat this as a trusted-workstation setting.
+- The initial code-server user defaults disable workspace trust and allow automatic tasks so the operator box behaves consistently for agent work. Klimkit does not overwrite existing code-server `User` preferences after they are created. Treat this as a trusted-workstation setting.
 - Switchboard agent helper binds to loopback by default. Change `switchboard.agent.helper_host` only for a trusted proxy path.
 - Switchboard-launched Codex terminals use trusted-local automation defaults, including sandbox/approval bypass flags when configured.
 - If code-server is missing, `kk apply` may plan an external network installer. Review `kk preview` before applying, or set `code_server.install_if_missing = false`.

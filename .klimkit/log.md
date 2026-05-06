@@ -17,3 +17,4 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-05T00:00:00Z: Added the v1 fork-first operator repo decision to the open-source readiness review.
 - 2026-05-06T00:41:20Z: Implemented Switchboard tmux-wrapped copy commands, manual tab archiving, clickable archive catalog checkboxes, and task proof for `15-h-more-polish`.
 - 2026-05-06T00:54:33Z: Formatted Switchboard Telegram attention messages, suppressed subagent completion Telegram notifications, and projected the updated Codex Stop hook with `kk apply --skip-services`.
+- 2026-05-06T03:41:35Z: Changed code-server user settings projection to seed defaults without overwriting local preferences during `kk pull` or autosync.

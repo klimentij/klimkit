@@ -558,6 +558,7 @@ def _file_action(
     description: str,
     *,
     component: str,
+    kind: str = "write_file",
     mode: int = FILE_MODE,
     config: InstallConfig | None = None,
     config_path: Path = KLIMKIT_CONFIG_FILE,
@@ -569,7 +570,7 @@ def _file_action(
     )
     return Action(
         id=action_id,
-        kind="write_file",
+        kind=kind,
         source=source,
         target=target,
         description=description,
@@ -586,6 +587,7 @@ def _dir_actions(
     description: str,
     *,
     component: str,
+    kind: str = "write_file",
     exclude_prefixes: tuple[str, ...] = (),
     config: InstallConfig | None = None,
     config_path: Path = KLIMKIT_CONFIG_FILE,
@@ -605,6 +607,7 @@ def _dir_actions(
                 target_root / relative,
                 f"{description}: {relative}",
                 component=component,
+                kind=kind,
                 mode=mode,
                 config=config,
                 config_path=config_path,
@@ -678,8 +681,9 @@ def build_plan(
                 "code-server-user",
                 repo / "templates" / "code-server" / "User",
                 home / ".local" / "share" / "code-server" / "User",
-                "code-server user settings",
+                "code-server user defaults",
                 component="code-server",
+                kind="ensure_file",
             )
         )
         if config.install_code_server_if_missing and shutil.which("code-server") is None:

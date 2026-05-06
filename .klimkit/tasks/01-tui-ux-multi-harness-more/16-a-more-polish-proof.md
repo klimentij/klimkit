@@ -37,6 +37,20 @@ Follow-up paragraph added to `15-h-more-polish.md`:
 - `packs/codex/hooks/stop-notify.sh`
   - Detects subagent sessions from rollout metadata and skips direct Stop-hook Telegram messages for those subagent sessions.
 
+Second follow-up paragraph added to `15-h-more-polish.md`:
+
+- `src/klimkit/install.py`
+  - Changed code-server `User` projection actions from managed writes to seed-only `ensure_file` actions.
+  - `kk apply`, `kk pull`, and daemon autosync still create default `settings.json` and `keybindings.json` on a new VM, but skip those files when they already exist.
+  - Left `~/.config/code-server/config.yaml` managed because it controls the loopback/no-auth serving posture.
+
+- `tests/test_klimkit_install.py`
+  - Added regression coverage proving code-server `User` files are planned as `ensure_file` actions.
+  - Added an apply regression test proving an existing code-server `settings.json` with local theme and extension preferences is preserved.
+
+- `README.md` and `SECURITY.md`
+  - Documented that code-server `User` defaults are seeded only once and local preferences survive `kk pull`/autosync.
+
 ## Verification
 
 Automated:
@@ -103,6 +117,38 @@ Local plan applied.
 ```
 
 Confirmed `packs/codex/hooks/stop-notify.sh` matches `~/.codex/hooks/stop-notify.sh` after projection.
+
+After the code-server preference preservation follow-up:
+
+```text
+$ uv run python -m unittest tests.test_klimkit_install -q
+----------------------------------------------------------------------
+Ran 24 tests in 0.070s
+
+OK
+```
+
+```text
+$ uv run python -m unittest discover -s tests -q
+apply ok
+klimkit: sent autosync Telegram notification
+----------------------------------------------------------------------
+Ran 122 tests in 7.480s
+
+OK (skipped=1)
+```
+
+```text
+$ git diff --check
+# no output
+```
+
+```text
+$ uv run kk preview | rg -n "code-server user|code-server config|ensure|write"
+97:  write   code-server config
+100:  ensure  code-server user defaults: keybindings.json
+103:  ensure  code-server user defaults: settings.json
+```
 
 Browser QA:
 
