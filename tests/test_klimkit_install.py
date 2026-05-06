@@ -44,6 +44,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertEqual(parsed.live_sync_ref, "origin/main")
         self.assertTrue(parsed.install_code_server_if_missing)
         self.assertTrue(parsed.code_server_managed_profile)
+        self.assertEqual(parsed.switchboard_max_loaded_tabs, 5)
         self.assertEqual(parsed.state_dir, ROOT / ".klimkit" / "state")
         self.assertIn("only human-edited Klimkit config", render_config(config))
         self.assertIn("auto_sync = true", render_config(config))
@@ -52,6 +53,8 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertIn('human_name = "Human"', render_config(config))
         self.assertIn("enable = true", render_config(config))
         self.assertIn("[switchboard.server]", render_config(config))
+        self.assertIn("max_loaded_tabs = 5", render_config(config))
+        self.assertIn("roughly 400 MB RAM", render_config(config))
         self.assertIn("[notifications.telegram]", render_config(config))
 
     def test_client_only_role_disables_server_components(self) -> None:
@@ -93,6 +96,7 @@ class KlimkitInstallTests(unittest.TestCase):
                     "enabled = true",
                     'base_path = "/switchboard"',
                     'auth_token = "server-secret"',
+                    "max_loaded_tabs = 7",
                     "",
                     "[switchboard.agent]",
                     "enabled = true",
@@ -105,6 +109,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertEqual(config.switchboard_backend_url, "https://server.example.ts.net/switchboard")
         self.assertEqual(config.switchboard_base_path, "/switchboard")
         self.assertEqual(config.switchboard_auth_token, "server-secret")
+        self.assertEqual(config.switchboard_max_loaded_tabs, 7)
 
     def test_legacy_server_profile_still_enables_server_role(self) -> None:
         config = parse_config(

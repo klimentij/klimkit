@@ -37,6 +37,7 @@ def build_config(
         heartbeat_seconds=15,
         max_session_age_days=3650,
         stale_after_seconds=180,
+        max_loaded_tabs=5,
         machine_id="workstation",
         machine_dns="workstation.example.ts.net",
         trusted_codex_launch_bypass_sandbox=trusted_bypass,
@@ -210,6 +211,18 @@ class SwitchboardTests(unittest.TestCase):
         self.assertEqual(state["machines"][0]["machine_dns"], "workstation.example.ts.net")
         self.assertEqual(state["machines"][0]["session_count"], 0)
         self.assertTrue(state["machines"][0]["online"])
+        self.assertEqual(state["max_loaded_tabs"], 5)
+
+    def test_app_state_includes_configured_loaded_tab_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = MODULE.AppConfig(**{**build_config(Path(tmpdir)).__dict__, "max_loaded_tabs": 7})
+            app = MODULE.SwitchboardApp(config)
+            try:
+                state = app.build_state()
+            finally:
+                app.close()
+
+        self.assertEqual(state["max_loaded_tabs"], 7)
 
     def test_parse_rollout_marks_planning_before_action(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1493,7 +1506,10 @@ class SwitchboardTests(unittest.TestCase):
         self.assertNotIn("--dangerously-bypass-approvals-and-sandbox", script)
         self.assertIn("resolveNotificationTargetWorkspace", script)
         self.assertIn("syncLoadedFrames", script)
-        self.assertIn("MAX_LOADED_FRAMES", script)
+        self.assertIn("DEFAULT_MAX_LOADED_FRAMES = 5", script)
+        self.assertIn("ui.maxLoadedFrames = sanitizeMaxLoadedFrames(payload.max_loaded_tabs)", script)
+        self.assertIn("loadedFrameRecency", script)
+        self.assertIn("desired.size >= ui.maxLoadedFrames", script)
         self.assertNotIn("preloadNonArchivedFrames", script)
         self.assertNotIn("!machine || !machine.machine_dns || !folder", script)
         self.assertIn("buildWindowTitle", script)

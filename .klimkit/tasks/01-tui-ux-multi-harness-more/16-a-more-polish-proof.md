@@ -260,6 +260,47 @@ $ git diff --check
 # no output
 ```
 
+## Follow-up: configurable loaded code-server tabs
+
+Implemented on 2026-05-06:
+
+- Added `[switchboard.server] max_loaded_tabs = 5` to the generated local config.
+- Added config comments noting that Switchboard keeps that many code-server tabs loaded most-recently-used first and that each loaded tab costs roughly 400 MB RAM.
+- Exposed `max_loaded_tabs` in Switchboard state so the PWA can tune iframe retention without a frontend code edit.
+- Updated the Switchboard PWA to keep the active and most recently used code-server iframes warm, filling remaining slots from visible unarchived tabs up to the configured limit.
+- Documented the loaded-tab memory tradeoff in `README.md`.
+
+Verification:
+
+```text
+$ uv run python -m unittest tests.test_switchboard tests.test_klimkit_install -q
+----------------------------------------------------------------------
+Ran 68 tests in 7.275s
+
+OK
+```
+
+```text
+$ uv run python -m unittest tests.test_switchboard tests.test_switchboard_agent tests.test_klimkit_install tests.test_klimkit_cli -q
+----------------------------------------------------------------------
+Ran 104 tests in 6.950s
+
+OK
+```
+
+```text
+$ uv run python -m unittest discover -s tests -q
+----------------------------------------------------------------------
+Ran 135 tests in 7.517s
+
+OK (skipped=1)
+```
+
+```text
+$ git diff --check
+# no output
+```
+
 ## Follow-up: final reviewer blocker and Switchboard shortcuts
 
 Implemented on 2026-05-06:

@@ -309,6 +309,8 @@ If Tailscale asks for operator permissions, run `sudo tailscale set --operator=$
 
 Chrome is the preferred Switchboard browser. Installing the Switchboard URL as a Chrome PWA gives the cleanest app window and avoids mixing agent tabs into a normal browsing session.
 
+Switchboard keeps the active and most recently used code-server tabs loaded in memory so PWA tab switching does not constantly reload iframes. Configure that with `[switchboard.server] max_loaded_tabs`; the default is `5`. Each loaded code-server tab uses roughly 400 MB RAM, so lower it on small clients or raise it on larger machines.
+
 Switchboard keyboard shortcuts use `Control` + `Option` on macOS, or `Control` + `Alt` on Linux/Windows:
 
 - `Control` + `Option` + `0`: open the workspace catalog dialog.

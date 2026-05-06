@@ -42,12 +42,11 @@ const LOCAL_WORKSPACES_KEY = "switchboard-local-workspaces";
 const LOCAL_WORKSPACE_SEQUENCE_KEY = "switchboard-local-workspace-sequence";
 const CATALOG_FILTERS_KEY = "switchboard-catalog-filters";
 const TAB_RENDER_BATCH = 20;
-const MAX_LOADED_FRAMES = 3;
+const DEFAULT_MAX_LOADED_FRAMES = 5;
 const POLL_INTERVAL_MS = 10000;
 const UI_VERSION_POLL_INTERVAL_MS = 3000;
 const FOLDER_SUGGESTION_LIMIT = 10;
 const VISIBLE_STATUSES = ["new", "working", "ask", "done", "seen"];
-const HOT_FRAME_STATES = new Set(["new", "working", "ask"]);
 const DEFAULT_CODEX_LAUNCH_FLAGS = "-c check_for_update_on_startup=false";
 const APP_INSTANCE_KEY = "__switchboardAppInstance";
 const APP_GENERATION_KEY = "__switchboardAppGeneration";
@@ -66,6 +65,8 @@ const ui = {
   items: new Map(),
   panels: new Map(),
   loadedFrames: new Set(),
+  loadedFrameRecency: [],
+  maxLoadedFrames: DEFAULT_MAX_LOADED_FRAMES,
   hintMode: false,
   notificationMemory: loadJson("switchboard-notification-memory", {}),
   acknowledgedEvents: loadJson("switchboard-acknowledged-events", {}),
@@ -752,6 +753,7 @@ function syncLocalWorkspaces() {
 
 function materializeState(payload) {
   ui.codexLaunchFlags = normalizeCodexLaunchFlags(payload.codex_launch_flags);
+  ui.maxLoadedFrames = sanitizeMaxLoadedFrames(payload.max_loaded_tabs);
   ui.serverWorkspaces = sortWorkspaces(Array.isArray(payload.workspaces) ? payload.workspaces : []);
   syncLocalWorkspaces();
   ui.workspaces = sortWorkspaces(materializeManualWorkspaces(ui.serverWorkspaces));
@@ -1314,6 +1316,8 @@ function activate(id, options = {}) {
   }
 
   ensureFrameLoaded(workspace);
+  markFrameRecentlyUsed(workspace.id);
+  syncLoadedFrames(ui.workspaces);
   syncDocumentTitle();
   const activeItem = ui.items.get(workspace.id);
   if (activeItem && options.focusTab) {
@@ -1370,6 +1374,22 @@ function unloadFrame(workspaceId) {
   }
   panel?.classList.remove("is-ready");
   ui.loadedFrames.delete(workspaceId);
+  ui.loadedFrameRecency = ui.loadedFrameRecency.filter((id) => id !== workspaceId);
+}
+
+function sanitizeMaxLoadedFrames(value) {
+  const parsed = Number.parseInt(String(value || ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_LOADED_FRAMES;
+}
+
+function markFrameRecentlyUsed(workspaceId) {
+  if (!workspaceId) {
+    return;
+  }
+  ui.loadedFrameRecency = [
+    workspaceId,
+    ...ui.loadedFrameRecency.filter((id) => id !== workspaceId),
+  ];
 }
 
 function desiredLoadedWorkspaceIds(workspaces) {
@@ -1377,17 +1397,26 @@ function desiredLoadedWorkspaceIds(workspaces) {
   const activeWorkspace = getWorkspaceById(ui.activeId);
   if (activeWorkspace) {
     desired.add(activeWorkspace.id);
+    markFrameRecentlyUsed(activeWorkspace.id);
+  }
+  for (const workspaceId of ui.loadedFrameRecency) {
+    if (desired.size >= ui.maxLoadedFrames) {
+      break;
+    }
+    const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
+    if (!workspace || workspace.archived || desired.has(workspace.id)) {
+      continue;
+    }
+    desired.add(workspace.id);
   }
   for (const workspace of workspaces) {
-    if (desired.size >= MAX_LOADED_FRAMES) {
+    if (desired.size >= ui.maxLoadedFrames) {
       break;
     }
     if (workspace.archived || desired.has(workspace.id)) {
       continue;
     }
-    if (HOT_FRAME_STATES.has(deriveDisplayStatus(workspace))) {
-      desired.add(workspace.id);
-    }
+    desired.add(workspace.id);
   }
   return desired;
 }

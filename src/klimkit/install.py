@@ -71,6 +71,7 @@ class InstallConfig:
     switchboard_heartbeat_seconds: int
     switchboard_max_session_age_days: int
     switchboard_stale_after_seconds: int
+    switchboard_max_loaded_tabs: int
     telegram_enabled: bool
     telegram_bot_token: str
     telegram_chat_id: str
@@ -205,6 +206,7 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
         switchboard_heartbeat_seconds=15,
         switchboard_max_session_age_days=14,
         switchboard_stale_after_seconds=180,
+        switchboard_max_loaded_tabs=5,
         telegram_enabled=False,
         telegram_bot_token="",
         telegram_chat_id="",
@@ -309,6 +311,9 @@ def render_config(config: InstallConfig) -> str:
             f"heartbeat_seconds = {config.switchboard_heartbeat_seconds}",
             f"max_session_age_days = {config.switchboard_max_session_age_days}",
             f"stale_after_seconds = {config.switchboard_stale_after_seconds}",
+            "# Keep this many code-server tabs loaded in the browser, most recently used first.",
+            "# Each loaded tab costs roughly 400 MB RAM, so tune this to the client VM's memory.",
+            f"max_loaded_tabs = {config.switchboard_max_loaded_tabs}",
             "",
             "[switchboard.agent]",
             "# Enable this VM to report local Codex sessions to Switchboard.",
@@ -369,6 +374,7 @@ def render_switchboard_config(config: InstallConfig) -> str:
             "heartbeat_seconds = 15",
             "max_session_age_days = 14",
             "stale_after_seconds = 180",
+            "max_loaded_tabs = 5",
             "",
             "[machine]",
             "id = \"\"",
@@ -510,6 +516,7 @@ def parse_config(raw: str) -> InstallConfig:
             ),
         ),
         switchboard_stale_after_seconds=max(30, int(switchboard_server.get("stale_after_seconds", 180))),
+        switchboard_max_loaded_tabs=max(1, int(switchboard_server.get("max_loaded_tabs", 5))),
         telegram_enabled=_bool(telegram.get("enabled"), False),
         telegram_bot_token=str(telegram.get("bot_token", "")).strip(),
         telegram_chat_id=str(telegram.get("chat_id", "")).strip(),

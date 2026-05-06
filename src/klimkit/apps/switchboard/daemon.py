@@ -117,6 +117,7 @@ class AppConfig:
     heartbeat_seconds: int
     max_session_age_days: int
     stale_after_seconds: int
+    max_loaded_tabs: int
     machine_id: str
     machine_dns: str
     trusted_codex_launch_bypass_sandbox: bool
@@ -219,6 +220,7 @@ def load_config(path: Path) -> AppConfig:
             "heartbeat_seconds": 15,
             "max_session_age_days": 14,
             "stale_after_seconds": 180,
+            "max_loaded_tabs": 5,
         },
         "machine": {
             "id": "",
@@ -255,6 +257,7 @@ def load_config(path: Path) -> AppConfig:
                 "heartbeat_seconds": "heartbeat_seconds",
                 "max_session_age_days": "max_session_age_days",
                 "stale_after_seconds": "stale_after_seconds",
+                "max_loaded_tabs": "max_loaded_tabs",
             }
             if key == "enabled":
                 return collector_config.get(key, defaults[section][key])
@@ -288,6 +291,7 @@ def load_config(path: Path) -> AppConfig:
         heartbeat_seconds=max(5, int(nested("collector", "heartbeat_seconds"))),
         max_session_age_days=max(1, int(nested("collector", "max_session_age_days"))),
         stale_after_seconds=max(30, int(nested("collector", "stale_after_seconds"))),
+        max_loaded_tabs=max(1, int(nested("collector", "max_loaded_tabs"))),
         machine_id=str(nested("machine", "id")).strip(),
         machine_dns=str(nested("machine", "dns_name")).strip(),
         trusted_codex_launch_bypass_sandbox=bool(
@@ -1952,6 +1956,7 @@ class SwitchboardApp:
         state["codex_launch_flags"] = codex_launch_flags_text(
             bypass_approvals_and_sandbox=self.config.trusted_codex_launch_bypass_sandbox
         )
+        state["max_loaded_tabs"] = self.config.max_loaded_tabs
         return state
 
     def _ensure_self_machine(self, state: dict[str, Any]) -> None:
