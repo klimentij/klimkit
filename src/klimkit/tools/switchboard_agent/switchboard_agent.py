@@ -108,6 +108,7 @@ class SessionSummary:
     pending_input_request_message: str
     in_progress: bool
     current_turn_id: str
+    is_subagent: bool
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -432,6 +433,7 @@ def decode_summary(row: sqlite3.Row) -> SessionSummary:
     payload.setdefault("pending_input_request_id", "")
     payload.setdefault("pending_input_request_at", "")
     payload.setdefault("pending_input_request_message", "")
+    payload.setdefault("is_subagent", False)
     return SessionSummary(**payload)
 
 
@@ -498,6 +500,7 @@ def parse_rollout(path: Path, index: dict[str, dict[str, Any]]) -> SessionSummar
     pending_input_request_at = ""
     pending_input_request_message = ""
     current_turn_id = ""
+    is_subagent = False
     open_input_requests: dict[str, tuple[str, str]] = {}
 
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -520,6 +523,11 @@ def parse_rollout(path: Path, index: dict[str, dict[str, Any]]) -> SessionSummar
             session_id = str(payload.get("id") or session_id)
             cwd = str(payload.get("cwd") or cwd)
             branch = str(((payload.get("git") or {}).get("branch")) or branch)
+            source = payload.get("source") if isinstance(payload, dict) else {}
+            is_subagent = is_subagent or (
+                isinstance(source, dict)
+                and isinstance(source.get("subagent"), dict)
+            )
             created_at = created_at or timestamp
             updated_at = timestamp or updated_at
         elif row_type == "event_msg":
@@ -597,6 +605,7 @@ def parse_rollout(path: Path, index: dict[str, dict[str, Any]]) -> SessionSummar
         pending_input_request_message=pending_input_request_message,
         in_progress=bool(current_turn_id),
         current_turn_id=current_turn_id,
+        is_subagent=is_subagent,
     )
 
 
@@ -705,8 +714,12 @@ def summarize_session(identity: MachineIdentity, summary: SessionSummary, helper
         latest_event_id = summary.last_task_turn_id
         latest_event_message = summary.last_task_message or summary.last_assistant_message
         latest_event_created_at = summary.last_task_completed_at
-        needs_attention = True
-        attention_kind = "needs_input" if activity_state == "needs_input" else "completion_unseen"
+        if activity_state == "needs_input":
+            needs_attention = True
+            attention_kind = "needs_input"
+        elif not summary.is_subagent:
+            needs_attention = True
+            attention_kind = "completion_unseen"
     else:
         activity_state = "idle"
         latest_event_status = ""

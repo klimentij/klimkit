@@ -14,3 +14,6 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-04T12:56:00Z: Implemented Switchboard client attention Telegram fanout, fixed local/server machine identity merging for status updates, added harness human-name templating, and verified multi-machine status transitions with browser screenshots.
 - 2026-05-04T12:57:00Z: Wrote the open-source readiness review for `01-tui-ux-multi-harness-more` with launch blockers, preparedness level, and QA evidence.
 - 2026-05-04T13:08:00Z: Recaptured the `NEW` status QA screenshot so both `odev` and `MacBook-Air-8.local` tabs are visibly in `NEW` state after final-review feedback.
+- 2026-05-05T00:00:00Z: Added the v1 fork-first operator repo decision to the open-source readiness review.
+- 2026-05-06T00:41:20Z: Implemented Switchboard tmux-wrapped copy commands, manual tab archiving, clickable archive catalog checkboxes, and task proof for `15-h-more-polish`.
+- 2026-05-06T00:54:33Z: Formatted Switchboard Telegram attention messages, suppressed subagent completion Telegram notifications, and projected the updated Codex Stop hook with `kk apply --skip-services`.

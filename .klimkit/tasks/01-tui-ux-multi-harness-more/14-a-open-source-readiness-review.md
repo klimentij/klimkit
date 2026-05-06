@@ -52,6 +52,15 @@ Recommendation:
 - Consider defaulting third-party installs to a release branch/tag, while developer installs can opt into `main`.
 - Add `install.sh` environment overrides for repo URL, checkout path, and ref, and document them.
 
+Decision for v1:
+
+- Strongly recommend the **fork-first operator repo model** for early public users.
+- Users should fork Klimkit, clone their fork onto each VM, tune `.klimkit/local/` per machine, tune `packs/codex/` in their fork, and autosync from their own `main` branch.
+- Upstream Klimkit remains the source for core fixes and starter-pack improvements, but user forks are the source of truth for live harness behavior.
+- Upstream pack changes should be reviewed by the user's agents and merged selectively, not blindly accepted. This is especially important for `packs/codex/AGENTS.md`, `config.toml`, hooks, agents, and skills.
+- Document an agent-native upstream review workflow: fetch upstream, inspect `main..upstream/main`, separate core changes from harness-pack changes, produce a safe merge plan, then cherry-pick or merge only what the operator wants.
+- This avoids silently overwriting a user's tuned harness while preserving a path to receive upstream fixes and improvements.
+
 ### 2. Personal/private-looking analysis modules should not ship in the core package
 
 Evidence:
@@ -67,6 +76,8 @@ Recommendation:
 
 - Move these scripts outside the distributed `src/klimkit` package, for example to `experiments/`, `private-tools/`, or another private repo.
 - If kept, rename and sanitize all personal labels, add clear fixture-free docs, and exclude private workflows from packaged wheels.
+
+Decision : delete them, accidentally added, and del from git history
 
 ### 3. Packaging metadata is underdeveloped
 
@@ -84,6 +95,9 @@ Recommendation:
 - Add `readme = "README.md"`, SPDX license metadata, authors/maintainers, repository/homepage/issues URLs, and classifiers.
 - Decide whether Klimkit will publish wheels to PyPI or stay Git-installed for now.
 - Add a release checklist and changelog.
+
+
+Decision: yes, add, plus a well described release 0.1.0 - use gh 
 
 ### 4. CI only covers one Linux/Python lane
 
@@ -103,6 +117,9 @@ Recommendation:
 - Add at least one macOS CI job for unit tests and launchd rendering.
 - Add a lightweight shellcheck or install-script smoke test if the project wants to keep `curl | bash` as the primary install path.
 
+Decision: need install from cloned fork, ./install! no CI for now
+
+
 ### 5. Powerful defaults require a stronger public onboarding boundary
 
 Evidence:
@@ -120,15 +137,22 @@ Recommendation:
 - Add an explicit "dedicated VM only" confirmation in docs and maybe an opt-in config flag for yolo Codex projection.
 - Document a minimal-permission VM setup and a "do not install here" section.
 
+Decision: just another wanring in CLI outputs is sufficient 
+
 ## Important Non-Blocking Findings
 
 ### Public docs still mix brand, personal story, and install ownership
 
 Evidence:
 
-- `README.md` still says the repo makes a VM behave like "Klim's working environment."
+- `README.md` still says the repo makes a VM behave like "Klim's working environment." 
+Decision-->keep this, i like to keep personal touch 
+
 - The install URL points at `klimentij/klimkit`.
+Decision-->now only ./install no curl
+
 - The macOS launchd label uses `com.klim.klimkit`.
+Decision-->should work for any usernmae 
 
 Assessment:
 
@@ -153,6 +177,9 @@ Recommendation:
 
 - Before public launch, replace with synthetic fixture names such as `alpha.tail.example.ts.net`, `server-vm`, and `/Users/operator`.
 
+Decision-->ok replace in tests 
+
+
 ### Coverage is useful but uneven
 
 Evidence:
@@ -174,6 +201,8 @@ Evidence:
 Recommendation:
 
 - Add `CHANGELOG.md`, a release checklist under `.klimkit/tasks/` or docs, and a GitHub release workflow once tags are used for installs.
+
+Decision-->add changelog as gh releases?
 
 ### Public support surfaces are minimal
 
@@ -233,16 +262,17 @@ Current validation result: **117 tests passed, 1 skipped, 78% total coverage.**
 ## Open Source Launch Checklist
 
 1. Decide release channel policy for install/autosync: mutable `main`, stable tags, release branch, or explicit operator opt-in.
-2. Move or sanitize personal analysis modules before packaging.
-3. Add public package metadata to `pyproject.toml`.
-4. Expand CI to Python 3.11/3.12/3.13 and at least one macOS lane.
-5. Add changelog, release checklist, and versioning rules.
-6. Replace private-looking test fixture names with synthetic names.
-7. Add issue templates and a clear vulnerability reporting channel.
-8. Add first-run safety checklist for dedicated-VM/yolo-mode assumptions.
-9. Add browser smoke automation for Switchboard status and notification paths.
-10. Review all public copy for the intended balance between Klimkit brand identity and generic operator language.
+2. Document the v1 fork-first operator repo model and upstream review workflow for selectively merging core and pack changes.
+3. Move or sanitize personal analysis modules before packaging.
+4. Add public package metadata to `pyproject.toml`.
+5. Expand CI to Python 3.11/3.12/3.13 and at least one macOS lane.
+6. Add changelog, release checklist, and versioning rules.
+7. Replace private-looking test fixture names with synthetic names.
+8. Add issue templates and a clear vulnerability reporting channel.
+9. Add first-run safety checklist for dedicated-VM/yolo-mode assumptions.
+10. Add browser smoke automation for Switchboard status and notification paths.
+11. Review all public copy for the intended balance between Klimkit brand identity and generic operator language.
 
 ## Bottom Line
 
-Klimkit is technically coherent and already usable as an operator-controlled machine kit. It is not yet polished enough for a broad open-source launch because public trust boundaries, release discipline, and package hygiene need another pass. The highest-leverage next step is to split "personal fleet fast path" from "public safe path": stable releases for external users, explicit mutable-main autosync for the trusted fleet, and removal or sanitization of private-looking analysis code.
+Klimkit is technically coherent and already usable as an operator-controlled machine kit. It is not yet polished enough for a broad open-source launch because public trust boundaries, release discipline, and package hygiene need another pass. The highest-leverage next step is to split "personal fleet fast path" from "public safe path": a v1 fork-first operator repo model for early users, stable releases or explicit mutable-main autosync for trusted fleets, selective upstream review for harness-pack changes, and removal or sanitization of private-looking analysis code.

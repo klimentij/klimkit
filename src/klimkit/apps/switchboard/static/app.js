@@ -144,6 +144,7 @@ function sanitizeLocalWorkspaces(entries) {
       const title = String(entry.title || entry.folder_name || "").trim();
       const folderName = String(entry.folder_name || folderNameFromPath(cwd) || "workspace").trim();
       const createdAt = String(entry.created_at || isoNow()).trim();
+      const archived = Boolean(entry.archived);
       return {
         id: String(entry.id || legacyLocalWorkspaceId(machine, cwd)).trim(),
         session_id: "",
@@ -159,8 +160,8 @@ function sanitizeLocalWorkspaces(entries) {
         detail: String(entry.detail || "Ad hoc workspace tab opened from Switchboard.").trim(),
         activity_state: "idle",
         local_status: "new",
-        archived: false,
-        archived_at: "",
+        archived,
+        archived_at: archived ? String(entry.archived_at || createdAt).trim() : "",
         created_at: createdAt,
         updated_at: String(entry.updated_at || createdAt).trim(),
         latest_event_id: "",
@@ -333,8 +334,25 @@ function codexLaunchCommand(workspace) {
     : `codex ${ui.codexLaunchFlags}`;
 }
 
+function tmuxSessionName(workspace) {
+  const rawName = String(workspace?.session_id || workspace?.id || workspace?.folder_name || "codex").trim();
+  const safeName = rawName
+    .replace(/[^A-Za-z0-9_.-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+  return safeName || "codex";
+}
+
+function tmuxWrappedCommand(workspace, command) {
+  const innerCommand = String(command || "").trim();
+  return innerCommand
+    ? `tmux new-session -A -s ${shellQuote(tmuxSessionName(workspace))} ${shellQuote(innerCommand)}`
+    : "";
+}
+
 function codexCommand(workspace) {
-  return codexResumeCommand(workspace) || codexLaunchCommand(workspace);
+  return tmuxWrappedCommand(workspace, codexResumeCommand(workspace) || codexLaunchCommand(workspace));
 }
 
 async function bootstrapLocalWorkspace(workspace) {
@@ -595,7 +613,7 @@ function findServerWorkspaceForLocal(localWorkspace, serverWorkspaces, claimedSe
   const localKey = machineFolderKey(localWorkspace?.machine, localWorkspace?.cwd);
   return serverWorkspaces
     .filter((workspace) => {
-      if (!workspace || claimedServerIds.has(workspace.id) || workspace.archived) {
+      if (!workspace || claimedServerIds.has(workspace.id)) {
         return false;
       }
       if (machineFolderKey(workspace.machine, workspace.cwd) !== localKey) {
@@ -650,6 +668,8 @@ function mergeWorkspaceStatus(localWorkspace, serverWorkspace) {
     latest_event_status: serverWorkspace.latest_event_status || localWorkspace.latest_event_status || "",
     latest_event_message: serverWorkspace.latest_event_message || localWorkspace.latest_event_message || "",
     latest_event_created_at: serverWorkspace.latest_event_created_at || localWorkspace.latest_event_created_at || "",
+    archived: Boolean(localWorkspace.archived || serverWorkspace.archived),
+    archived_at: localWorkspace.archived_at || serverWorkspace.archived_at || "",
     updated_at: updatedAt || localWorkspace.updated_at,
     is_local: true,
     manual_tab: true,
@@ -741,7 +761,7 @@ function materializeState(payload) {
     ? Math.min(Math.max(ui.visibleTabCount, TAB_RENDER_BATCH), ui.workspaces.length)
     : TAB_RENDER_BATCH;
   ui.selectedWorkspaceIds = new Set(
-    [...ui.selectedWorkspaceIds].filter((workspaceId) => ui.workspaces.some((workspace) => workspace.id === workspaceId && !workspace.is_local)),
+    [...ui.selectedWorkspaceIds].filter((workspaceId) => ui.workspaces.some((workspace) => workspace.id === workspaceId)),
   );
 }
 
@@ -887,10 +907,6 @@ function ensureStructures(allWorkspaces, tabWorkspaces) {
         event.stopPropagation();
         const current = getWorkspaceById(workspace.id);
         if (!current) {
-          return;
-        }
-        if (current.is_local) {
-          closeLocalWorkspace(workspace.id);
           return;
         }
         await toggleArchive(workspace.id);
@@ -1127,10 +1143,10 @@ function renderShell(workspaces) {
     item.tab.setAttribute("title", buildWorkspaceTooltip(workspace, displayStatus));
     item.tab.querySelector(".workspace-tab-pending").hidden = !isPending;
 
-    const actionLabel = workspace.is_local ? "Close" : workspace.archived ? "Unarchive" : "Archive";
+    const actionLabel = workspace.archived ? "Unarchive" : "Archive";
     item.actionButton.textContent = actionLabel;
     item.actionButton.setAttribute("aria-label", `${actionLabel} ${workspace.title}`);
-    item.actionButton.disabled = !workspace.is_local && ui.archiveRequests.has(workspace.id);
+    item.actionButton.disabled = ui.archiveRequests.has(workspace.id);
     const command = codexCommand(workspace);
     item.copyButton.disabled = !command;
     item.copyButton.setAttribute("aria-label", `Copy Codex command for ${workspace.title}`);
@@ -1469,25 +1485,23 @@ function handleKeyup(event) {
   }
 }
 
-function closeLocalWorkspace(workspaceId) {
-  ui.localWorkspaces = ui.localWorkspaces.filter((workspace) => workspace.id !== workspaceId);
-  if (ui.activeId === workspaceId) {
-    saveActiveId(ui.workspaces.find((workspace) => workspace.id !== workspaceId && !workspace.archived)?.id || null);
-  }
-  saveLocalWorkspaces();
-  renderState({ workspaces: ui.serverWorkspaces, machines: ui.machines });
-}
-
 async function toggleArchive(workspaceId) {
   const workspace = getWorkspaceById(workspaceId);
-  if (!workspace || workspace.is_local || ui.archiveRequests.has(workspaceId)) {
+  if (!workspace || ui.archiveRequests.has(workspaceId)) {
     return;
   }
 
+  const archived = !workspace.archived;
+  const serverSessionId = String(workspace.session_id || (!workspace.is_local ? workspace.id : "") || "").trim();
   ui.archiveRequests.add(workspaceId);
   renderShell(ui.workspaces);
   try {
-    await setArchiveState(workspaceId, !workspace.archived);
+    if (serverSessionId) {
+      await setArchiveState(serverSessionId, archived);
+    }
+    if (workspace.is_local) {
+      setLocalArchiveStates([workspace.id], archived);
+    }
     await refresh();
   } catch (error) {
     console.error(error);
@@ -1498,28 +1512,65 @@ async function toggleArchive(workspaceId) {
   }
 }
 
+function setLocalArchiveStates(workspaceIds, archived) {
+  const ids = new Set(workspaceIds.map((workspaceId) => String(workspaceId || "").trim()).filter(Boolean));
+  if (!ids.size) {
+    return [];
+  }
+  const now = isoNow();
+  const archivedAt = archived ? now : "";
+  const updatedIds = [];
+  ui.localWorkspaces = ui.localWorkspaces.map((workspace) => {
+    if (!ids.has(workspace.id)) {
+      return workspace;
+    }
+    updatedIds.push(workspace.id);
+    return {
+      ...workspace,
+      archived,
+      archived_at: archivedAt,
+      updated_at: now,
+    };
+  });
+  if (updatedIds.length) {
+    saveLocalWorkspaces();
+  }
+  return updatedIds;
+}
+
 async function applyBatchArchive(archived) {
-  const sessionIds = [...ui.selectedWorkspaceIds].filter((workspaceId) =>
-    ui.serverWorkspaces.some((workspace) => workspace.id === workspaceId),
-  );
-  if (!sessionIds.length) {
+  const selectedWorkspaces = [...ui.selectedWorkspaceIds]
+    .map((workspaceId) => getWorkspaceById(workspaceId))
+    .filter(Boolean);
+  const localWorkspaceIds = selectedWorkspaces.filter((workspace) => workspace.is_local).map((workspace) => workspace.id);
+  const serverSessionIds = [
+    ...new Set(
+      selectedWorkspaces
+        .map((workspace) => String(workspace.session_id || (!workspace.is_local ? workspace.id : "") || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (!localWorkspaceIds.length && !serverSessionIds.length) {
     return;
   }
 
-  for (const workspaceId of sessionIds) {
-    ui.archiveRequests.add(workspaceId);
+  for (const workspace of selectedWorkspaces) {
+    ui.archiveRequests.add(workspace.id);
   }
   renderShell(ui.workspaces);
   try {
-    await setArchiveStates(sessionIds, archived);
+    if (serverSessionIds.length) {
+      await setArchiveStates(serverSessionIds, archived);
+    }
+    setLocalArchiveStates(localWorkspaceIds, archived);
     ui.selectedWorkspaceIds.clear();
     await refresh();
   } catch (error) {
     console.error(error);
     syncDocumentTitle();
   } finally {
-    for (const workspaceId of sessionIds) {
-      ui.archiveRequests.delete(workspaceId);
+    for (const workspace of selectedWorkspaces) {
+      ui.archiveRequests.delete(workspace.id);
     }
     renderShell(ui.workspaces);
     renderDrawer();
@@ -1625,7 +1676,6 @@ function renderCatalogRows() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = ui.selectedWorkspaceIds.has(workspace.id);
-    checkbox.disabled = Boolean(workspace.is_local);
     checkbox.addEventListener("click", (event) => event.stopPropagation());
     checkbox.addEventListener("change", () => {
       if (checkbox.checked) {
@@ -1696,7 +1746,7 @@ function renderCatalogRows() {
 
   catalogBody.replaceChildren(fragment);
 
-  const visibleArchivableIds = visible.filter((workspace) => !workspace.is_local).map((workspace) => workspace.id);
+  const visibleArchivableIds = visible.map((workspace) => workspace.id);
   const selectedArchivableIds = visibleArchivableIds.filter((workspaceId) => ui.selectedWorkspaceIds.has(workspaceId));
   catalogSelectAll.checked = visibleArchivableIds.length > 0 && selectedArchivableIds.length === visibleArchivableIds.length;
   catalogSelectAll.indeterminate =
@@ -2155,9 +2205,7 @@ function wireEvents() {
   });
   catalogSelectVisible.addEventListener("click", () => {
     for (const workspace of filteredCatalogWorkspaces()) {
-      if (!workspace.is_local) {
-        ui.selectedWorkspaceIds.add(workspace.id);
-      }
+      ui.selectedWorkspaceIds.add(workspace.id);
     }
     renderDrawer();
   });
@@ -2172,7 +2220,7 @@ function wireEvents() {
     await applyBatchArchive(false);
   });
   catalogSelectAll.addEventListener("change", () => {
-    const visibleArchivable = filteredCatalogWorkspaces().filter((workspace) => !workspace.is_local);
+    const visibleArchivable = filteredCatalogWorkspaces();
     if (catalogSelectAll.checked) {
       for (const workspace of visibleArchivable) {
         ui.selectedWorkspaceIds.add(workspace.id);

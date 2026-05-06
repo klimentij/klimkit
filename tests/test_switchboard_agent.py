@@ -359,6 +359,62 @@ class SwitchboardAgentTests(unittest.TestCase):
             self.assertTrue(payload["needs_attention"])
             self.assertEqual(payload["attention_kind"], "completion_unseen")
 
+    def test_subagent_done_does_not_request_completion_notification(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-2026-05-06T00-43-27-thread-subagent.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-05-06T00:43:29Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-subagent",
+                                    "cwd": "/home/user/repo",
+                                    "source": {
+                                        "subagent": {
+                                            "thread_spawn": {
+                                                "parent_thread_id": "thread-main",
+                                                "depth": 1,
+                                                "agent_role": "final_reviewer",
+                                            }
+                                        }
+                                    },
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-05-06T00:45:15Z",
+                                "type": "event_msg",
+                                "payload": {
+                                    "type": "task_complete",
+                                    "turn_id": "turn-subagent",
+                                    "last_agent_message": "PASS",
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            payload = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net"),
+                summary,
+                4632,
+            )
+
+            self.assertTrue(summary.is_subagent)
+            self.assertEqual(payload["activity_state"], "done")
+            self.assertEqual(payload["latest_event_status"], "done")
+            self.assertFalse(payload["needs_attention"])
+            self.assertEqual(payload["attention_kind"], "")
+
     def test_should_send_snapshot_respects_hash_and_heartbeat(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             conn = MODULE.init_db(Path(tmpdir))

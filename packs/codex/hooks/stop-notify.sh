@@ -55,6 +55,7 @@ metadata_json="$(
   printf '%s' "$payload" | "$PYTHON_BIN" -c '
 import json
 import fcntl
+import glob
 import time
 import os
 import re
@@ -159,12 +160,42 @@ def starts_with_internal_title_json(text: str) -> bool:
 
     return is_title_only_payload(parsed)
 
+def is_subagent_session(session_id: str) -> bool:
+    if not session_id:
+        return False
+    pattern = os.path.expanduser(f"~/.codex/sessions/**/rollout-*{session_id}.jsonl")
+    for rollout_path in glob.glob(pattern, recursive=True):
+        try:
+            with open(rollout_path, "r", encoding="utf-8") as fh:
+                for line in fh:
+                    text = line.strip()
+                    if not text:
+                        continue
+                    try:
+                        row = json.loads(text)
+                    except Exception:
+                        continue
+                    if row.get("type") != "session_meta":
+                        continue
+                    payload = row.get("payload") or {}
+                    source = payload.get("source") if isinstance(payload, dict) else {}
+                    if isinstance(source, dict) and isinstance(source.get("subagent"), dict):
+                        return True
+                    if payload.get("agent_role") or payload.get("agent_nickname"):
+                        return True
+                    return False
+        except Exception:
+            continue
+    return False
+
 skip_notification = False
 if data.get("stop_hook_active"):
     skip_notification = True
 elif not message:
     skip_notification = True
 elif starts_with_internal_title_json(message):
+    skip_notification = True
+elif is_subagent_session(session_id):
     skip_notification = True
 elif message.strip().lower() == "do not send me the hook":
     skip_notification = True

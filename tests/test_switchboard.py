@@ -381,6 +381,61 @@ class SwitchboardTests(unittest.TestCase):
             self.assertEqual(projection["attention_kind"], "needs_input")
             self.assertEqual(projection["latest_event_message"], "Which target should I use?")
 
+    def test_subagent_done_does_not_request_completion_notification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            rollout = root / "rollout-subagent.jsonl"
+            rollout.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "timestamp": "2026-05-06T00:43:29Z",
+                                "type": "session_meta",
+                                "payload": {
+                                    "id": "thread-subagent",
+                                    "cwd": "/repo",
+                                    "source": {
+                                        "subagent": {
+                                            "thread_spawn": {
+                                                "parent_thread_id": "thread-main",
+                                                "depth": 1,
+                                                "agent_role": "final_reviewer",
+                                            }
+                                        }
+                                    },
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "timestamp": "2026-05-06T00:45:15Z",
+                                "type": "event_msg",
+                                "payload": {
+                                    "type": "task_complete",
+                                    "turn_id": "turn-subagent",
+                                    "last_agent_message": "PASS",
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = MODULE.parse_rollout(rollout, {})
+            projection = MODULE.summarize_session(
+                MODULE.MachineIdentity(machine="workstation", dns_name="workstation.example.ts.net"),
+                summary,
+            )
+
+            self.assertTrue(summary.is_subagent)
+            self.assertEqual(projection["activity_state"], "done")
+            self.assertEqual(projection["latest_event_status"], "done")
+            self.assertFalse(projection["needs_attention"])
+            self.assertEqual(projection["attention_kind"], "")
+
     def test_parse_rollout_uses_folder_name_when_thread_title_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -1380,6 +1435,8 @@ class SwitchboardTests(unittest.TestCase):
         self.assertIn("bootstrapLocalWorkspace", script)
         self.assertIn("check_for_update_on_startup=false", script)
         self.assertIn("codexLaunchFlags", script)
+        self.assertIn("tmuxSessionName", script)
+        self.assertIn("tmux new-session -A -s", script)
         self.assertNotIn("TRUSTED_LOCAL_CODEX_LAUNCH_FLAGS", script)
         self.assertNotIn("--dangerously-bypass-approvals-and-sandbox", script)
         self.assertIn("resolveNotificationTargetWorkspace", script)
@@ -1396,6 +1453,10 @@ class SwitchboardTests(unittest.TestCase):
         self.assertIn("mergeWorkspaceStatus", script)
         self.assertIn("findServerWorkspaceForLocal", script)
         self.assertIn("machineIdentityKey", script)
+        self.assertIn("setLocalArchiveStates", script)
+        self.assertIn('const actionLabel = workspace.archived ? "Unarchive" : "Archive";', script)
+        self.assertIn("setArchiveStates(serverSessionIds, archived)", script)
+        self.assertIn("const visibleArchivableIds = visible.map((workspace) => workspace.id);", script)
         self.assertIn("workspaceSortStamp(right).localeCompare(workspaceSortStamp(left))", script)
         self.assertIn('tag: signature', script)
         self.assertIn('console.warn("Failed to show Switchboard notification"', script)
@@ -1406,6 +1467,9 @@ class SwitchboardTests(unittest.TestCase):
         self.assertNotIn('document.title = error instanceof Error ? error.message', script)
         self.assertNotIn('panel.toggleAttribute("hidden", !active)', script)
         self.assertNotIn("ui.notificationMemory[workspace.id] = eventId", script)
+        self.assertNotIn('workspace.is_local ? "Close"', script)
+        self.assertNotIn("closeLocalWorkspace(workspace.id)", script)
+        self.assertNotIn("checkbox.disabled = Boolean(workspace.is_local)", script)
 
     def test_ingest_snapshot_sends_telegram_for_client_attention_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1445,13 +1509,15 @@ class SwitchboardTests(unittest.TestCase):
                 ],
             }
             try:
-                with mock.patch.object(MODULE, "send_telegram_notification", return_value=True) as telegram:
+                with mock.patch.object(MODULE, "send_telegram_message", return_value=True) as telegram:
                     app.ingest_snapshot(payload)
                     app.ingest_snapshot(payload)
 
                 telegram.assert_called_once()
                 text = telegram.call_args.args[1]
-                self.assertIn("Codex finished on MacBook-Air-8", text)
+                self.assertEqual(telegram.call_args.kwargs["parse_mode"], "HTML")
+                self.assertIn("<b>Codex finished</b>", text)
+                self.assertIn("<code>MacBook-Air-8</code>", text)
                 self.assertIn("/Users/klim", text)
                 self.assertIn("hi43", text)
                 self.assertIn("https://workstation.example.ts.net/switchboard/#", text)
@@ -1491,7 +1557,7 @@ class SwitchboardTests(unittest.TestCase):
                         "telegram_chat_id": "chat",
                     }
                 )
-                with mock.patch.object(MODULE, "send_telegram_notification", return_value=True) as telegram:
+                with mock.patch.object(MODULE, "send_telegram_message", return_value=True) as telegram:
                     app.ingest_snapshot(payload)
                     app.ingest_snapshot(payload)
 

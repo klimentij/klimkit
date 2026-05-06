@@ -11,16 +11,26 @@ class TelegramNotificationConfig(Protocol):
 
 
 def send_telegram_notification(config: TelegramNotificationConfig, text: str) -> bool:
+    return send_telegram_message(config, text)
+
+
+def send_telegram_message(
+    config: TelegramNotificationConfig,
+    text: str,
+    *,
+    parse_mode: str = "",
+) -> bool:
     if not config.telegram_enabled or not config.telegram_bot_token or not config.telegram_chat_id:
         return False
     endpoint = f"https://api.telegram.org/bot{config.telegram_bot_token}/sendMessage"
-    payload = parse.urlencode(
-        {
-            "chat_id": config.telegram_chat_id,
-            "text": text,
-            "disable_web_page_preview": "true",
-        }
-    ).encode("utf-8")
+    payload_fields = {
+        "chat_id": config.telegram_chat_id,
+        "text": text,
+        "disable_web_page_preview": "true",
+    }
+    if parse_mode:
+        payload_fields["parse_mode"] = parse_mode
+    payload = parse.urlencode(payload_fields).encode("utf-8")
     req = request.Request(
         endpoint,
         data=payload,

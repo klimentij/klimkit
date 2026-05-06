@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import html
 import ipaddress
 import json
 import os
@@ -34,11 +35,11 @@ except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib
 
 from klimkit.paths import KLIMKIT_CONFIG_FILE, KLIMKIT_STATE_DIR
-from klimkit.notifications import send_telegram_notification
+from klimkit.notifications import send_telegram_message
 
 DEFAULT_CONFIG_PATH = KLIMKIT_CONFIG_FILE
 STATIC_DIR = Path(__file__).with_name("static")
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 DEFAULT_BASE_PATH = "/switchboard"
 AUTH_COOKIE_NAME = "switchboard_token"
 MAX_JSON_BODY_BYTES = 1024 * 1024
@@ -162,6 +163,7 @@ class SessionSummary:
     current_turn_started_at: str
     saw_action_in_current_turn: bool
     approval_policy: str
+    is_subagent: bool
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -711,6 +713,7 @@ def parse_rollout(path: Path, index: dict[str, dict[str, Any]]) -> SessionSummar
     current_turn_started_at = ""
     saw_action_in_current_turn = False
     approval_policy = ""
+    is_subagent = False
     open_input_requests: dict[str, tuple[str, str]] = {}
     open_approval_requests: dict[str, tuple[str, str, str]] = {}
 
@@ -734,6 +737,11 @@ def parse_rollout(path: Path, index: dict[str, dict[str, Any]]) -> SessionSummar
             session_id = str(payload.get("id") or session_id)
             cwd = str(payload.get("cwd") or cwd)
             branch = str(((payload.get("git") or {}).get("branch")) or branch)
+            source = payload.get("source") if isinstance(payload, dict) else {}
+            is_subagent = is_subagent or (
+                isinstance(source, dict)
+                and isinstance(source.get("subagent"), dict)
+            )
             created_at = created_at or timestamp
             updated_at = timestamp or updated_at
             continue
@@ -914,6 +922,7 @@ def parse_rollout(path: Path, index: dict[str, dict[str, Any]]) -> SessionSummar
         current_turn_started_at=current_turn_started_at,
         saw_action_in_current_turn=saw_action_in_current_turn,
         approval_policy=approval_policy,
+        is_subagent=is_subagent,
     )
 
 
@@ -982,8 +991,8 @@ def summarize_session(identity: MachineIdentity, summary: SessionSummary) -> dic
             latest_event_status = "needs_input"
         else:
             activity_state = "done"
-            attention_kind = "completion_unseen"
             latest_event_status = "done"
+            attention_kind = "" if summary.is_subagent else "completion_unseen"
         latest_event_id = summary.latest_completion_id or summary.session_id
         latest_event_message = clip_text(
             summary.latest_completion_message
@@ -1262,6 +1271,7 @@ class StateStore:
         if row is None:
             return None
         payload = json.loads(str(row["summary_json"]))
+        payload.setdefault("is_subagent", False)
         return SessionSummary(**payload)
 
     def save_cached_summary(self, path: Path, stat: os.stat_result, summary: SessionSummary) -> None:
@@ -2206,7 +2216,7 @@ class SwitchboardApp:
                 continue
             text = self._format_telegram_notification(notification)
             try:
-                sent = send_telegram_notification(self.config, text)
+                sent = send_telegram_message(self.config, text, parse_mode="HTML")
             except Exception:
                 sent = False
             if sent:
@@ -2223,18 +2233,28 @@ class SwitchboardApp:
             headline = "Codex errored"
         else:
             headline = "Codex finished"
+        status_emoji = {
+            "Codex needs input": "🟡",
+            "Codex needs approval": "🟠",
+            "Codex errored": "🔴",
+            "Codex finished": "🟢",
+        }.get(headline, "🟢")
         lines = [
-            f"{headline} on {notification.get('machine', 'unknown')}",
-            f"{notification.get('folder', 'workspace')} · {notification.get('cwd', '')}",
+            f"{status_emoji} <b>{html.escape(headline)}</b>",
+            f"💻 <b>Machine</b>: <code>{html.escape(notification.get('machine', 'unknown'))}</code>",
+            f"📁 <b>Workspace</b>: <code>{html.escape(notification.get('folder', 'workspace'))}</code>",
         ]
+        cwd = notification.get("cwd", "")
+        if cwd:
+            lines.append(f"📍 <b>Path</b>: <code>{html.escape(cwd)}</code>")
         title = notification.get("title", "")
         message = notification.get("message", "")
         if title and title != notification.get("folder"):
-            lines.append(title)
+            lines.extend(["", "🏷 <b>Title</b>", html.escape(title)])
         if message:
-            lines.append(message)
+            lines.extend(["", "📝 <b>Latest message</b>", html.escape(message)])
         if notification.get("switchboard_url"):
-            lines.append(notification["switchboard_url"])
+            lines.extend(["", "🔗 <b>Open in Klimkit Switchboard</b>", html.escape(notification["switchboard_url"])])
         return "\n".join(line for line in lines if line)
 
     def start_background_workers(self) -> None:

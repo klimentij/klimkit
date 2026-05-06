@@ -44,6 +44,13 @@ class CodexPackValidationTests(unittest.TestCase):
                 result = subprocess.run(["bash", "-n", str(path)], text=True, capture_output=True, check=False)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_stop_notify_hook_suppresses_subagent_notifications(self) -> None:
+        hook = (ROOT / "packs" / "codex" / "hooks" / "stop-notify.sh").read_text(encoding="utf-8")
+
+        self.assertIn("def is_subagent_session(session_id: str) -> bool:", hook)
+        self.assertIn('source.get("subagent")', hook)
+        self.assertIn("elif is_subagent_session(session_id):", hook)
+
 
 if __name__ == "__main__":
     unittest.main()
