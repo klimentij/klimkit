@@ -185,7 +185,7 @@ $ bash -n install.sh && git diff --check
 ```
 
 ```text
-$ rg -n "raw\\.githubusercontent|klimentij/klimkit\\.git|git clone --branch|First run clones|curl-piping|curl-installing|curl install" README.md install.sh .klimkit/tasks/01-tui-ux-multi-harness-more/14-a-open-source-readiness-review.md .klimkit/tasks/01-tui-ux-multi-harness-more/16-a-more-polish-proof.md
+$ rg -n "raw\\.githubusercontent|klimentij/klimkit\\.git|git clone --branch|First run clones|curl-piping|curl-installing|curl install" README.md install.sh .klimkit/tasks/01-tui-ux-multi-harness-more/14-a-open-source-readiness-review.md
 # no output
 ```
 
