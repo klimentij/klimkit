@@ -10,6 +10,8 @@
 
 Klimkit keeps an agent-ready machine reproducible. One repo owns the local instructions, harness packs, services, dashboards, and machine-specific settings needed to make a fresh VM behave like Klim's working environment. You edit the repo, preview exactly what will change, apply it locally, and use normal Git flow to carry the same operator setup to another machine.
 
+The core operating promise is parallel agent work without losing control: use Switchboard to keep 5-7 Codex/code-server workspaces open across machines, each on its own branch and worktree, while Klimkit keeps the harness, browser profile, services, and notifications synced.
+
 ### Switchboard PWA Workspace
 
 ![Klimkit Switchboard running as a Chrome PWA with code-server and Codex terminal panes.](assets/screenshots/switchboard-pwa-workspace.png)
@@ -27,8 +29,10 @@ Klimkit keeps an agent-ready machine reproducible. One repo owns the local instr
 - [Generated Projections](#generated-projections)
 - [Code-Server Managed Profile](#code-server-managed-profile)
 - [Harness Pack](#harness-pack)
+- [Codex Harness Workflow](#codex-harness-workflow)
 - [Security Model](#security-model)
 - [Workflow](#workflow)
+- [Parallel Agent Worktrees](#parallel-agent-worktrees)
 - [Common Commands](#common-commands)
 - [Switchboard Browser Use](#switchboard-browser-use)
 - [Making Changes Live](#making-changes-live)
@@ -61,9 +65,9 @@ The installer reuses the local checkout, installs the `kk` launcher into `~/.loc
 
 ## Release Status
 
-Current release: [`v0.1.1`](https://github.com/klimentij/klimkit/releases/tag/v0.1.1).
+Current release: [`v0.1.2`](https://github.com/klimentij/klimkit/releases/tag/v0.1.2).
 
-`v0.1.1` is an operator-preview polish release for trusted personal fleets. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
+`v0.1.2` is a harness-workflow release for trusted personal fleets. It adds the checklister/final-reviewer pack workflow, documents parallel Switchboard agent worktrees, and ships a generic worktree helper example. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
 
 ## Tech Stack
 
@@ -227,6 +231,24 @@ git push
 
 Machines with autosync enabled pick up the commit from `origin/main`, apply the projection, restart managed services, and send Telegram summaries when configured.
 
+## Codex Harness Workflow
+
+The shared Codex pack is intentionally opinionated about how agent work reaches completion. The projected `AGENTS.md` separates the workflow into intake, checklist, planning/delegation, implementation, verification, final review, and reporting.
+
+For implementation tasks, the first blocking step is the `checklister` subagent. It writes an `Acceptance Checklist` into an agent-authored task note under `.klimkit/tasks/<feature>/`. That checklist is meant to be concrete enough for a demanding human QA pass: exact UI screens and states when UI is involved, persistence and database expectations when state changes, local files and services when projections change, cross-machine sync behavior when relevant, and the named automated/manual checks that must pass.
+
+Other subagents are used when they materially reduce risk:
+
+- `code_explorer` traces unfamiliar code before edits.
+- `test_writer` plans or writes focused tests.
+- `manual_tester` checks real browser/UI flows.
+- `security_auditor` reviews auth, secrets, sandboxing, infra, and sensitive boundaries.
+- `code_reviewer` reviews meaningful or risky diffs.
+- `debugger` isolates root causes when checks fail.
+- `web_research` verifies current external APIs, docs, or best practices.
+
+The final workflow step is always 3 parallel `final_reviewer` agents before a completion claim. Each reviewer gets the original request or task path, the checklist, changed files, verification evidence, and the exact final response draft. All 3 must pass before the response goes back to the human.
+
 ## Security Model
 
 Klimkit is designed for a trusted personal machine or private tailnet, not arbitrary public internet exposure.
@@ -279,6 +301,30 @@ kk pull
 `kk pull` fast-forwards the current branch from its upstream and then applies the local config. It refuses to pull over dirty local changes.
 
 The daemon also autosyncs by default: every 5 seconds it fetches `origin/main`, fast-forwards the checkout when `main` is ahead, applies projections, and restarts the managed service.
+
+## Parallel Agent Worktrees
+
+Before starting a feature, create a separate Git worktree and branch. The recommended pattern is:
+
+- keep `main` as the staging or release-ready branch;
+- keep `dev` as the integration branch that accumulates accepted feature branches;
+- create one worktree per feature branch;
+- open that worktree folder as a Switchboard tab;
+- run parallel agents in separate worktrees so they do not fight over the same checkout.
+
+The example helper at [`examples/create-worktree.sh`](examples/create-worktree.sh) creates a branch worktree from a synced integration branch. It defaults to `BASE_BRANCH=dev`, `SYNC_BRANCH=main`, and `WORKTREE_ROOT=$HOME/wt`.
+
+```bash
+examples/create-worktree.sh "switchboard archive polish"
+```
+
+For projects where `dev` should be fast-forwarded with `main` and pushed before creating the feature worktree:
+
+```bash
+PUSH_SYNCED_BASE=1 examples/create-worktree.sh "switchboard archive polish"
+```
+
+The script prints `switchboard_folder=<path>`. Use that folder in Switchboard's Create Workspace form so the new tab opens code-server directly on the feature worktree. Repeat this across machines to keep 5-7 agents working in parallel branches while Switchboard keeps their tabs and statuses visible.
 
 ## Common Commands
 

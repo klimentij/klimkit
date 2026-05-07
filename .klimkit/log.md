@@ -26,3 +26,7 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-06T05:07:35Z: Removed the legacy upstream auto-clone path from `install.sh`, documented checkout-local installation, and added installer proof for the fork-first flow.
 - 2026-05-06T05:15:27Z: Corrected the installer proof search transcript to avoid self-matching its own recorded command.
 - 2026-05-07T02:55:37Z: Implemented final polish for `17-h-final-polish`, including softer fork guidance, README screenshots, Switchboard catalog archive behavior, and v0.1.1 version metadata.
+- 2026-05-07T03:40:15Z: Implemented the Codex pack checklister workflow, refactored shared `AGENTS.md`, and wrote the high-level `20-a` pack improvement summary.
+- 2026-05-07T03:40:15Z: Added README guidance for the Codex harness workflow, parallel Switchboard agent worktrees, and the generic `examples/create-worktree.sh` helper.
+- 2026-05-07T04:18:00Z: Prepared `v0.1.2` release metadata for the Codex pack workflow and parallel worktree documentation.
+- 2026-05-07T04:26:00Z: Collected 3/3 final reviewer passes for the Codex pack workflow and worktree documentation release task.

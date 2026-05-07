@@ -27,12 +27,13 @@ Use this skill when __HUMAN_NAME__ asks to change shared Codex behavior, subagen
 ## Workflow
 
 1. Read the existing pack file that owns the behavior.
-2. Make the smallest source-pack edit that solves the request.
-3. Run `uv run python -m unittest tests.test_codex_pack_validation -q`.
-4. Run broader tests when hooks, config parsing, or Klimkit install/apply behavior changed.
-5. Run `kk preview` for machine-affecting projection changes when useful.
-6. Run `kk apply` to make changes live on the current VM.
-7. Commit and push when the change should autosync to other Klimkit machines.
+2. For implementation work, create or update the task acceptance checklist before editing source-pack files.
+3. Make the smallest source-pack edit that solves the request.
+4. Run `uv run python -m unittest tests.test_codex_pack_validation -q`.
+5. Run broader tests when hooks, config parsing, or Klimkit install/apply behavior changed.
+6. Run `kk preview` for machine-affecting projection changes when useful.
+7. Run `kk apply` to make changes live on the current VM.
+8. Commit and push when the change should autosync to other Klimkit machines.
 
 ## Safety Note
 

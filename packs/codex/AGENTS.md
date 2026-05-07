@@ -2,47 +2,78 @@
 
 You're __HUMAN_NAME__'s coding agent.
 
-These are the shared, home-level defaults for every project. Repository-local `AGENTS.md` files add project-specific rules and take precedence when they are more specific.
+These are shared, home-level defaults. Repository-local `AGENTS.md` files add project-specific rules and take precedence when they are more specific.
 
-## Shared Workflow
+## Authority And Scope
 
-- Understand before changing. For unfamiliar code, explore first or delegate the read-heavy work to `code_explorer`.
-- Prefer red/green TDD for behavior-changing work when the repository has an automated test harness.
-- Every change should include cleanup: remove duplication, reuse existing helpers, and leave the touched area cleaner than you found it.
-- Review meaningful changes before presenting them. Use `code_reviewer` when the task is substantial, risky, or spread across multiple files.
-- If tests fail or behavior is surprising, use `debugger` to isolate the root cause before guessing.
-- For external APIs, libraries, standards, or best-practice checks, use `web_research` and prefer official documentation.
-- For auth, secrets, API boundaries, infra, sandbox, or container work, run `security_auditor` before calling the task done.
-- Before returning to __HUMAN_NAME__ with a completion claim, run 3 parallel `final_reviewer` subagents. All 3 must pass before bothering __HUMAN_NAME__.
-- When a task changes user-visible behavior, end with a short `How __HUMAN_NAME__ can check this` section with concrete manual verification steps.
-- When the user wants proof or a quick verification artifact, default to a tiny static HTML report that is easy to skim, mostly visual, and shared by URL. Do not default to notebooks unless the user explicitly asks for one.
+- Treat the user's latest message as the active request.
+- Follow repository-local instructions before these shared defaults when they are more specific.
+- Keep generated home files out of source edits; shared Codex behavior is edited in `packs/codex/`.
+- Before returning to __HUMAN_NAME__ with a completion claim, complete the required checklist, verification, and final-review gate.
 
-## Shared Subagents
+## Standard Workflow
+
+1. **Intake**
+   - Read the request, relevant task file, repository instructions, `.klimkit/memory.md`, and `.klimkit/log.md` when present.
+   - Identify whether the work is planning-only, implementation, review, debugging, or research.
+
+2. **Acceptance Checklist**
+   - For every implementation task, invoke `checklister` before coding.
+   - The checklist must be written into an agent-authored task note (`*-a-*.md`) in the relevant `.klimkit/tasks/<feature>/` folder.
+   - Treat every checklist item as blocking unless __HUMAN_NAME__ explicitly changes scope.
+
+3. **Plan And Delegate**
+   - State the smallest useful plan for non-trivial work.
+   - Use other subagents only when they materially reduce risk or let independent work happen in parallel.
+   - Prefer waves of 2-3 subagents; avoid broad fan-out unless the task truly benefits.
+
+4. **Implement**
+   - Understand before changing; explore first or delegate read-heavy tracing to `code_explorer`.
+   - Prefer red/green TDD for behavior-changing work when the repository has tests.
+   - Keep edits surgical, reuse existing helpers, and remove only dead code introduced by the change.
+   - Do not refactor unrelated code while passing through.
+
+5. **Verify**
+   - Run the tests and checks that match the checklist and blast radius.
+   - For UI work, verify the actual screen states, empty/loading/error states, interaction states, persistence, local storage, database effects, network/API effects, and responsive behavior called out by the checklist.
+   - If tests fail or behavior is surprising, use `debugger` to isolate the root cause before guessing.
+   - For auth, secrets, sandboxing, infra, or compliance-sensitive changes, run `security_auditor` before calling the task done.
+
+6. **Final Review Gate**
+   - Draft the exact final response before calling reviewers.
+   - Run 3 `final_reviewer` subagents in parallel.
+   - Give each reviewer the original human request or task path, the checklister acceptance checklist, the changed files, verification evidence, and the exact draft response.
+   - All 3 reviewers must return PASS / READY FOR USER before you send a completion claim to __HUMAN_NAME__.
+
+7. **Report**
+   - Report what changed, what passed, and any remaining risk or unavailable verification.
+   - When user-visible behavior changed, include `How __HUMAN_NAME__ can check this` with concrete manual steps.
+   - When proof is requested, prefer a tiny static HTML report or compact task note that is easy to skim.
+
+## Subagent Roles
 
 Custom Codex agents are managed from `packs/codex/agents/` and synced into `~/.codex/agents/`.
 
-- Use delegation when it materially reduces context noise or lets independent work happen in parallel.
-- Prefer waves of 2-3 subagents. Avoid broad 5+ agent fan-out unless the task truly benefits from it.
-- Do not delegate purely for ceremony. Small, direct tasks should stay inline.
-- `final_reviewer` is the final gate before any response that claims the work is complete. Run 3 reviewers in parallel and give each the original request, acceptance criteria, verification evidence, and the exact draft response.
-- Reach for the shared agents intentionally:
-  - `code_explorer` for unfamiliar code and architecture tracing
-  - `code_reviewer` for bug-risk and regression review
-  - `debugger` for diagnosis without fixing
-  - `manual_tester` for browser and UI verification when the repo provides the needed environment
-  - `security_auditor` for security-sensitive changes
-  - `test_writer` for planning, writing, and running tests
-  - `web_research` for external verification and source-backed answers
+- `checklister`: acceptance-criteria specialist. Required before implementation; writes the blocking checklist into an agent-authored task note.
+- `code_explorer`: read-only architecture and execution-path tracing before changes.
+- `code_reviewer`: correctness, regression, security, duplication, and missing-test review.
+- `debugger`: read-only reproduction and root-cause analysis for failures.
+- `manual_tester`: browser/UI verification in a runnable environment.
+- `security_auditor`: auth, secrets, data exposure, sandboxing, infra, and compliance-sensitive review.
+- `test_writer`: focused test planning, implementation, and execution.
+- `web_research`: source-backed external verification, API docs, and current best practices.
+- `final_reviewer`: final acceptance gate. Required 3-at-a-time before a completion claim.
 
 ## Shared Skills
 
-Shared skills live in `~/.codex/skills/`. Prefer a matching documented skill over ad-hoc command sequences when one exists, and let repository-local skills add project-specific workflows as needed.
+Shared skills live in `~/.codex/skills/`. Prefer a matching documented skill over ad-hoc command sequences when one exists.
 
-Use `harness-tuning` when changing shared home-level Codex behavior. It keeps edits in `~/klimkit/packs/codex/` so `kk apply` and autosync project them to `~/.codex/` cleanly.
+- Use `harness-tuning` when changing shared home-level Codex behavior. It keeps edits in `~/klimkit/packs/codex/` so `kk apply` and autosync project them to `~/.codex/` cleanly.
+- Use UI/browser skills for live frontend QA when a task depends on actual screen behavior.
 
-## Klimkit Project Memory, Logs, And Tasks
+## Memory, Logs, And Task Notes
 
-At the start of meaningful repo work, read `.klimkit/memory.md` and `.klimkit/log.md` when they exist. If either file is missing and meaningful repo work is starting, create it under `.klimkit/` before the first memory or log update.
+At the start of meaningful repo work, read `.klimkit/memory.md` and `.klimkit/log.md` when they exist. If either file is missing and meaningful repo work is starting, create it under `.klimkit/`.
 
 Use this memory template:
 
@@ -64,73 +95,27 @@ Timestamped audit trail. Entries describe actions, not preferences.
 ## Log
 ```
 
-Store durable preferences, corrections, and process rules in `.klimkit/memory.md` as dated one-sentence memories. Store meaningful actions in `.klimkit/log.md` as ISO-timestamped one-sentence audit entries. Logs describe what happened, not preferences.
+- Store durable preferences, corrections, and process rules in `.klimkit/memory.md` as dated one-sentence memories.
+- Store meaningful actions in `.klimkit/log.md` as ISO-timestamped one-sentence audit entries.
+- Task and feature work belongs under `.klimkit/tasks/<nn-feature-slug>/`.
+- Human-authored files use `-h-`; agent-authored files use `-a-`.
+- Task folders can contain planning, checklists, design notes, implementation notes, proof, screenshots, and review records.
 
-Task and feature work belongs under `.klimkit/tasks/<nn-feature-slug>/`. Human-authored files use `-h-` in the filename. Agent-authored files use `-a-` in the filename. Task folders can contain planning, design, discussion, proof, and implementation notes.
+## Engineering Quality Rules
 
+- Surface assumptions and ambiguities before coding when they affect implementation choices.
+- Keep the solution as small as the request allows; avoid speculative features and one-use abstractions.
+- Match the repository's existing style, framework, helper APIs, and test conventions.
+- Every changed line should trace to the request, checklist, or required verification.
+- Broaden tests when touching shared behavior, cross-module contracts, user-visible workflows, or persistence.
+- If the user asks for a review, lead with findings ordered by severity, then open questions, then summary.
 
-# Behavioral guidelines
+## Completion Bar
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+A task is not done until:
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-## 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-## 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-## 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
----
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+- The checklister checklist exists for implementation work.
+- Required code, docs, data, or pack changes are complete.
+- Relevant automated checks and manual checks from the checklist have passed or are explicitly called out as unavailable.
+- Meaningful memory/log/task proof has been updated when the repo workflow requires it.
+- The exact final response has passed 3 parallel `final_reviewer` reviews.

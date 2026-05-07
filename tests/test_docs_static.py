@@ -1,3 +1,4 @@
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -25,6 +26,11 @@ class DocsStaticTests(unittest.TestCase):
         self.assertIn("__HUMAN_NAME__", text)
         self.assertIn(".klimkit/local/klimkit.toml", text)
         self.assertIn(".klimkit/state/", text)
+        self.assertIn("The core operating promise is parallel agent work", text)
+        self.assertIn("## Codex Harness Workflow", text)
+        self.assertIn("## Parallel Agent Worktrees", text)
+        self.assertIn("examples/create-worktree.sh", text)
+        self.assertIn("5-7 agents", text)
         for screenshot in (
             "assets/screenshots/switchboard-pwa-workspace.png",
             "assets/screenshots/switchboard-catalog.png",
@@ -32,6 +38,19 @@ class DocsStaticTests(unittest.TestCase):
         ):
             self.assertIn(screenshot, text)
             self.assertTrue((ROOT / screenshot).exists(), screenshot)
+
+    def test_worktree_example_is_generic_and_syntax_valid(self) -> None:
+        script_path = ROOT / "examples" / "create-worktree.sh"
+        script = script_path.read_text(encoding="utf-8")
+
+        result = subprocess.run(["bash", "-n", str(script_path)], text=True, capture_output=True, check=False)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("BASE_BRANCH", script)
+        self.assertIn("SYNC_BRANCH", script)
+        self.assertIn("switchboard_folder=", script)
+        for private_token in ("PANTERA", "pantera", "tail11", "klimkit-dev-workstation"):
+            self.assertNotIn(private_token, script)
 
     def test_security_and_contributing_docs_exist(self) -> None:
         security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")

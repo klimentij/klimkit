@@ -38,6 +38,23 @@ class CodexPackValidationTests(unittest.TestCase):
                 self.assertTrue(data.get("description"))
                 self.assertTrue(data.get("developer_instructions"))
 
+    def test_pack_workflow_requires_checklister_and_final_reviewers(self) -> None:
+        agents = (ROOT / "packs" / "codex" / "AGENTS.md").read_text(encoding="utf-8")
+        checklister = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "checklister.toml").read_text(encoding="utf-8")
+        )
+        final_reviewer = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "final-reviewer.toml").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(checklister["name"], "checklister")
+        self.assertIn("Acceptance Checklist", checklister["developer_instructions"])
+        self.assertIn("before implementation starts", checklister["developer_instructions"])
+        self.assertIn("For every implementation task, invoke `checklister` before coding.", agents)
+        self.assertIn("Run 3 `final_reviewer` subagents in parallel.", agents)
+        self.assertIn("the checklister acceptance checklist", final_reviewer["developer_instructions"])
+        self.assertIn("Verify the draft against both the human request and every checklist item.", final_reviewer["developer_instructions"])
+
     def test_hook_scripts_are_syntax_valid(self) -> None:
         for path in sorted((ROOT / "packs" / "codex" / "hooks").glob("*.sh")):
             with self.subTest(path=path):

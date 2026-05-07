@@ -15,3 +15,5 @@ Durable preferences, corrections, and process rules. Add dated one-sentence memo
 - 2026-05-06: `kk apply` and `kk pull` should preserve local code-server preferences only when `[code_server] managed_profile = false`.
 - 2026-05-06: code-server preferences should sync through Klimkit's managed profile by default; use `kk code-server capture` after tuning the source VM.
 - 2026-05-07: Klimkit should recommend fork-first installs for real fleets without enforcing forks; direct upstream checkouts remain acceptable for trying the project.
+- 2026-05-07: Shared Codex implementation workflow should require a `checklister` acceptance checklist before coding and 3 parallel `final_reviewer` passes before completion claims.
+- 2026-05-07: Before each feature, prefer creating a separate Git worktree and Switchboard tab so parallel agents can work on separate branches without colliding.
