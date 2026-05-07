@@ -54,6 +54,7 @@ const APP_POLL_TIMER_KEY = "__switchboardPollTimer";
 const APP_POLL_SEQUENCE_KEY = "__switchboardPollSequence";
 const APP_STREAM_KEY = "__switchboardEventSource";
 const APP_UI_VERSION_TIMER_KEY = "__switchboardUiVersionTimer";
+const savedCatalogFilters = loadJson(CATALOG_FILTERS_KEY, {});
 
 const ui = {
   activeId: loadJson("switchboard-active-id", null),
@@ -80,8 +81,8 @@ const ui = {
     search: "",
     machine: "",
     status: "",
+    ...savedCatalogFilters,
     showArchived: false,
-    ...loadJson(CATALOG_FILTERS_KEY, {}),
   },
   selectedWorkspaceIds: new Set(),
   codexLaunchFlags: DEFAULT_CODEX_LAUNCH_FLAGS,
@@ -1518,13 +1519,12 @@ function handleKeyup(event) {
   }
 }
 
-async function toggleArchive(workspaceId) {
+async function updateArchiveState(workspaceId, archived) {
   const workspace = getWorkspaceById(workspaceId);
   if (!workspace || ui.archiveRequests.has(workspaceId)) {
-    return;
+    return false;
   }
 
-  const archived = !workspace.archived;
   const serverSessionId = String(workspace.session_id || (!workspace.is_local ? workspace.id : "") || "").trim();
   ui.archiveRequests.add(workspaceId);
   renderShell(ui.workspaces);
@@ -1539,13 +1539,39 @@ async function toggleArchive(workspaceId) {
       saveActiveId(firstUnarchivedWorkspaceId(new Set([workspace.id])));
     }
     await refresh();
+    return true;
   } catch (error) {
     console.error(error);
     syncDocumentTitle();
+    return false;
   } finally {
     ui.archiveRequests.delete(workspaceId);
     renderShell(ui.workspaces);
   }
+}
+
+async function toggleArchive(workspaceId) {
+  const workspace = getWorkspaceById(workspaceId);
+  if (!workspace) {
+    return;
+  }
+  await updateArchiveState(workspaceId, !workspace.archived);
+}
+
+async function openCatalogWorkspace(workspaceId) {
+  const workspace = getWorkspaceById(workspaceId);
+  if (!workspace) {
+    return;
+  }
+  if (workspace.archived) {
+    const updated = await updateArchiveState(workspace.id, false);
+    if (!updated) {
+      return;
+    }
+  }
+  maybeRequestNotificationPermission();
+  activate(workspace.id, { acknowledge: true, focusTab: true });
+  closeDrawer();
 }
 
 function setLocalArchiveStates(workspaceIds, archived) {
@@ -1713,6 +1739,7 @@ function renderCatalogRows() {
     row.className = "catalog-row";
     row.classList.toggle("is-active", workspace.id === ui.activeId);
     row.classList.toggle("is-local", Boolean(workspace.is_local));
+    row.classList.toggle("is-archived", Boolean(workspace.archived));
 
     const selectCell = document.createElement("td");
     selectCell.className = "catalog-col-select";
@@ -1762,27 +1789,28 @@ function renderCatalogRows() {
 
     const cells = [
       formatStatusText(displayStatus),
+      workspace.archived ? "Archived" : "Active",
       workspace.title,
       workspace.machine,
       workspace.folder_name || folderNameFromPath(workspace.cwd),
       workspace.branch || "—",
       formatTimestamp(workspace.updated_at || workspace.created_at || workspace.latest_event_created_at),
-      workspace.is_local ? "workspace" : workspace.archived ? "archived" : "session",
+      workspace.is_local ? "workspace" : "session",
     ].map((text) => {
       const cell = document.createElement("td");
       cell.textContent = text;
       return cell;
     });
     cells[0].classList.add("catalog-status-cell", `status-${displayStatus}`);
-    cells[1].classList.add("catalog-title-cell");
+    cells[1].classList.add("catalog-archive-cell", workspace.archived ? "is-archived" : "is-active");
+    cells[2].classList.add("catalog-title-cell");
 
     row.append(selectCell, actionCell, ...cells);
-    row.addEventListener("click", (event) => {
+    row.addEventListener("click", async (event) => {
       if (event.target instanceof HTMLElement && event.target.closest("input, button, a")) {
         return;
       }
-      activate(workspace.id, { acknowledge: true, focusTab: true });
-      closeDrawer();
+      await openCatalogWorkspace(workspace.id);
     });
     fragment.append(row);
   }

@@ -25,3 +25,4 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-06T05:03:27Z: Documented the `v0.1.0` operator-preview release status in README before creating the GitHub release.
 - 2026-05-06T05:07:35Z: Removed the legacy upstream auto-clone path from `install.sh`, documented checkout-local installation, and added installer proof for the fork-first flow.
 - 2026-05-06T05:15:27Z: Corrected the installer proof search transcript to avoid self-matching its own recorded command.
+- 2026-05-07T02:55:37Z: Implemented final polish for `17-h-final-polish`, including softer fork guidance, README screenshots, Switchboard catalog archive behavior, and v0.1.1 version metadata.

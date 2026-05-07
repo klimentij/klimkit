@@ -1527,6 +1527,13 @@ class SwitchboardTests(unittest.TestCase):
         self.assertIn("return tabBarWorkspaces(workspaces).filter", script)
         self.assertIn("ui.orderedWorkspaceIds = tabBarWorkspaces(allWorkspaces).map", script)
         self.assertIn('const actionLabel = workspace.archived ? "Unarchive" : "Archive";', script)
+        self.assertIn("async function updateArchiveState(workspaceId, archived)", script)
+        self.assertIn("async function openCatalogWorkspace(workspaceId)", script)
+        self.assertIn("await updateArchiveState(workspace.id, false);", script)
+        self.assertIn('workspace.archived ? "Archived" : "Active"', script)
+        self.assertIn('workspace.is_local ? "workspace" : "session"', script)
+        self.assertIn("...savedCatalogFilters", script)
+        self.assertIn("showArchived: false", script)
         self.assertIn("setArchiveStates(serverSessionIds, archived)", script)
         self.assertIn("const visibleArchivableIds = visible.map((workspace) => workspace.id);", script)
         self.assertIn("workspaceSortStamp(right).localeCompare(workspaceSortStamp(left))", script)
@@ -1544,6 +1551,7 @@ class SwitchboardTests(unittest.TestCase):
         self.assertNotIn('workspace.is_local ? "Close"', script)
         self.assertNotIn("closeLocalWorkspace(workspace.id)", script)
         self.assertNotIn("checkbox.disabled = Boolean(workspace.is_local)", script)
+        self.assertNotIn('workspace.is_local ? "workspace" : workspace.archived ? "archived" : "session"', script)
         self.assertNotIn('["__archive_separator__"]', script)
 
     def test_ingest_snapshot_sends_telegram_for_client_attention_once(self) -> None:

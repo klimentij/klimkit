@@ -25,6 +25,13 @@ class DocsStaticTests(unittest.TestCase):
         self.assertIn("__HUMAN_NAME__", text)
         self.assertIn(".klimkit/local/klimkit.toml", text)
         self.assertIn(".klimkit/state/", text)
+        for screenshot in (
+            "assets/screenshots/switchboard-pwa-workspace.png",
+            "assets/screenshots/switchboard-catalog.png",
+            "assets/screenshots/telegram-notifications.png",
+        ):
+            self.assertIn(screenshot, text)
+            self.assertTrue((ROOT / screenshot).exists(), screenshot)
 
     def test_security_and_contributing_docs_exist(self) -> None:
         security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
@@ -41,6 +48,7 @@ class DocsStaticTests(unittest.TestCase):
         hook = (ROOT / "packs" / "codex" / "hooks" / "stop-notify.sh").read_text(encoding="utf-8")
 
         self.assertIn("Manual tabs", index)
+        self.assertIn("<th>Archived</th>", index)
         self.assertNotIn("workspace-drawer-logo", index)
         for status in ('value="new"', 'value="working"', 'value="ask"', 'value="done"', 'value="seen"'):
             self.assertIn(status, index)

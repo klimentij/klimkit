@@ -13,7 +13,9 @@ Installs or refreshes Klimkit from the current checkout and writes the kk launch
 Agentic engineering across machines, under control.
 Configuration and apply are intentionally handled by kk after installation.
 
-Fork and clone Klimkit first, then run ./install.sh from that checkout:
+Clone Klimkit first, then run ./install.sh from that checkout. A fork is
+recommended for syncing your own operator profile across machines, but any local
+Klimkit checkout works:
 
   git clone https://github.com/<you>/klimkit.git ~/klimkit
   cd ~/klimkit
@@ -114,9 +116,10 @@ fi
 CHECKOUT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -z "$CHECKOUT" || ! -f "$CHECKOUT/pyproject.toml" || ! -d "$CHECKOUT/src/klimkit" ]]; then
   cat >&2 <<'EOF'
-install.sh must be run from a cloned Klimkit fork checkout.
+install.sh must be run from a local Klimkit checkout.
 
-Fork the repo first, then run:
+Clone the repo first, then run ./install.sh from the checkout.
+Forking is recommended for syncing your own operator profile, but not required:
 
   git clone https://github.com/<you>/klimkit.git ~/klimkit
   cd ~/klimkit

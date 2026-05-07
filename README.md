@@ -10,6 +10,14 @@
 
 Klimkit keeps an agent-ready machine reproducible. One repo owns the local instructions, harness packs, services, dashboards, and machine-specific settings needed to make a fresh VM behave like Klim's working environment. You edit the repo, preview exactly what will change, apply it locally, and use normal Git flow to carry the same operator setup to another machine.
 
+### Switchboard PWA Workspace
+
+![Klimkit Switchboard running as a Chrome PWA with code-server and Codex terminal panes.](assets/screenshots/switchboard-pwa-workspace.png)
+
+### Workspace Catalog
+
+![Klimkit Switchboard workspace catalog with create controls, filters, batch actions, and workspace rows.](assets/screenshots/switchboard-catalog.png)
+
 ## Table of Contents
 
 - [Quick Install](#quick-install)
@@ -30,7 +38,7 @@ Klimkit keeps an agent-ready machine reproducible. One repo owns the local instr
 
 ## Quick Install
 
-Fork this repo first so your machines sync your operator profile, not the upstream default flavor. Then install from your forked checkout:
+Forking this repo first is recommended so your machines sync your operator profile, not the upstream default flavor. It is not required for trying Klimkit; the installer works from any local Klimkit checkout:
 
 ```bash
 git clone https://github.com/<you>/klimkit.git ~/klimkit
@@ -49,13 +57,13 @@ source ~/.zshrc    # or source ~/.bashrc
 kk                 # show paths and setup commands
 ```
 
-The installer reuses the local checkout, installs the `kk` launcher into `~/.local/bin`, and leaves config creation plus service changes to explicit `kk` commands. It must be run from your checkout; Klimkit does not support a remote one-line install or auto-cloning the upstream repo. Push profile changes to your fork, then run `kk pull` on each other machine.
+The installer reuses the local checkout, installs the `kk` launcher into `~/.local/bin`, and leaves config creation plus service changes to explicit `kk` commands. It must be run from a local checkout; Klimkit does not support a remote one-line install or auto-cloning the upstream repo. Push profile changes to your fork, then run `kk pull` on each other machine.
 
 ## Release Status
 
-Current release: [`v0.1.0`](https://github.com/klimentij/klimkit/releases/tag/v0.1.0).
+Current release: [`v0.1.1`](https://github.com/klimentij/klimkit/releases/tag/v0.1.1).
 
-`v0.1.0` is the first operator-preview release for trusted personal fleets. The recommended path is still fork-first: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
+`v0.1.1` is an operator-preview polish release for trusted personal fleets. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
 
 ## Tech Stack
 
@@ -357,6 +365,8 @@ auto_sync_ref = "origin/main"
 Set `auto_sync = false` only on a VM where you want manual `kk pull` control.
 
 When `[notifications.telegram]` is enabled, each successful autosync sends one short message with the hostname, role, commit range, changed file count, changed areas, and restart status.
+
+![Telegram notifications from Klimkit autosync and Codex completion events, including deep links back to Switchboard.](assets/screenshots/telegram-notifications.png)
 
 ## Contributing
 

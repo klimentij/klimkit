@@ -939,6 +939,10 @@ iframe {
   opacity: 0.84;
 }
 
+.catalog-row.is-archived {
+  opacity: 0.72;
+}
+
 .catalog-status-cell {
   font-weight: 600;
 }
@@ -965,6 +969,15 @@ iframe {
 
 .catalog-title-cell {
   color: var(--accent-strong);
+}
+
+.catalog-archive-cell {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.catalog-archive-cell.is-archived {
+  color: var(--archive);
 }
 
 .catalog-action-cell {

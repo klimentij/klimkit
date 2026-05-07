@@ -14,3 +14,4 @@ Durable preferences, corrections, and process rules. Add dated one-sentence memo
 - 2026-05-06: Telegram completion notifications should be sent only for main Codex agents, not spawned subagents.
 - 2026-05-06: `kk apply` and `kk pull` should preserve local code-server preferences only when `[code_server] managed_profile = false`.
 - 2026-05-06: code-server preferences should sync through Klimkit's managed profile by default; use `kk code-server capture` after tuning the source VM.
+- 2026-05-07: Klimkit should recommend fork-first installs for real fleets without enforcing forks; direct upstream checkouts remain acceptable for trying the project.

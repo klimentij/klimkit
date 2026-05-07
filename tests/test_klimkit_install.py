@@ -688,7 +688,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertIn("does not accept options", result.stderr)
         self.assertIn("kk launcher", result.stderr)
 
-    def test_installer_requires_a_cloned_fork_checkout(self) -> None:
+    def test_installer_requires_local_checkout_without_enforcing_fork(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_script = Path(tmpdir) / "install.sh"
             shutil.copy2(ROOT / "install.sh", tmp_script)
@@ -701,7 +701,9 @@ class KlimkitInstallTests(unittest.TestCase):
             )
 
         self.assertEqual(result.returncode, 1)
-        self.assertIn("cloned Klimkit fork checkout", result.stderr)
+        self.assertIn("local Klimkit checkout", result.stderr)
+        self.assertIn("Forking is recommended", result.stderr)
+        self.assertIn("but not required", result.stderr)
         self.assertIn("git clone https://github.com/<you>/klimkit.git ~/klimkit", result.stderr)
         self.assertIn("does not download Klimkit or clone the upstream repo", result.stderr)
 
