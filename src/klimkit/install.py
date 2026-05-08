@@ -72,6 +72,7 @@ class InstallConfig:
     switchboard_max_session_age_days: int
     switchboard_stale_after_seconds: int
     switchboard_max_loaded_tabs: int
+    report_roots: tuple[Path, ...]
     telegram_enabled: bool
     telegram_bot_token: str
     telegram_chat_id: str
@@ -207,6 +208,7 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
         switchboard_max_session_age_days=14,
         switchboard_stale_after_seconds=180,
         switchboard_max_loaded_tabs=5,
+        report_roots=(OPS_REPO_ROOT,),
         telegram_enabled=False,
         telegram_bot_token="",
         telegram_chat_id="",
@@ -315,6 +317,11 @@ def render_config(config: InstallConfig) -> str:
             "# Each loaded tab costs roughly 400 MB RAM, so tune this to the client VM's memory.",
             f"max_loaded_tabs = {config.switchboard_max_loaded_tabs}",
             "",
+            "[reports]",
+            "# Repo/worktree roots scanned for repo-local .klimkit/reports/*.html reports.",
+            "# Report HTML is trackable; screenshot/video media under .klimkit/reports/ is ignored by Git.",
+            "repo_roots = " + json.dumps([str(path) for path in config.report_roots]),
+            "",
             "[switchboard.agent]",
             "# Enable this VM to report local Codex sessions to Switchboard.",
             "# First VMs may leave backend_url empty; Klimkit reports to the local server.",
@@ -375,6 +382,9 @@ def render_switchboard_config(config: InstallConfig) -> str:
             "max_session_age_days = 14",
             "stale_after_seconds = 180",
             "max_loaded_tabs = 5",
+            "",
+            "[reports]",
+            "repo_roots = " + json.dumps([str(path) for path in config.report_roots]),
             "",
             "[machine]",
             "id = \"\"",
@@ -452,6 +462,19 @@ def parse_config(raw: str) -> InstallConfig:
             switchboard_server.get("auth_token", switchboard.get("auth_token", "")),
         )
     ).strip()
+    reports = data.get("reports", {}) if isinstance(data.get("reports", {}), dict) else {}
+    report_roots_raw = reports.get("repo_roots", reports.get("roots", reports.get("report_roots", [])))
+    if isinstance(report_roots_raw, (str, Path)):
+        report_roots_values = [report_roots_raw]
+    elif isinstance(report_roots_raw, list):
+        report_roots_values = report_roots_raw
+    else:
+        report_roots_values = []
+    report_roots = tuple(
+        expand_path(str(value))
+        for value in report_roots_values
+        if str(value or "").strip()
+    ) or (expand_path(str(paths.get("repo_root", machine.get("repo_root", OPS_REPO_ROOT)))),)
     return InstallConfig(
         profile=_profile_from_roles(client_enabled=client_enabled, server_enabled=server_enabled),
         human_name=str(operator.get("human_name", operator.get("name", "Human"))).strip() or "Human",
@@ -517,6 +540,7 @@ def parse_config(raw: str) -> InstallConfig:
         ),
         switchboard_stale_after_seconds=max(30, int(switchboard_server.get("stale_after_seconds", 180))),
         switchboard_max_loaded_tabs=max(1, int(switchboard_server.get("max_loaded_tabs", 5))),
+        report_roots=report_roots,
         telegram_enabled=_bool(telegram.get("enabled"), False),
         telegram_bot_token=str(telegram.get("bot_token", "")).strip(),
         telegram_chat_id=str(telegram.get("chat_id", "")).strip(),
@@ -834,6 +858,14 @@ def build_plan(
                     "configure Tailscale Serve for Switchboard",
                     path=config.switchboard_base_path,
                     target_url=f"http://127.0.0.1:{config.switchboard_port}{config.switchboard_base_path}",
+                )
+            )
+            actions.append(
+                _tailscale_serve_action(
+                    "tailscale-serve-reports",
+                    "configure Tailscale Serve for Klimkit reports",
+                    path="/reports",
+                    target_url=f"http://127.0.0.1:{config.switchboard_port}/reports",
                 )
             )
 

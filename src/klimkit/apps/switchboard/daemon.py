@@ -34,7 +34,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib
 
-from klimkit.paths import KLIMKIT_CONFIG_FILE, KLIMKIT_STATE_DIR
+from klimkit.paths import KLIMKIT_CONFIG_FILE, KLIMKIT_STATE_DIR, OPS_REPO_ROOT
 from klimkit.notifications import send_telegram_message
 
 DEFAULT_CONFIG_PATH = KLIMKIT_CONFIG_FILE
@@ -118,6 +118,7 @@ class AppConfig:
     max_session_age_days: int
     stale_after_seconds: int
     max_loaded_tabs: int
+    report_roots: tuple[Path, ...]
     machine_id: str
     machine_dns: str
     trusted_codex_launch_bypass_sandbox: bool
@@ -234,6 +235,13 @@ def load_config(path: Path) -> AppConfig:
     machine_config = raw.get("machine", {})
     trusted_launch_config = raw.get("trusted_local_agent_launch", {})
     notifications_config = raw.get("notifications", {}) if isinstance(raw.get("notifications", {}), dict) else {}
+    reports_config = raw.get("reports", {}) if isinstance(raw.get("reports", {}), dict) else {}
+    switchboard_reports_config = (
+        switchboard.get("reports", {})
+        if isinstance(switchboard.get("reports", {}), dict)
+        else {}
+    )
+    reports_config = {**reports_config, **switchboard_reports_config}
     telegram_config = (
         notifications_config.get("telegram", {})
         if isinstance(notifications_config.get("telegram", {}), dict)
@@ -271,6 +279,36 @@ def load_config(path: Path) -> AppConfig:
         base_path = "/" + base_path
     base_path = base_path.rstrip("/") or DEFAULT_BASE_PATH
 
+    def configured_report_roots() -> tuple[Path, ...]:
+        raw_roots = (
+            reports_config.get("repo_roots")
+            or reports_config.get("roots")
+            or reports_config.get("report_roots")
+            or []
+        )
+        if isinstance(raw_roots, (str, os.PathLike)):
+            root_values = [raw_roots]
+        elif isinstance(raw_roots, list):
+            root_values = raw_roots
+        else:
+            root_values = []
+        if not root_values:
+            root_values = [root_paths.get("repo_root", str(OPS_REPO_ROOT))]
+
+        roots: list[Path] = []
+        seen: set[str] = set()
+        for root_value in root_values:
+            text = str(root_value or "").strip()
+            if not text:
+                continue
+            root = Path(text).expanduser()
+            key = str(root)
+            if key in seen:
+                continue
+            seen.add(key)
+            roots.append(root)
+        return tuple(roots)
+
     return AppConfig(
         state_dir=Path(str(nested("paths", "state_dir"))).expanduser(),
         sessions_root=Path(str(nested("paths", "sessions_root"))).expanduser(),
@@ -292,6 +330,7 @@ def load_config(path: Path) -> AppConfig:
         max_session_age_days=max(1, int(nested("collector", "max_session_age_days"))),
         stale_after_seconds=max(30, int(nested("collector", "stale_after_seconds"))),
         max_loaded_tabs=max(1, int(nested("collector", "max_loaded_tabs"))),
+        report_roots=configured_report_roots(),
         machine_id=str(nested("machine", "id")).strip(),
         machine_dns=str(nested("machine", "dns_name")).strip(),
         trusted_codex_launch_bypass_sandbox=bool(
@@ -2546,6 +2585,10 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
         if parsed.path == self.app.config.base_path:
             return self._redirect_to_prefixed_root()
         normalized = normalize_request_path(parsed.path, self.app.config.base_path)
+        if normalized == "/reports":
+            return self._redirect_to_reports_root()
+        if normalized == "/reports/" or normalized.startswith("/reports/r/"):
+            return self._handle_reports(normalized, head_only=False)
         if normalized == "/api/state":
             if not self._authorize_api_request():
                 return
@@ -2565,6 +2608,10 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
         if parsed.path == self.app.config.base_path:
             return self._redirect_to_prefixed_root()
         normalized = normalize_request_path(parsed.path, self.app.config.base_path)
+        if normalized == "/reports":
+            return self._redirect_to_reports_root()
+        if normalized == "/reports/" or normalized.startswith("/reports/r/"):
+            return self._handle_reports(normalized, head_only=True)
         if normalized in {"/api/state", "/api/stream"} and not self._authorize_api_request():
             return
         if normalized in {"/api/state", "/api/healthz", "/api/ui-version", "/api/stream"}:
@@ -2790,9 +2837,82 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
         self._send_headers(HTTPStatus.OK, guess_content_type(candidate.suffix), len(body))
         self.wfile.write(body)
 
+    def _handle_reports(self, path: str, *, head_only: bool) -> None:
+        if not self._authorize_api_request():
+            return
+        if path == "/reports/":
+            body = render_reports_index(self.app.config)
+            self._send_headers(
+                HTTPStatus.OK,
+                "text/html; charset=utf-8",
+                len(body),
+                cache_control="no-store",
+            )
+            if not head_only:
+                self.wfile.write(body)
+            return
+        prefix = "/reports/r/"
+        if not path.startswith(prefix):
+            self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
+            return
+        remainder = path[len(prefix):]
+        root_id, separator, relative_path = remainder.partition("/")
+        if not root_id or not separator or not relative_path:
+            self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
+            return
+        candidate = resolve_report_asset(self.app.config, parse.unquote(root_id), relative_path)
+        if candidate is None:
+            self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
+            return
+        self._send_report_asset(candidate, head_only=head_only)
+
+    def _send_report_asset(self, candidate: Path, *, head_only: bool) -> None:
+        content_type = guess_content_type(candidate.suffix)
+        size = candidate.stat().st_size
+        supports_range = content_type.startswith("video/")
+        range_header = str(self.headers.get("Range") or "").strip()
+        if supports_range and range_header:
+            try:
+                start, end = parse_byte_range(range_header, size)
+            except ValueError:
+                self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            length = end - start + 1
+            self.send_response(HTTPStatus.PARTIAL_CONTENT)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.send_header("Content-Length", str(length))
+            self.end_headers()
+            if not head_only:
+                with candidate.open("rb") as handle:
+                    handle.seek(start)
+                    self.wfile.write(handle.read(length))
+            return
+        body = candidate.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        if supports_range:
+            self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if not head_only:
+            self.wfile.write(body)
+
     def _redirect_to_prefixed_root(self) -> None:
         self.send_response(HTTPStatus.MOVED_PERMANENTLY)
         self.send_header("Location", f"{self.app.config.base_path}/")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _redirect_to_reports_root(self) -> None:
+        self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+        self.send_header("Location", "/reports/")
         self.send_header("Content-Length", "0")
         self.end_headers()
 
@@ -2857,7 +2977,8 @@ class SwitchboardHandler(BaseHTTPRequestHandler):
             location += "?" + clean_query
         self.send_response(HTTPStatus.FOUND)
         self.send_header("Location", location)
-        self.send_header("Set-Cookie", build_auth_cookie(token, self.app.config.base_path, secure=self.app.config.secure_auth_cookie))
+        cookie_path = "/" if parsed.path.startswith("/reports") else self.app.config.base_path
+        self.send_header("Set-Cookie", build_auth_cookie(token, cookie_path, secure=self.app.config.secure_auth_cookie))
         self.send_header("Content-Length", "0")
         self.end_headers()
         return True
@@ -2959,8 +3080,46 @@ def guess_content_type(suffix: str) -> str:
         ".webmanifest": "application/manifest+json; charset=utf-8",
         ".ico": "image/x-icon",
         ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
         ".svg": "image/svg+xml",
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+        ".mov": "video/quicktime",
     }.get(suffix, "application/octet-stream")
+
+
+def parse_byte_range(value: str, size: int) -> tuple[int, int]:
+    if size <= 0:
+        raise ValueError("empty file")
+    value = value.strip()
+    if not value.startswith("bytes="):
+        raise ValueError("unsupported range unit")
+    spec = value[len("bytes="):].strip()
+    if "," in spec:
+        raise ValueError("multiple ranges are not supported")
+    start_raw, separator, end_raw = spec.partition("-")
+    if not separator:
+        raise ValueError("missing range separator")
+    if not start_raw:
+        if not end_raw:
+            raise ValueError("empty range")
+        suffix_length = int(end_raw)
+        if suffix_length <= 0:
+            raise ValueError("invalid suffix range")
+        start = max(0, size - suffix_length)
+        end = size - 1
+    else:
+        start = int(start_raw)
+        end = size - 1 if not end_raw else int(end_raw)
+        if start < 0 or end < start:
+            raise ValueError("invalid byte range")
+        if start >= size:
+            raise ValueError("range start outside file")
+        end = min(end, size - 1)
+    return start, end
 
 
 def current_ui_version() -> str:
@@ -2973,6 +3132,182 @@ def current_ui_version() -> str:
             continue
         latest = max(latest, int(stat.st_mtime_ns))
     return str(latest)
+
+
+def report_root_id(root: Path) -> str:
+    resolved = root.expanduser().resolve(strict=False)
+    digest = hashlib.sha256(str(resolved).encode("utf-8")).hexdigest()[:10]
+    label = re.sub(r"[^a-zA-Z0-9_.-]+", "-", resolved.name or "repo").strip("-") or "repo"
+    return f"{label}-{digest}"
+
+
+def report_dir_for_root(root: Path) -> Path:
+    return root.expanduser() / ".klimkit" / "reports"
+
+
+def git_branch_for_root(root: Path) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--abbrev-ref", "HEAD"],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=1,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    branch = result.stdout.strip()
+    return "" if result.returncode != 0 or branch == "HEAD" else branch
+
+
+def report_title_and_timestamp(path: Path) -> tuple[str, str]:
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")[:65536]
+    except OSError:
+        return path.stem, ""
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", text, flags=re.IGNORECASE | re.DOTALL)
+    title = ""
+    if title_match:
+        title = normalize_whitespace(html.unescape(re.sub(r"<[^>]+>", "", title_match.group(1))))
+    if not title:
+        h1_match = re.search(r"<h1[^>]*>(.*?)</h1>", text, flags=re.IGNORECASE | re.DOTALL)
+        if h1_match:
+            title = normalize_whitespace(html.unescape(re.sub(r"<[^>]+>", "", h1_match.group(1))))
+    timestamp_match = re.search(
+        r'<meta\s+name=["\']report-timestamp["\']\s+content=["\']([^"\']+)["\']',
+        text,
+        flags=re.IGNORECASE,
+    )
+    timestamp = timestamp_match.group(1).strip() if timestamp_match else ""
+    return title or path.stem, timestamp
+
+
+def discover_reports(config: AppConfig) -> tuple[list[dict[str, Any]], list[str]]:
+    reports: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    for root in config.report_roots:
+        expanded_root = root.expanduser()
+        if not expanded_root.exists() or not expanded_root.is_dir():
+            warnings.append(f"Skipped missing report root: {expanded_root}")
+            continue
+        root_id = report_root_id(expanded_root)
+        report_dir = report_dir_for_root(expanded_root)
+        if not report_dir.exists():
+            continue
+        if not report_dir.is_dir():
+            warnings.append(f"Skipped non-directory report path: {report_dir}")
+            continue
+        try:
+            report_dir_resolved = report_dir.resolve()
+        except OSError:
+            warnings.append(f"Skipped unreadable report path: {report_dir}")
+            continue
+        branch = git_branch_for_root(expanded_root)
+        for html_path in sorted(report_dir.rglob("*.html")):
+            try:
+                resolved_html = html_path.resolve()
+                resolved_html.relative_to(report_dir_resolved)
+                stat = resolved_html.stat()
+            except (OSError, ValueError):
+                continue
+            relative_path = resolved_html.relative_to(report_dir_resolved).as_posix()
+            title, timestamp = report_title_and_timestamp(resolved_html)
+            mtime_dt = dt.datetime.fromtimestamp(stat.st_mtime, tz=dt.timezone.utc)
+            modified_at = mtime_dt.isoformat().replace("+00:00", "Z")
+            sort_at = timestamp or modified_at
+            reports.append(
+                {
+                    "root": expanded_root,
+                    "root_id": root_id,
+                    "project": expanded_root.name or str(expanded_root),
+                    "branch": branch,
+                    "title": title,
+                    "relative_path": relative_path,
+                    "url": f"/reports/r/{parse.quote(root_id)}/{parse.quote(relative_path)}",
+                    "timestamp": timestamp,
+                    "modified_at": modified_at,
+                    "sort_at": sort_at,
+                }
+            )
+    reports.sort(key=lambda item: (str(item["sort_at"]), str(item["project"]), str(item["relative_path"])), reverse=True)
+    return reports, warnings
+
+
+def render_reports_index(config: AppConfig) -> bytes:
+    reports, warnings = discover_reports(config)
+    rows = []
+    for report in reports:
+        when = report["timestamp"] or report["modified_at"]
+        branch = report["branch"] or "—"
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(report['project']))}</td>"
+            f"<td>{html.escape(branch)}</td>"
+            f"<td><a href=\"{html.escape(str(report['url']))}\">{html.escape(str(report['title']))}</a></td>"
+            f"<td>{html.escape(str(when))}</td>"
+            f"<td><code>{html.escape(str(report['relative_path']))}</code></td>"
+            "</tr>"
+        )
+    if not rows:
+        rows.append('<tr><td colspan="5" class="empty">No reports found in configured repo roots.</td></tr>')
+    warning_html = "".join(f"<li>{html.escape(warning)}</li>" for warning in warnings)
+    warnings_block = f'<ul class="warnings">{warning_html}</ul>' if warning_html else ""
+    body = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Klimkit Reports</title>
+  <style>
+    body {{ margin: 0; padding: 1rem; font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #07100d; color: #d7f5e5; }}
+    main {{ max-width: 1100px; margin: 0 auto; }}
+    h1 {{ margin: 0 0 .25rem; font-size: 1.35rem; }}
+    p {{ margin: 0 0 1rem; color: #96b7a7; }}
+    table {{ width: 100%; border-collapse: collapse; background: #0b1512; }}
+    th, td {{ padding: .55rem .65rem; border: 1px solid #1c342b; text-align: left; vertical-align: top; }}
+    th {{ color: #9ee6bc; background: #101f19; }}
+    a {{ color: #9ee6bc; }}
+    code {{ overflow-wrap: anywhere; color: #b7d4c7; }}
+    .empty {{ color: #96b7a7; text-align: center; }}
+    .warnings {{ color: #e8c579; }}
+    @media (max-width: 720px) {{ body {{ padding: .5rem; }} table, thead, tbody, tr, th, td {{ display: block; }} th {{ display: none; }} td {{ border-top: 0; }} tr {{ border-top: 1px solid #1c342b; }} }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Klimkit Reports</h1>
+    <p>Repo-local reports discovered under configured <code>.klimkit/reports/</code> directories.</p>
+    {warnings_block}
+    <table>
+      <thead><tr><th>Project</th><th>Branch</th><th>Report</th><th>Updated</th><th>Path</th></tr></thead>
+      <tbody>{''.join(rows)}</tbody>
+    </table>
+  </main>
+</body>
+</html>
+"""
+    return body.encode("utf-8")
+
+
+def resolve_report_asset(config: AppConfig, root_id: str, relative_url_path: str) -> Path | None:
+    relative_text = parse.unquote(relative_url_path)
+    if not relative_text or relative_text.startswith("/") or "\\" in relative_text:
+        return None
+    relative_path = Path(relative_text)
+    if relative_path.is_absolute() or any(part in {"", ".", ".."} for part in relative_path.parts):
+        return None
+    for root in config.report_roots:
+        if report_root_id(root) != root_id:
+            continue
+        report_dir = report_dir_for_root(root)
+        try:
+            report_dir_resolved = report_dir.resolve()
+            candidate = (report_dir / relative_path).resolve()
+            candidate.relative_to(report_dir_resolved)
+        except (OSError, ValueError):
+            return None
+        return candidate if candidate.is_file() else None
+    return None
 
 
 def serve_forever(app: SwitchboardApp) -> None:

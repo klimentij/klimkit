@@ -4,6 +4,14 @@
 .klimkit/state/
 .klimkit/backups/
 .klimkit/logs/
+.klimkit/reports/**/*.png
+.klimkit/reports/**/*.jpg
+.klimkit/reports/**/*.jpeg
+.klimkit/reports/**/*.gif
+.klimkit/reports/**/*.webp
+.klimkit/reports/**/*.mp4
+.klimkit/reports/**/*.webm
+.klimkit/reports/**/*.mov
 tmp/
 __pycache__/
 .venv/

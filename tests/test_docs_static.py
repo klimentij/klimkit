@@ -28,9 +28,16 @@ class DocsStaticTests(unittest.TestCase):
         self.assertIn(".klimkit/state/", text)
         self.assertIn("The core operating promise is parallel agent work", text)
         self.assertIn("## Codex Harness Workflow", text)
+        self.assertIn("## Reports", text)
         self.assertIn("## Parallel Agent Worktrees", text)
         self.assertIn("examples/create-worktree.sh", text)
         self.assertIn("5-7 agents", text)
+        self.assertIn(".klimkit/reports/", text)
+        self.assertIn("full-width section", text)
+        self.assertIn("Prefer MP4 videos", text)
+        self.assertIn('repo_roots = ["~/klimkit", "~/wt", "~/projects"]', text)
+        self.assertIn("Tailscale-served report URL", text)
+        self.assertIn("https://<machine>.<tailnet>.ts.net/reports/", text)
         for screenshot in (
             "assets/screenshots/switchboard-pwa-workspace.png",
             "assets/screenshots/switchboard-catalog.png",
@@ -65,8 +72,11 @@ class DocsStaticTests(unittest.TestCase):
         index = (ROOT / "src" / "klimkit" / "apps" / "switchboard" / "static" / "index.html").read_text(encoding="utf-8")
         app = (ROOT / "src" / "klimkit" / "apps" / "switchboard" / "static" / "app.js").read_text(encoding="utf-8")
         hook = (ROOT / "packs" / "codex" / "hooks" / "stop-notify.sh").read_text(encoding="utf-8")
+        gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
 
         self.assertIn("Manual tabs", index)
+        self.assertIn("Tab Browser", index)
+        self.assertIn('role="tab"', index)
         self.assertIn("<th>Archived</th>", index)
         self.assertNotIn("workspace-drawer-logo", index)
         for status in ('value="new"', 'value="working"', 'value="ask"', 'value="done"', 'value="seen"'):
@@ -77,6 +87,16 @@ class DocsStaticTests(unittest.TestCase):
             self.assertNotIn(old_status, index)
         self.assertIn("materializeManualWorkspaces", app)
         self.assertIn("activateLocationTarget", app)
+        self.assertIn("TAB_BROWSER_ID", app)
+        self.assertIn("WORKSPACE_MANUAL_ORDER_KEY", app)
+        self.assertIn("sanitizeCatalogFilters", app)
+        self.assertIn("moveWorkspaceNear", app)
+        self.assertIn("handleWorkspaceDrop", app)
+        self.assertIn("navigationIds", app)
+        self.assertIn('openDrawer("catalog");', app)
+        self.assertIn(".klimkit/reports/", gitignore)
+        for extension in ("png", "jpg", "jpeg", "gif", "webp", "mp4", "webm", "mov"):
+            self.assertIn(f".klimkit/reports/**/*.{extension}", gitignore)
         self.assertIn("/proxy/4721/#{target}", hook)
         self.assertNotIn("Quick open on this Mac", hook)
         self.assertNotIn("43123", hook)

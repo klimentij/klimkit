@@ -38,6 +38,7 @@ def build_config(
         max_session_age_days=3650,
         stale_after_seconds=180,
         max_loaded_tabs=5,
+        report_roots=(state_dir,),
         machine_id="workstation",
         machine_dns="workstation.example.ts.net",
         trusted_codex_launch_bypass_sandbox=trusted_bypass,
@@ -1440,6 +1441,125 @@ class SwitchboardTests(unittest.TestCase):
             finally:
                 running.close()
 
+    def test_reports_index_aggregates_roots_and_serves_media_safely(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            repo_a = root / "repo-a"
+            repo_b = root / "repo-b"
+            report_a = repo_a / ".klimkit" / "reports" / "flow" / "report.html"
+            report_b = repo_b / ".klimkit" / "reports" / "report.html"
+            media = report_a.parent / "assets" / "demo.webm"
+            mp4_media = report_a.parent / "assets" / "demo.mp4"
+            report_a.parent.mkdir(parents=True)
+            report_b.parent.mkdir(parents=True)
+            media.parent.mkdir()
+            report_a.write_text(
+                '<!doctype html><title>Tab Browser QA</title><meta name="report-timestamp" content="2026-05-08T09:00:00Z"><video src="assets/demo.webm"></video>',
+                encoding="utf-8",
+            )
+            report_b.write_text(
+                '<!doctype html><h1>Older Report</h1><meta name="report-timestamp" content="2026-05-07T09:00:00Z">',
+                encoding="utf-8",
+            )
+            media.write_bytes(b"webm")
+            mp4_media.write_bytes(b"0123456789")
+            secret = root / "secret.txt"
+            secret.write_text("nope", encoding="utf-8")
+            config = MODULE.AppConfig(
+                **{
+                    **build_config(root).__dict__,
+                    "report_roots": (repo_a, root / "missing", repo_b),
+                }
+            )
+            running = start_server(config)
+            origin = f"http://127.0.0.1:{running.server.server_address[1]}"
+            try:
+                with request.urlopen(origin + "/reports/", timeout=5) as response:
+                    index = response.read().decode("utf-8")
+                self.assertIn("Klimkit Reports", index)
+                self.assertIn("repo-a", index)
+                self.assertIn("repo-b", index)
+                self.assertIn("Tab Browser QA", index)
+                self.assertIn("Older Report", index)
+                self.assertIn("Skipped missing report root", index)
+                self.assertLess(index.index("Tab Browser QA"), index.index("Older Report"))
+
+                report_url = f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/flow/report.html"
+                with request.urlopen(report_url, timeout=5) as response:
+                    self.assertEqual(response.headers["Content-Type"], "text/html; charset=utf-8")
+                    self.assertIn("assets/demo.webm", response.read().decode("utf-8"))
+
+                with request.urlopen(f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/flow/assets/demo.webm", timeout=5) as response:
+                    self.assertEqual(response.headers["Content-Type"], "video/webm")
+                    self.assertEqual(response.read(), b"webm")
+
+                with request.urlopen(f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/flow/assets/demo.mp4", timeout=5) as response:
+                    self.assertEqual(response.headers["Content-Type"], "video/mp4")
+                    self.assertEqual(response.headers["Accept-Ranges"], "bytes")
+                    self.assertEqual(response.read(), b"0123456789")
+
+                range_request = request.Request(
+                    f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/flow/assets/demo.mp4",
+                    headers={"Range": "bytes=2-5"},
+                )
+                with request.urlopen(range_request, timeout=5) as response:
+                    self.assertEqual(response.status, 206)
+                    self.assertEqual(response.headers["Content-Type"], "video/mp4")
+                    self.assertEqual(response.headers["Accept-Ranges"], "bytes")
+                    self.assertEqual(response.headers["Content-Range"], "bytes 2-5/10")
+                    self.assertEqual(response.read(), b"2345")
+
+                invalid_range = request.Request(
+                    f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/flow/assets/demo.mp4",
+                    headers={"Range": "bytes=100-200"},
+                )
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(invalid_range, timeout=5)
+                self.assertEqual(raised.exception.code, 416)
+                self.assertEqual(raised.exception.headers["Content-Range"], "bytes */10")
+
+                head = request.Request(origin + "/reports/", method="HEAD")
+                with request.urlopen(head, timeout=5) as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(response.read(), b"")
+
+                traversal = f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/%2e%2e/%2e%2e/secret.txt"
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(traversal, timeout=5)
+                self.assertEqual(raised.exception.code, 404)
+            finally:
+                running.close()
+
+    def test_reports_routes_require_token_when_switchboard_requires_token(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            report = root / ".klimkit" / "reports" / "report.html"
+            report.parent.mkdir(parents=True)
+            report.write_text("<!doctype html><title>Secure Report</title>", encoding="utf-8")
+            config = MODULE.AppConfig(
+                **{
+                    **build_config(root).__dict__,
+                    "backend_auth_token": "secret-token",
+                    "report_roots": (root,),
+                }
+            )
+            running = start_server(config)
+            origin = f"http://127.0.0.1:{running.server.server_address[1]}"
+            try:
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(origin + "/reports/", timeout=5)
+                self.assertEqual(raised.exception.code, 401)
+
+                authorized = request.Request(
+                    origin + "/reports/",
+                    headers={"X-Switchboard-Token": "secret-token"},
+                    method="GET",
+                )
+                with request.urlopen(authorized, timeout=5) as response:
+                    self.assertIn("Secure Report", response.read().decode("utf-8"))
+            finally:
+                running.close()
+
     def test_custom_base_path_serves_relative_manifest_and_scope_safe_worker(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             running = start_server(build_config(Path(tmpdir), base_path="/board"))
@@ -1532,8 +1652,8 @@ class SwitchboardTests(unittest.TestCase):
         self.assertIn("await updateArchiveState(workspace.id, false);", script)
         self.assertIn('workspace.archived ? "Archived" : "Active"', script)
         self.assertIn('workspace.is_local ? "workspace" : "session"', script)
-        self.assertIn("...savedCatalogFilters", script)
-        self.assertIn("showArchived: false", script)
+        self.assertIn("sanitizeCatalogFilters(loadJson(CATALOG_FILTERS_KEY, {}))", script)
+        self.assertIn("VISIBLE_STATUSES.includes(status) ? status : \"\"", script)
         self.assertIn("setArchiveStates(serverSessionIds, archived)", script)
         self.assertIn("const visibleArchivableIds = visible.map((workspace) => workspace.id);", script)
         self.assertIn("workspaceSortStamp(right).localeCompare(workspaceSortStamp(left))", script)

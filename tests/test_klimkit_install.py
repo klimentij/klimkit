@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class KlimkitInstallTests(unittest.TestCase):
     def test_default_config_is_first_vm_with_client_and_server(self) -> None:
-        config = replace(default_config(), repo_root=Path("/tmp/klimkit"))
+        config = replace(default_config(), repo_root=Path("/tmp/klimkit"), report_roots=(Path("/tmp/klimkit"),))
 
         parsed = parse_config(render_config(config))
 
@@ -56,7 +56,26 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertIn("[switchboard.server]", render_config(config))
         self.assertIn("max_loaded_tabs = 5", render_config(config))
         self.assertIn("roughly 400 MB RAM", render_config(config))
+        self.assertEqual(parsed.report_roots, (Path("/tmp/klimkit"),))
+        self.assertIn("[reports]", render_config(config))
+        self.assertIn('repo_roots = ["/tmp/klimkit"]', render_config(config))
         self.assertIn("[notifications.telegram]", render_config(config))
+
+    def test_reports_roots_are_configurable(self) -> None:
+        config = parse_config(
+            "\n".join(
+                [
+                    "[paths]",
+                    'repo_root = "/repo/default"',
+                    "",
+                    "[reports]",
+                    'repo_roots = ["/repo/a", "/repo/b"]',
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(config.report_roots, (Path("/repo/a"), Path("/repo/b")))
 
     def test_client_only_role_disables_server_components(self) -> None:
         config = parse_config(
@@ -322,6 +341,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertIn("sudo tailscale set --operator=$USER", command)
         self.assertIn("exit 78", command)
         self.assertFalse(any(action.id == "tailscale-serve-switchboard" for action in actions))
+        self.assertFalse(any(action.id == "tailscale-serve-reports" for action in actions))
 
     def test_apply_writes_manifest_backup_and_uninstall_scope(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

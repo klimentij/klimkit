@@ -22,9 +22,10 @@
       <section class="strip-shell" aria-label="Workspace switcher">
         <div class="strip-toolbar">
           <div class="strip-actions" aria-label="Workspace tools">
-            <button id="catalog-toggle" class="strip-action-button strip-action-button--catalog" type="button" aria-haspopup="dialog" aria-label="Open workspace catalog">
+            <button id="catalog-toggle" class="strip-action-button strip-action-button--catalog" type="button" role="tab" aria-label="Open Tab Browser">
               <img class="strip-action-logo" src="./icons/icon-192.png" alt="" />
               <span id="catalog-count" class="strip-action-count">0</span>
+              <span class="strip-action-label">Tabs</span>
               <span class="sr-only">active unarchived tabs</span>
             </button>
           </div>
@@ -36,16 +37,16 @@
 
       <main id="frame-deck" class="frame-deck" aria-label="Workspace deck"></main>
 
-      <aside id="workspace-drawer" class="workspace-drawer" aria-label="Workspace catalog" hidden>
+      <aside id="workspace-drawer" class="workspace-drawer" aria-label="Tab Browser" hidden>
         <div class="workspace-drawer-panel">
           <header class="workspace-drawer-header">
             <div class="workspace-drawer-brand">
               <div>
-                <h2 id="drawer-title" class="workspace-drawer-title">Klimkit Switchboard</h2>
+                <h2 id="drawer-title" class="workspace-drawer-title">Tab Browser</h2>
                 <p id="drawer-eyebrow" class="workspace-drawer-eyebrow">Manual tabs</p>
               </div>
             </div>
-            <button id="drawer-close" class="workspace-drawer-close" type="button" aria-label="Close drawer">×</button>
+            <button id="drawer-close" class="workspace-drawer-close" type="button" aria-label="Return to workspace">×</button>
           </header>
 
           <section id="catalog-view" class="workspace-drawer-view">

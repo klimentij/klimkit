@@ -36,19 +36,21 @@ These are shared, home-level defaults. Repository-local `AGENTS.md` files add pr
 5. **Verify**
    - Run the tests and checks that match the checklist and blast radius.
    - For UI work, verify the actual screen states, empty/loading/error states, interaction states, persistence, local storage, database effects, network/API effects, and responsive behavior called out by the checklist.
+   - For UI work, produce a final HTML proof report under the active repo's `.klimkit/reports/` directory with text evidence, required screenshots, and a native `agent-browser` video recording referenced from the report. Render each screenshot and video as a full-width section so it can be inspected without opening thumbnails. Prefer MP4 in the report for reliable Chrome/PWA scrubbing; a native WebM recording may be converted to MP4 for presentation.
+   - When a Tailscale DNS name is available, proof handoffs and final responses must include the Tailscale-served report URL under `https://<machine>.<tailnet>.ts.net/reports/`; localhost report URLs are only local QA fallback evidence.
    - If tests fail or behavior is surprising, use `debugger` to isolate the root cause before guessing.
    - For auth, secrets, sandboxing, infra, or compliance-sensitive changes, run `security_auditor` before calling the task done.
 
 6. **Final Review Gate**
    - Draft the exact final response before calling reviewers.
    - Run 3 `final_reviewer` subagents in parallel.
-   - Give each reviewer the original human request or task path, the checklister acceptance checklist, the changed files, verification evidence, and the exact draft response.
+   - Give each reviewer the original human request or task path, the checklister acceptance checklist, the changed files, verification evidence, the final HTML proof report path and Tailscale report URL for UI work, and the exact draft response.
    - All 3 reviewers must return PASS / READY FOR USER before you send a completion claim to __HUMAN_NAME__.
 
 7. **Report**
    - Report what changed, what passed, and any remaining risk or unavailable verification.
    - When user-visible behavior changed, include `How __HUMAN_NAME__ can check this` with concrete manual steps.
-   - When proof is requested, prefer a tiny static HTML report or compact task note that is easy to skim.
+   - When proof is requested, prefer a tiny static HTML report under `.klimkit/reports/` or compact task note that is easy to skim, and include the Tailscale-served report URL when available.
 
 ## Subagent Roles
 

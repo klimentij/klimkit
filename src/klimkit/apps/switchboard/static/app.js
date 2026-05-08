@@ -41,6 +41,8 @@ const newWorkspaceFolderOptions = document.querySelector("#new-workspace-folder-
 const LOCAL_WORKSPACES_KEY = "switchboard-local-workspaces";
 const LOCAL_WORKSPACE_SEQUENCE_KEY = "switchboard-local-workspace-sequence";
 const CATALOG_FILTERS_KEY = "switchboard-catalog-filters";
+const WORKSPACE_MANUAL_ORDER_KEY = "switchboard-workspace-manual-order";
+const TAB_BROWSER_ID = "__tab_browser__";
 const TAB_RENDER_BATCH = 20;
 const DEFAULT_MAX_LOADED_FRAMES = 5;
 const POLL_INTERVAL_MS = 10000;
@@ -54,15 +56,20 @@ const APP_POLL_TIMER_KEY = "__switchboardPollTimer";
 const APP_POLL_SEQUENCE_KEY = "__switchboardPollSequence";
 const APP_STREAM_KEY = "__switchboardEventSource";
 const APP_UI_VERSION_TIMER_KEY = "__switchboardUiVersionTimer";
-const savedCatalogFilters = loadJson(CATALOG_FILTERS_KEY, {});
+const savedCatalogFilters = sanitizeCatalogFilters(loadJson(CATALOG_FILTERS_KEY, {}));
 
 const ui = {
   activeId: loadJson("switchboard-active-id", null),
+  activeView: loadJson("switchboard-active-view", "workspace"),
+  lastWorkspaceId: loadJson("switchboard-last-workspace-id", null),
   serverWorkspaces: [],
   localWorkspaces: sanitizeLocalWorkspaces(loadJson(LOCAL_WORKSPACES_KEY, [])),
   machines: [],
   workspaces: [],
   orderedWorkspaceIds: [],
+  manualWorkspaceOrder: sanitizeManualOrder(loadJson(WORKSPACE_MANUAL_ORDER_KEY, [])),
+  draggedWorkspaceKey: "",
+  draggedWorkspaceId: "",
   items: new Map(),
   panels: new Map(),
   loadedFrames: new Set(),
@@ -77,13 +84,7 @@ const ui = {
   drawerOpen: false,
   visibleTabCount: TAB_RENDER_BATCH,
   appliedLocationTarget: "",
-  catalogFilters: {
-    search: "",
-    machine: "",
-    status: "",
-    ...savedCatalogFilters,
-    showArchived: false,
-  },
+  catalogFilters: savedCatalogFilters,
   selectedWorkspaceIds: new Set(),
   codexLaunchFlags: DEFAULT_CODEX_LAUNCH_FLAGS,
 };
@@ -112,9 +113,40 @@ function saveJson(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+function sanitizeManualOrder(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set();
+  const result = [];
+  for (const entry of value) {
+    const key = String(entry || "").trim();
+    if (!key || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(key);
+  }
+  return result;
+}
+
+function saveManualWorkspaceOrder() {
+  ui.manualWorkspaceOrder = sanitizeManualOrder(ui.manualWorkspaceOrder);
+  saveJson(WORKSPACE_MANUAL_ORDER_KEY, ui.manualWorkspaceOrder);
+}
+
 function saveActiveId(id) {
   ui.activeId = id;
   saveJson("switchboard-active-id", id);
+  if (id && id !== TAB_BROWSER_ID) {
+    ui.lastWorkspaceId = id;
+    saveJson("switchboard-last-workspace-id", id);
+  }
+}
+
+function saveActiveView(view) {
+  ui.activeView = view === "tab-browser" ? "tab-browser" : "workspace";
+  saveJson("switchboard-active-view", ui.activeView);
 }
 
 function saveLocalWorkspaces() {
@@ -123,6 +155,17 @@ function saveLocalWorkspaces() {
 
 function saveCatalogFilters() {
   saveJson(CATALOG_FILTERS_KEY, ui.catalogFilters);
+}
+
+function sanitizeCatalogFilters(filters) {
+  const raw = filters && typeof filters === "object" ? filters : {};
+  const status = String(raw.status || "").trim();
+  return {
+    search: String(raw.search || "").trim(),
+    machine: String(raw.machine || "").trim(),
+    status: VISIBLE_STATUSES.includes(status) ? status : "",
+    showArchived: Boolean(raw.showArchived),
+  };
 }
 
 function restoreTabStripScroll() {
@@ -578,7 +621,7 @@ async function acknowledgeWorkspace(sessionId, eventId) {
 }
 
 function sortWorkspaces(workspaces) {
-  return [...workspaces].sort((left, right) => {
+  return applyManualWorkspaceOrder([...workspaces].sort((left, right) => {
     if (Boolean(left.archived) !== Boolean(right.archived)) {
       return left.archived ? 1 : -1;
     }
@@ -588,7 +631,117 @@ function sortWorkspaces(workspaces) {
       return rightStamp.localeCompare(leftStamp);
     }
     return String(left.id).localeCompare(String(right.id));
+  }));
+}
+
+function workspaceManualOrderKey(workspace) {
+  if (workspace?.is_local || workspace?.manual_tab) {
+    return `folder:${machineFolderKey(workspace?.machine, workspace?.cwd)}`;
+  }
+  return workspaceIdentityKey(workspace);
+}
+
+function pruneManualWorkspaceOrder(workspaces) {
+  const available = new Set(workspaces.map((workspace) => workspaceManualOrderKey(workspace)));
+  const pruned = ui.manualWorkspaceOrder.filter((key) => available.has(key));
+  if (pruned.join("|") !== ui.manualWorkspaceOrder.join("|")) {
+    ui.manualWorkspaceOrder = pruned;
+    saveManualWorkspaceOrder();
+  }
+}
+
+function applyManualWorkspaceOrder(workspaces) {
+  if (!workspaces.length) {
+    return [];
+  }
+  if (!ui?.manualWorkspaceOrder?.length) {
+    return workspaces;
+  }
+  const orderedKeys = new Map(ui.manualWorkspaceOrder.map((key, index) => [key, index]));
+  return [...workspaces].sort((left, right) => {
+    const leftOrder = orderedKeys.get(workspaceManualOrderKey(left));
+    const rightOrder = orderedKeys.get(workspaceManualOrderKey(right));
+    if (leftOrder !== undefined && rightOrder !== undefined && leftOrder !== rightOrder) {
+      return leftOrder - rightOrder;
+    }
+    if (leftOrder !== undefined) {
+      return -1;
+    }
+    if (rightOrder !== undefined) {
+      return 1;
+    }
+    return 0;
   });
+}
+
+function moveWorkspaceNear(sourceId, targetId, placeAfter = false) {
+  if (!sourceId || !targetId || sourceId === targetId) {
+    return;
+  }
+  const source = getWorkspaceById(sourceId);
+  const target = getWorkspaceById(targetId);
+  if (!source || !target) {
+    return;
+  }
+  const keysInCurrentOrder = ui.workspaces.map((workspace) => workspaceManualOrderKey(workspace));
+  const sourceKey = workspaceManualOrderKey(source);
+  const targetKey = workspaceManualOrderKey(target);
+  const next = keysInCurrentOrder.filter((key) => key !== sourceKey);
+  const targetIndex = next.indexOf(targetKey);
+  next.splice(targetIndex < 0 ? next.length : targetIndex + (placeAfter ? 1 : 0), 0, sourceKey);
+  ui.manualWorkspaceOrder = next;
+  saveManualWorkspaceOrder();
+  ui.workspaces = sortWorkspaces(ui.workspaces);
+  ui.localWorkspaces = sortWorkspaces(ui.localWorkspaces);
+  saveLocalWorkspaces();
+  renderShell(ui.workspaces);
+  renderDrawer();
+}
+
+function dropAfterTarget(event, element, axis) {
+  const rect = element.getBoundingClientRect();
+  if (axis === "x") {
+    return event.clientX > rect.left + rect.width / 2;
+  }
+  return event.clientY > rect.top + rect.height / 2;
+}
+
+function startWorkspaceDrag(event, workspaceId) {
+  ui.draggedWorkspaceId = workspaceId;
+  const workspace = getWorkspaceById(workspaceId);
+  ui.draggedWorkspaceKey = workspace ? workspaceManualOrderKey(workspace) : "";
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", workspaceId);
+}
+
+function clearWorkspaceDragClasses() {
+  for (const element of document.querySelectorAll(".is-dragging, .is-drop-target")) {
+    element.classList.remove("is-dragging", "is-drop-target");
+  }
+}
+
+function finishWorkspaceDrag() {
+  ui.draggedWorkspaceId = "";
+  ui.draggedWorkspaceKey = "";
+  clearWorkspaceDragClasses();
+}
+
+function handleWorkspaceDragOver(event, workspaceId, element) {
+  if (!ui.draggedWorkspaceId || ui.draggedWorkspaceId === workspaceId) {
+    return;
+  }
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  element.classList.add("is-drop-target");
+}
+
+function handleWorkspaceDrop(event, workspaceId, element, axis) {
+  if (!ui.draggedWorkspaceId || ui.draggedWorkspaceId === workspaceId) {
+    return;
+  }
+  event.preventDefault();
+  moveWorkspaceNear(ui.draggedWorkspaceId, workspaceId, dropAfterTarget(event, element, axis));
+  finishWorkspaceDrag();
 }
 
 function workspaceSortStamp(workspace) {
@@ -758,6 +911,8 @@ function materializeState(payload) {
   ui.serverWorkspaces = sortWorkspaces(Array.isArray(payload.workspaces) ? payload.workspaces : []);
   syncLocalWorkspaces();
   ui.workspaces = sortWorkspaces(materializeManualWorkspaces(ui.serverWorkspaces));
+  pruneManualWorkspaceOrder(ui.workspaces);
+  ui.workspaces = sortWorkspaces(ui.workspaces);
   reconcileActiveManualWorkspace();
   ui.machines = buildMachineList(payload.machines, [...ui.serverWorkspaces, ...ui.localWorkspaces]);
   const tabCount = tabBarWorkspaceCount(ui.workspaces);
@@ -891,8 +1046,22 @@ function ensureStructures(allWorkspaces, tabWorkspaces) {
       const copyButton = shell.querySelector(".workspace-tab-copy");
       const actionButton = shell.querySelector(".workspace-tab-archive");
       shell.dataset.workspaceId = workspace.id;
+      shell.draggable = true;
       tab.dataset.workspaceId = workspace.id;
       tab.addEventListener("click", () => activate(workspace.id, { acknowledge: true }));
+      shell.addEventListener("dragstart", (event) => {
+        shell.classList.add("is-dragging");
+        startWorkspaceDrag(event, workspace.id);
+      });
+      shell.addEventListener("dragend", () => finishWorkspaceDrag());
+      shell.addEventListener("dragenter", () => {
+        if (ui.draggedWorkspaceId && ui.draggedWorkspaceId !== workspace.id) {
+          shell.classList.add("is-drop-target");
+        }
+      });
+      shell.addEventListener("dragleave", () => shell.classList.remove("is-drop-target"));
+      shell.addEventListener("dragover", (event) => handleWorkspaceDragOver(event, workspace.id, shell));
+      shell.addEventListener("drop", (event) => handleWorkspaceDrop(event, workspace.id, shell, "x"));
       copyButton.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1082,6 +1251,9 @@ function formatStatusText(state) {
 }
 
 function buildWindowTitle(workspace) {
+  if (ui.activeView === "tab-browser") {
+    return "Tab Browser | Klimkit";
+  }
   if (!workspace) {
     return "Klimkit";
   }
@@ -1097,6 +1269,10 @@ function buildWindowTitle(workspace) {
 }
 
 function syncDocumentTitle() {
+  if (ui.activeView === "tab-browser") {
+    document.title = "Tab Browser | Klimkit";
+    return;
+  }
   const activeWorkspace = getWorkspaceById(ui.activeId) || ui.workspaces[0] || null;
   document.title = buildWindowTitle(activeWorkspace);
 }
@@ -1157,8 +1333,14 @@ function renderShell(workspaces) {
     syncPanel(workspace);
   });
 
+  catalogToggle.classList.toggle("is-active", ui.activeView === "tab-browser");
+  catalogToggle.setAttribute("aria-selected", String(ui.activeView === "tab-browser"));
+  catalogToggle.setAttribute("tabindex", "0");
   reorderTabStrip(tabWorkspaces, workspaces);
-  if (ui.activeId) {
+  if (ui.activeView === "tab-browser") {
+    openDrawer("catalog", { focus: false });
+    syncDocumentTitle();
+  } else if (ui.activeId) {
     activate(ui.activeId, { preserveScroll: true, acknowledge: false, focusTab: false, skipVisibility: true });
   } else {
     syncDocumentTitle();
@@ -1284,6 +1466,15 @@ function activate(id, options = {}) {
   if (!id) {
     return;
   }
+  saveActiveView("workspace");
+  if (ui.drawerOpen) {
+    ui.drawerOpen = false;
+    drawer.classList.remove("is-open");
+    drawer.hidden = true;
+    closeFolderPicker();
+  }
+  catalogToggle.classList.remove("is-active");
+  catalogToggle.setAttribute("aria-selected", "false");
   saveActiveId(id);
   if (!options.skipVisibility) {
     ensureTabVisibleById(id);
@@ -1438,18 +1629,35 @@ function syncLoadedFrames(workspaces) {
   }
 }
 
-function activateAdjacent(offset) {
-  if (!ui.orderedWorkspaceIds.length) {
+function navigationIds() {
+  return [TAB_BROWSER_ID, ...ui.orderedWorkspaceIds];
+}
+
+function activeNavigationId() {
+  return ui.activeView === "tab-browser" ? TAB_BROWSER_ID : ui.activeId;
+}
+
+function activateNavigationId(id) {
+  if (id === TAB_BROWSER_ID) {
+    openDrawer("catalog");
     return;
   }
-  const currentIndex = Math.max(0, ui.orderedWorkspaceIds.indexOf(ui.activeId));
-  const nextIndex = (currentIndex + offset + ui.orderedWorkspaceIds.length) % ui.orderedWorkspaceIds.length;
-  const nextId = ui.orderedWorkspaceIds[nextIndex];
+  activate(id, { acknowledge: true, focusTab: true });
+}
+
+function activateAdjacent(offset) {
+  const ids = navigationIds();
+  if (!ids.length) {
+    return;
+  }
+  const currentIndex = Math.max(0, ids.indexOf(activeNavigationId()));
+  const nextIndex = (currentIndex + offset + ids.length) % ids.length;
+  const nextId = ids[nextIndex];
   if (!nextId) {
     return;
   }
   maybeRequestNotificationPermission();
-  activate(nextId, { acknowledge: true, focusTab: true });
+  activateNavigationId(nextId);
 }
 
 function updateHintMode(enabled) {
@@ -1466,7 +1674,7 @@ function handleKeydown(event) {
   }
 
   if (event.key === "Escape" && ui.drawerOpen) {
-    closeDrawer();
+    closeDrawer({ focusTab: true });
     return;
   }
 
@@ -1487,7 +1695,7 @@ function handleKeydown(event) {
   }
   if (event.code === "Digit0" || event.key === "0") {
     event.preventDefault();
-    toggleDrawer("catalog");
+    openDrawer("catalog");
     return;
   }
   if (event.key === "ArrowLeft") {
@@ -1571,7 +1779,6 @@ async function openCatalogWorkspace(workspaceId) {
   }
   maybeRequestNotificationPermission();
   activate(workspace.id, { acknowledge: true, focusTab: true });
-  closeDrawer();
 }
 
 function setLocalArchiveStates(workspaceIds, archived) {
@@ -1646,11 +1853,27 @@ async function applyBatchArchive(archived) {
   }
 }
 
-function openDrawer(mode) {
+function openDrawer(mode, options = {}) {
+  saveActiveView("tab-browser");
   ui.drawerOpen = true;
   drawer.hidden = false;
   drawer.classList.add("is-open");
+  catalogToggle.classList.add("is-active");
+  catalogToggle.setAttribute("aria-selected", "true");
+  for (const item of ui.items.values()) {
+    item.shell.classList.remove("is-active");
+    item.tab.setAttribute("aria-selected", "false");
+    item.tab.setAttribute("tabindex", "-1");
+  }
+  for (const panel of ui.panels.values()) {
+    panel.classList.remove("is-active");
+    panel.setAttribute("aria-hidden", "true");
+  }
   renderDrawer();
+  syncDocumentTitle();
+  if (options.focus === false) {
+    return;
+  }
   if (mode === "create" || mode === "new") {
     newWorkspaceMachine.focus({ preventScroll: true });
     return;
@@ -1658,11 +1881,20 @@ function openDrawer(mode) {
   catalogSearch.focus({ preventScroll: true });
 }
 
-function closeDrawer() {
+function closeDrawer(options = {}) {
   ui.drawerOpen = false;
+  saveActiveView("workspace");
   drawer.classList.remove("is-open");
   drawer.hidden = true;
+  catalogToggle.classList.remove("is-active");
+  catalogToggle.setAttribute("aria-selected", "false");
   closeFolderPicker();
+  const targetId = options.targetId || ui.lastWorkspaceId || firstUnarchivedWorkspaceId() || ui.workspaces[0]?.id || null;
+  if (targetId) {
+    activate(targetId, { acknowledge: false, focusTab: Boolean(options.focusTab), preserveScroll: true });
+  } else {
+    syncDocumentTitle();
+  }
 }
 
 function toggleDrawer(mode) {
@@ -1675,7 +1907,7 @@ function toggleDrawer(mode) {
       catalogSearch.focus({ preventScroll: true });
       return;
     }
-    closeDrawer();
+    closeDrawer({ focusTab: true });
     return;
   }
   openDrawer(mode);
@@ -1740,6 +1972,21 @@ function renderCatalogRows() {
     row.classList.toggle("is-active", workspace.id === ui.activeId);
     row.classList.toggle("is-local", Boolean(workspace.is_local));
     row.classList.toggle("is-archived", Boolean(workspace.archived));
+    row.draggable = true;
+    row.dataset.workspaceId = workspace.id;
+    row.addEventListener("dragstart", (event) => {
+      row.classList.add("is-dragging");
+      startWorkspaceDrag(event, workspace.id);
+    });
+    row.addEventListener("dragend", () => finishWorkspaceDrag());
+    row.addEventListener("dragenter", () => {
+      if (ui.draggedWorkspaceId && ui.draggedWorkspaceId !== workspace.id) {
+        row.classList.add("is-drop-target");
+      }
+    });
+    row.addEventListener("dragleave", () => row.classList.remove("is-drop-target"));
+    row.addEventListener("dragover", (event) => handleWorkspaceDragOver(event, workspace.id, row));
+    row.addEventListener("drop", (event) => handleWorkspaceDrop(event, workspace.id, row, "y"));
 
     const selectCell = document.createElement("td");
     selectCell.className = "catalog-col-select";
@@ -1999,8 +2246,8 @@ function renderDrawer() {
   }
   const tableScrollTop = catalogTableShell ? catalogTableShell.scrollTop : 0;
 
-  drawerTitle.textContent = "Klimkit Switchboard";
-  drawerEyebrow.textContent = "Manual tabs";
+  drawerTitle.textContent = "Tab Browser";
+  drawerEyebrow.textContent = "Create, filter, reorder";
 
   syncSelectOptions(
     catalogMachineFilter,
@@ -2055,6 +2302,11 @@ function addLocalWorkspace(machine, folder) {
     latest_event_created_at: "",
     is_local: true,
   };
+  ui.manualWorkspaceOrder = [
+    workspaceManualOrderKey(workspace),
+    ...ui.manualWorkspaceOrder.filter((key) => key !== workspaceManualOrderKey(workspace)),
+  ];
+  saveManualWorkspaceOrder();
   ui.localWorkspaces = sortWorkspaces([workspace, ...ui.localWorkspaces]);
   saveLocalWorkspaces();
   return workspace;
@@ -2077,7 +2329,6 @@ async function handleNewWorkspaceSubmit(event) {
   await bootstrapLocalWorkspace(workspace);
   renderState({ workspaces: ui.serverWorkspaces, machines: ui.machines });
   activate(workspace.id, { acknowledge: false, focusTab: true });
-  closeDrawer();
 }
 
 async function refresh() {
@@ -2246,13 +2497,8 @@ function wireEvents() {
     maybeLoadMoreTabs();
   });
 
-  catalogToggle.addEventListener("click", () => toggleDrawer());
-  drawerClose.addEventListener("click", () => closeDrawer());
-  drawer.addEventListener("click", (event) => {
-    if (event.target === drawer) {
-      closeDrawer();
-    }
-  });
+  catalogToggle.addEventListener("click", () => openDrawer("catalog"));
+  drawerClose.addEventListener("click", () => closeDrawer({ focusTab: true }));
 
   catalogSearch.addEventListener("input", () => {
     ui.catalogFilters.search = catalogSearch.value;

@@ -139,11 +139,16 @@ iframe {
 }
 
 .strip-action-button:hover,
-.strip-action-button:focus-visible {
+.strip-action-button:focus-visible,
+.strip-action-button.is-active {
   color: var(--accent-strong);
   background:
     linear-gradient(180deg, rgba(14, 22, 24, 0.995), rgba(9, 14, 18, 0.995)),
     linear-gradient(90deg, rgba(126, 226, 176, 0.08), transparent 54%);
+}
+
+.strip-action-button.is-active {
+  box-shadow: inset 0 -1px 0 var(--accent-strong);
 }
 
 .strip-action-button--primary {
@@ -258,6 +263,22 @@ iframe {
   min-width: 9.6rem;
   max-width: 13rem;
   min-height: var(--strip-row-height);
+}
+
+.workspace-tab-item[draggable="true"],
+.catalog-row[draggable="true"] {
+  cursor: grab;
+}
+
+.workspace-tab-item.is-dragging,
+.catalog-row.is-dragging {
+  opacity: 0.48;
+}
+
+.workspace-tab-item.is-drop-target .workspace-tab,
+.catalog-row.is-drop-target {
+  outline: 1px solid var(--accent-strong);
+  outline-offset: -1px;
 }
 
 .workspace-tab {
@@ -576,7 +597,7 @@ iframe {
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
-  background: linear-gradient(90deg, rgba(2, 6, 7, 0.56), rgba(2, 6, 7, 0.2) 28%, transparent 58%);
+  background: rgba(2, 6, 7, 0.98);
   z-index: 20;
 }
 
@@ -594,8 +615,8 @@ iframe {
   background:
     linear-gradient(180deg, rgba(5, 9, 12, 0.985), rgba(6, 10, 12, 0.97)),
     radial-gradient(circle at top left, rgba(126, 226, 176, 0.08), transparent 42%);
-  box-shadow: 24px 0 48px rgba(0, 0, 0, 0.34);
-  transform: translateX(-1rem);
+  box-shadow: none;
+  transform: none;
   opacity: 0;
   transition: transform 160ms ease, opacity 160ms ease;
 }

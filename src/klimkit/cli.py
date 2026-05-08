@@ -193,6 +193,13 @@ def _switchboard_url(config: object) -> str | None:
     return f"http://{host}:{port}{_switchboard_base_path(config)}"
 
 
+def _tailnet_reports_url(config: object, dns_name: str | None = None) -> str:
+    if not bool(getattr(config, "switchboard_enabled", False)):
+        return ""
+    resolved_dns = (dns_name if dns_name is not None else _tailscale_dns_name()).strip().rstrip(".")
+    return f"https://{resolved_dns}/reports/" if resolved_dns else ""
+
+
 def _tailscale_dns_name() -> str:
     try:
         result = subprocess.run(
@@ -225,9 +232,11 @@ def _switchboard_access_lines(config: object) -> list[tuple[str, str, str]]:
     lines = [("url", f"Switchboard: {url}", "ok")]
     dns_name = _tailscale_dns_name()
     if dns_name:
+        dns_name = dns_name.rstrip(".")
         port = int(getattr(config, "switchboard_port", 4721))
         lines.append(("tailnet", f"Switchboard proxy: https://{dns_name}/proxy/{port}/", "ok"))
         lines.append(("tailnet", f"Switchboard serve: https://{dns_name}{_switchboard_base_path(config)}", "ok"))
+        lines.append(("tailnet", f"Proof reports: {_tailnet_reports_url(config, dns_name)}", "ok"))
     return lines
 
 
@@ -271,6 +280,10 @@ def _notification_switchboard_url(config: object) -> str:
     return ""
 
 
+def _notification_reports_url(config: object) -> str:
+    return _tailnet_reports_url(config)
+
+
 def _apply_notification_text(
     config: object,
     manifest: dict[str, object],
@@ -291,6 +304,9 @@ def _apply_notification_text(
     switchboard_url = _notification_switchboard_url(config)
     if switchboard_url:
         parts.append(f"🔗 {switchboard_url}")
+    reports_url = _notification_reports_url(config)
+    if reports_url:
+        parts.append(f"📄 Reports: {reports_url}")
     return "\n".join(parts)
 
 

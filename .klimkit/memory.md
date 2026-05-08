@@ -17,3 +17,5 @@ Durable preferences, corrections, and process rules. Add dated one-sentence memo
 - 2026-05-07: Klimkit should recommend fork-first installs for real fleets without enforcing forks; direct upstream checkouts remain acceptable for trying the project.
 - 2026-05-07: Shared Codex implementation workflow should require a `checklister` acceptance checklist before coding and 3 parallel `final_reviewer` passes before completion claims.
 - 2026-05-07: Before each feature, prefer creating a separate Git worktree and Switchboard tab so parallel agents can work on separate branches without colliding.
+- 2026-05-08: Task proof reports should live in each repo under `.klimkit/reports/`, with HTML tracked by Git and large screenshot/video media ignored locally.
+- 2026-05-08: Proof reports should render screenshots and videos full-width and prefer MP4 video embeds because WebM scrubbing is unreliable in Chrome/PWA usage.

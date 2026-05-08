@@ -55,6 +55,34 @@ class CodexPackValidationTests(unittest.TestCase):
         self.assertIn("the checklister acceptance checklist", final_reviewer["developer_instructions"])
         self.assertIn("Verify the draft against both the human request and every checklist item.", final_reviewer["developer_instructions"])
 
+    def test_pack_workflow_requires_ui_reports_with_video(self) -> None:
+        agents = (ROOT / "packs" / "codex" / "AGENTS.md").read_text(encoding="utf-8")
+        checklister = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "checklister.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        final_reviewer = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "final-reviewer.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+
+        for text in (checklister, final_reviewer, agents):
+            self.assertIn(".klimkit/reports/", text)
+        self.assertIn("native `agent-browser` video recording", checklister)
+        self.assertIn("required screenshots", checklister)
+        self.assertIn("full-width sections", checklister)
+        self.assertIn("MP4", checklister)
+        self.assertIn("final HTML proof report", checklister)
+        self.assertIn("inspect every screenshot", final_reviewer)
+        self.assertIn("sampling representative frames", final_reviewer)
+        self.assertIn("scrubbing", final_reviewer)
+        self.assertIn("full-width sections", final_reviewer)
+        self.assertIn("MP4", final_reviewer)
+        self.assertIn("video evidence", final_reviewer)
+        self.assertIn("Tailscale-served report URL", final_reviewer)
+        self.assertIn("localhost report URLs are not sufficient", final_reviewer)
+        self.assertIn("Tailscale-served report URL", agents)
+        self.assertIn("full-width section", agents)
+        self.assertIn("Prefer MP4", agents)
+
     def test_hook_scripts_are_syntax_valid(self) -> None:
         for path in sorted((ROOT / "packs" / "codex" / "hooks").glob("*.sh")):
             with self.subTest(path=path):

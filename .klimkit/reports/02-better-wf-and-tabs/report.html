@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="report-timestamp" content="2026-05-08T09:55:00Z">
+  <title>Better Workflow And Tabs Proof</title>
+  <style>
+    :root { color-scheme: dark; --bg: #07100d; --panel: #0d1713; --line: #1f3a30; --text: #d7f5e5; --muted: #9ab8a8; --accent: #9ee6bc; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    main { width: min(1720px, 100%); margin: 0 auto; padding: 24px; }
+    h1, h2 { margin: 0 0 10px; line-height: 1.2; }
+    h1 { font-size: clamp(22px, 4vw, 34px); }
+    h2 { margin-top: 28px; font-size: 18px; color: var(--accent); }
+    p { margin: 0 0 12px; color: var(--muted); }
+    a { color: var(--accent); }
+    code { color: var(--text); overflow-wrap: anywhere; }
+    ul { padding-left: 20px; }
+    li { margin: 6px 0; }
+    .hero, .block { border: 1px solid var(--line); background: var(--panel); padding: 16px; border-radius: 6px; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
+    figure { margin: 0; border: 1px solid var(--line); background: #09120f; border-radius: 6px; overflow: hidden; }
+    img, video { display: block; width: 100%; height: auto; background: #050807; }
+    figcaption { padding: 10px; color: var(--muted); border-top: 1px solid var(--line); }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { border: 1px solid var(--line); padding: 8px; vertical-align: top; text-align: left; }
+    th { color: var(--accent); background: #102019; }
+    @media (max-width: 720px) { main { padding: 12px; } table, thead, tbody, tr, th, td { display: block; } th { display: none; } td { border-top: 0; } tr { border-top: 1px solid var(--line); } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <h1>Better Workflow And Tabs Proof</h1>
+      <p>Task: <code>.klimkit/tasks/02-better-wf-and-tabs/01-h-in.md</code>. Checklist: <code>.klimkit/tasks/02-better-wf-and-tabs/03-a-acceptance-checklist.md</code>.</p>
+      <p>Tailnet report URL: <a href="https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/02-better-wf-and-tabs/report.html">https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/02-better-wf-and-tabs/report.html</a></p>
+    </section>
+
+    <section class="block">
+      <h2>What Changed</h2>
+      <ul>
+        <li>Codex workflow now requires UI proof reports under <code>.klimkit/reports/</code>, screenshots, native <code>agent-browser</code> video, final reviewer media checks, and Tailscale report URLs in handoffs.</li>
+        <li>Klimkit daemon serves a combined <code>/reports/</code> index from configured repo/worktree roots and safely serves report HTML plus same-tree media.</li>
+        <li>Switchboard catalog is now a first-class Tab Browser tab with <code>Control+Option/Alt+0</code>, Escape return, keyboard cycling, and tab click switching.</li>
+        <li>Top tabs and Tab Browser rows support drag/drop ordering; local manual order uses stable machine+folder keys so it survives reload and server reconciliation.</li>
+        <li>Report HTML remains Git-trackable while large screenshot/video assets under <code>.klimkit/reports/</code> are Git-ignored.</li>
+      </ul>
+    </section>
+
+    <section class="block">
+      <h2>Verification</h2>
+      <table>
+        <tbody>
+          <tr><th>Full tests</th><td><code>uv run python -m unittest discover -s tests -q</code> passed: 142 tests, 1 skipped.</td></tr>
+          <tr><th>Static JS</th><td><code>node --check src/klimkit/apps/switchboard/static/app.js</code> passed.</td></tr>
+          <tr><th>Diff hygiene</th><td><code>git diff --check</code> passed.</td></tr>
+          <tr><th>Browser QA</th><td><code>agent-browser</code> exercised Tab Browser activation, keyboard cycling, top-tab drag/drop, row drag/drop, archived visibility, unarchive, reload persistence, Switchboard empty state, reports index populated state, reports empty state, and mobile layout.</td></tr>
+          <tr><th>Video</th><td><code>assets/tab-browser-flow.mp4</code> is converted from the native <code>agent-browser</code> recording for better Chrome scrub controls, 129 seconds, MP4, 422435 bytes. <code>assets/top-tab-click-switch.mp4</code> is a focused 6 second MP4 made from the verified before/after browser screenshots, showing Tab Browser active before the click and the selected workspace after the click.</td></tr>
+          <tr><th>Live tailnet URL</th><td><code>kk apply</code> configured Tailscale Serve for <code>/reports</code>; <code>curl -k -I https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/02-better-wf-and-tabs/report.html</code> returned <code>HTTP/2 200</code>.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="block">
+      <h2>Recorded Flow</h2>
+      <figure>
+        <video controls playsinline preload="metadata" src="assets/tab-browser-flow.mp4"></video>
+        <figcaption>MP4 copy of the native browser recording: create tabs, open Tab Browser by keyboard, cycle with arrow shortcuts, drag top tabs, drag Tab Browser rows, archive/show archived/unarchive, reload persistence, and open the reports index.</figcaption>
+      </figure>
+      <figure>
+        <video controls playsinline preload="metadata" src="assets/top-tab-click-switch.mp4"></video>
+        <figcaption>Focused switch clip: while Tab Browser is active, clicking a regular top tab closes Tab Browser and switches directly to that workspace.</figcaption>
+      </figure>
+    </section>
+
+    <section class="block">
+      <h2>Screenshots</h2>
+      <div class="grid">
+        <figure><img src="assets/01-tab-browser-desktop.png" alt="Tab Browser desktop with seeded rows"><figcaption>Tab Browser desktop with create controls, filters, and rows.</figcaption></figure>
+        <figure><img src="assets/02-topbar-before-drag.png" alt="Top tab bar before drag"><figcaption>Top tab bar before manual drag.</figcaption></figure>
+        <figure><img src="assets/03-tab-browser-keyboard.png" alt="Tab Browser opened from keyboard shortcut"><figcaption>Tab Browser opened by <code>Control+Alt+0</code>.</figcaption></figure>
+        <figure><img src="assets/04-topbar-after-drag.png" alt="Top tab bar after drag"><figcaption>Top tab bar after drag/drop reorder.</figcaption></figure>
+        <figure><img src="assets/05-row-before-drag.png" alt="Tab Browser rows before drag"><figcaption>Tab Browser rows before row drag.</figcaption></figure>
+        <figure><img src="assets/06-row-after-drag.png" alt="Tab Browser rows after drag"><figcaption>Rows and top tabs share the same order after row drag.</figcaption></figure>
+        <figure><img src="assets/07-archived-visible.png" alt="Archived tab visible only in Tab Browser"><figcaption>Archived tab hidden from top bar but visible in Tab Browser when archived rows are shown.</figcaption></figure>
+        <figure><img src="assets/08-reload-persistence.png" alt="Manual tab order after reload"><figcaption>Manual order survives full reload after the stable-key fix.</figcaption></figure>
+        <figure><img src="assets/09-tab-browser-mobile.png" alt="Tab Browser mobile layout"><figcaption>Mobile Tab Browser layout remains usable.</figcaption></figure>
+        <figure><img src="assets/10-reports-index-mobile.png" alt="Reports index mobile"><figcaption>Reports index mobile layout.</figcaption></figure>
+        <figure><img src="assets/11-reports-index-desktop.png" alt="Reports index desktop"><figcaption>Reports index populated from multiple configured roots.</figcaption></figure>
+        <figure><img src="assets/12-reports-empty-state.png" alt="Reports empty state"><figcaption>Reports index empty state.</figcaption></figure>
+        <figure><img src="assets/13-switchboard-empty-state.png" alt="Switchboard Tab Browser empty state"><figcaption>Tab Browser empty state with no launchable machines.</figcaption></figure>
+        <figure><img src="assets/14-top-tab-click-start.png" alt="Tab Browser active before top tab click"><figcaption>Focused click proof: Tab Browser active with regular tabs visible.</figcaption></figure>
+        <figure><img src="assets/15-top-tab-click-result.png" alt="Workspace active after top tab click"><figcaption>Focused click proof: regular workspace active after top-tab click.</figcaption></figure>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

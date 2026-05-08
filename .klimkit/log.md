@@ -3,6 +3,8 @@
 Timestamped audit trail. Entries describe actions, not preferences.
 
 ## Log
+2026-05-08T09:58:05Z: Implemented the 02-better-wf-and-tabs workflow, reports daemon, Tab Browser drag ordering, browser QA proof report, and live Tailscale reports URL verification.
+2026-05-08T10:31:48Z: Updated the 02-better-wf-and-tabs proof report and shared workflow guidance to use full-width media and MP4 report videos for easier browser inspection.
 
 - 2026-05-04T08:09:50Z: Implemented the local-first single-config, Codex harness projection, docs, validation, and proof pass for `01-tui-ux-multi-harness-more`.
 - 2026-05-04T09:04:00Z: Updated `kk apply` and `kk pull` reporting so managed service restarts and live URLs are explicit after applying changes.
@@ -30,3 +32,5 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-07T03:40:15Z: Added README guidance for the Codex harness workflow, parallel Switchboard agent worktrees, and the generic `examples/create-worktree.sh` helper.
 - 2026-05-07T04:18:00Z: Prepared `v0.1.2` release metadata for the Codex pack workflow and parallel worktree documentation.
 - 2026-05-07T04:26:00Z: Collected 3/3 final reviewer passes for the Codex pack workflow and worktree documentation release task.
+- 2026-05-08T05:30:23Z: Wrote the one-page plan for `02-better-wf-and-tabs` covering harness QA reports and Switchboard tab browser ordering.
+- 2026-05-08T09:06:48Z: Wrote the acceptance checklist for `02-better-wf-and-tabs` covering harness QA reports, Tab Browser drag/drop, daemon reports index, gitignore behavior, automated tests, browser QA, and final report proof.

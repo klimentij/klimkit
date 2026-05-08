@@ -30,6 +30,7 @@ The core operating promise is parallel agent work without losing control: use Sw
 - [Code-Server Managed Profile](#code-server-managed-profile)
 - [Harness Pack](#harness-pack)
 - [Codex Harness Workflow](#codex-harness-workflow)
+- [Reports](#reports)
 - [Security Model](#security-model)
 - [Workflow](#workflow)
 - [Parallel Agent Worktrees](#parallel-agent-worktrees)
@@ -65,9 +66,9 @@ The installer reuses the local checkout, installs the `kk` launcher into `~/.loc
 
 ## Release Status
 
-Current release: [`v0.1.2`](https://github.com/klimentij/klimkit/releases/tag/v0.1.2).
+Current release: [`v0.1.3`](https://github.com/klimentij/klimkit/releases/tag/v0.1.3).
 
-`v0.1.2` is a harness-workflow release for trusted personal fleets. It adds the checklister/final-reviewer pack workflow, documents parallel Switchboard agent worktrees, and ships a generic worktree helper example. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
+`v0.1.3` is a workflow-proof release for trusted personal fleets. It adds repo-local proof reports served through Tailscale, full-width screenshot/MP4 evidence requirements for UI work, and a cleaner Switchboard Tab Browser with keyboard access and drag/drop ordering. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
 
 ## Tech Stack
 
@@ -247,7 +248,30 @@ Other subagents are used when they materially reduce risk:
 - `debugger` isolates root causes when checks fail.
 - `web_research` verifies current external APIs, docs, or best practices.
 
-The final workflow step is always 3 parallel `final_reviewer` agents before a completion claim. Each reviewer gets the original request or task path, the checklist, changed files, verification evidence, and the exact final response draft. All 3 must pass before the response goes back to the human.
+For UI work, task proof belongs under the active repo's `.klimkit/reports/` directory. The HTML report should be Git-tracked, while large screenshots and native `agent-browser` video recordings stay as ignored local media referenced by relative paths. Put each screenshot and video in its own full-width section so the report is inspectable on a laptop screen. Prefer MP4 videos in the HTML report for reliable Chrome/PWA scrubbing; it is fine to convert the native `agent-browser` WebM recording to MP4 for presentation while keeping the source recording as evidence. The completion handoff should give the Tailscale-served report URL when this VM has a Tailscale DNS name; localhost report links are only local QA fallback evidence.
+
+The final workflow step is always 3 parallel `final_reviewer` agents before a completion claim. Each reviewer gets the original request or task path, the checklist, changed files, verification evidence, the `.klimkit/reports/` HTML proof report plus Tailscale report URL for UI work, and the exact final response draft. All 3 must pass before the response goes back to the human.
+
+## Reports
+
+Klimkit serves repo-local proof reports at `/reports/`. Reports stay inside each project checkout or worktree:
+
+```text
+<repo>/.klimkit/reports/<task>/report.html
+<repo>/.klimkit/reports/<task>/assets/screenshot.png
+<repo>/.klimkit/reports/<task>/assets/demo.mp4
+```
+
+Configure roots in `.klimkit/local/klimkit.toml`; Klimkit does not scan the whole home directory:
+
+```toml
+[reports]
+repo_roots = ["~/klimkit", "~/wt", "~/projects"]
+```
+
+`/reports/` renders one combined table from every configured root's `.klimkit/reports/**/*.html`. Report HTML is meant to be tracked in Git; screenshots and videos under `.klimkit/reports/` are ignored so commits stay small while VM-local proof remains viewable through the reports page.
+
+When Tailscale Serve is available, the useful report handoff URL is `https://<machine>.<tailnet>.ts.net/reports/` or the specific report URL under that index. `kk apply`, `kk pull`, and `kk doctor` print this Tailscale reports URL so agent work can end with a shareable tailnet proof link instead of a localhost URL.
 
 ## Security Model
 
@@ -361,6 +385,7 @@ Expose it inside a tailnet with:
 ```bash
 tailscale serve --bg --set-path / http://127.0.0.1:8080
 tailscale serve --bg --set-path /switchboard http://127.0.0.1:4721/switchboard
+tailscale serve --bg --set-path /reports http://127.0.0.1:4721/reports
 tailscale serve status
 ```
 

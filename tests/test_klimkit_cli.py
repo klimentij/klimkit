@@ -344,6 +344,7 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn("Switchboard: http://127.0.0.1:4721/switchboard/", output)
             self.assertIn("Switchboard proxy: https://odev.tail11c448.ts.net/proxy/4721/", output)
             self.assertIn("Switchboard serve: https://odev.tail11c448.ts.net/switchboard/", output)
+            self.assertIn("Proof reports: https://odev.tail11c448.ts.net/reports/", output)
             self.assertIn("Codex projection:", output)
             self.assertIn("code-server settings:", output)
             self.assertIn("systemctl --user status klimkit.service --no-pager", output)
@@ -465,6 +466,7 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn("📝 Changes: 1 files changed", notification)
             self.assertIn("restart Klimkit user service", notification)
             self.assertIn("https://odev.tail11c448.ts.net/proxy/4721/", notification)
+            self.assertIn("📄 Reports: https://odev.tail11c448.ts.net/reports/", notification)
             self.assertIn("telegram", stdout.getvalue())
             self.assertIn("sent apply summary to Telegram", stdout.getvalue())
 
@@ -538,6 +540,7 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn("Switchboard: http://127.0.0.1:4721/switchboard/", output)
             self.assertIn("Switchboard proxy: https://odev.tail11c448.ts.net/proxy/4721/", output)
             self.assertIn("Switchboard serve: https://odev.tail11c448.ts.net/switchboard/", output)
+            self.assertIn("Proof reports: https://odev.tail11c448.ts.net/reports/", output)
 
     def test_setup_role_flag_previews_existing_config_conversion(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
