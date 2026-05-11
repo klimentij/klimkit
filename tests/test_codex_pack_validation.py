@@ -83,6 +83,76 @@ class CodexPackValidationTests(unittest.TestCase):
         self.assertIn("full-width section", agents)
         self.assertIn("Prefer MP4", agents)
 
+    def test_pack_workflow_requires_reflection_before_final_review(self) -> None:
+        agents = (ROOT / "packs" / "codex" / "AGENTS.md").read_text(encoding="utf-8")
+        checklister = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "checklister.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        final_reviewer = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "final-reviewer.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        reflector = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "reflector.toml").read_text(encoding="utf-8")
+        )
+        reflector_instructions = reflector["developer_instructions"]
+
+        self.assertEqual(reflector["name"], "reflector")
+        self.assertIn("fresh-context", reflector["description"].lower())
+        self.assertIn("Reflection Gate", agents)
+        self.assertLess(agents.index("**Reflection Gate**"), agents.index("**Final Review Gate**"))
+        self.assertIn("run a fresh-context `reflector` pass after verification and before final reviewers", agents)
+        self.assertIn(".klimkit/reflection.md", agents)
+        self.assertIn("append-only repo-level synthesis ledger", agents)
+        self.assertIn("current task first", agents)
+        self.assertIn("wider `.klimkit/tasks/` archive", agents)
+        self.assertIn("Large or binary task artifacts should be listed as evidence", agents)
+        self.assertIn("reconsider the implementation, evidence, and final response", agents)
+        self.assertIn("reflection entry or explicit reflection-not-applicable note", agents)
+
+        self.assertIn("read `.klimkit/reflection.md` when present", checklister)
+        self.assertIn("create it when missing and meaningful", checklister)
+        self.assertIn("run reflection after verification and before final review", checklister)
+        self.assertIn("append a dated repo-level reflection entry", checklister)
+        self.assertIn("Tiny one-command tasks may mark reflection not applicable", checklister)
+
+        self.assertIn("require the reflection entry", final_reviewer)
+        self.assertIn("after verification and before final review", final_reviewer)
+        self.assertIn("material reflection findings", final_reviewer)
+        self.assertIn("Return KEEP WORKING if required reflection is missing", final_reviewer)
+
+        self.assertIn("Work from fresh context", reflector_instructions)
+        self.assertIn("`.klimkit/tasks/` archive", reflector_instructions)
+        self.assertIn("Append one dated entry", reflector_instructions)
+        self.assertIn("Do not rewrite", reflector_instructions)
+        self.assertIn("source-read summary", reflector_instructions)
+        self.assertIn("risks or contradictions", reflector_instructions)
+
+    def test_pack_engineering_rules_merge_quality_guidance(self) -> None:
+        agents = (ROOT / "packs" / "codex" / "AGENTS.md").read_text(encoding="utf-8")
+
+        required_guidance = (
+            "ask rather than guess",
+            "checkpoint after each significant step",
+            "one-use abstractions",
+            "Touch only what the request",
+            "Before adding code, inspect exports, immediate callers, shared utilities, and relevant tests.",
+            "No hacks.",
+            "If the only path is a hack, stop",
+            "Prefer clarity, correctness, and maintainability over preserving a flawed design.",
+            "do not keep broken APIs or behavior solely for backwards compatibility",
+            "Resolve conflicts explicitly.",
+            "Use deterministic tools or code for deterministic work",
+            "Tests must verify intent",
+            "Fail loud.",
+            "Do not claim completion when work, verification, or review was skipped.",
+        )
+        for phrase in required_guidance:
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, agents)
+
+        self.assertNotIn("CLAUDE.md", agents)
+        self.assertNotIn("THIS IS VERY IMPORTANT", agents)
+
     def test_hook_scripts_are_syntax_valid(self) -> None:
         for path in sorted((ROOT / "packs" / "codex" / "hooks").glob("*.sh")):
             with self.subTest(path=path):

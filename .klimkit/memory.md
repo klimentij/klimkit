@@ -19,3 +19,5 @@ Durable preferences, corrections, and process rules. Add dated one-sentence memo
 - 2026-05-07: Before each feature, prefer creating a separate Git worktree and Switchboard tab so parallel agents can work on separate branches without colliding.
 - 2026-05-08: Task proof reports should live in each repo under `.klimkit/reports/`, with HTML tracked by Git and large screenshot/video media ignored locally.
 - 2026-05-08: Proof reports should render screenshots and videos full-width and prefer MP4 video embeds because WebM scrubbing is unreliable in Chrome/PWA usage.
+- 2026-05-11: Shared Codex guidance should strongly prefer robust, maintainable fixes over hacks or compatibility with flawed designs, and should fail loud when work cannot be completed cleanly.
+- 2026-05-11: Non-trivial shared Codex implementation work should run a fresh-context Reflection Gate after verification and before final reviewers, appending synthesis to `.klimkit/reflection.md`.

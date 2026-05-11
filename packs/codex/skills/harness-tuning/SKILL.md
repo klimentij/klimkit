@@ -34,7 +34,8 @@ Use this skill when __HUMAN_NAME__ asks to change shared Codex behavior, subagen
 6. Run broader tests when hooks, config parsing, or Klimkit install/apply behavior changed.
 7. Run `kk preview` for machine-affecting projection changes when useful.
 8. Run `kk apply` to make changes live on the current VM.
-9. Commit and push when the change should autosync to other Klimkit machines.
+9. Before final reviewers on non-trivial implementation work, run the Reflection Gate: append to `.klimkit/reflection.md`, reconsider the result, and rerun impacted checks if reflection exposes a gap.
+10. Commit and push when the change should autosync to other Klimkit machines.
 
 ## Safety Note
 

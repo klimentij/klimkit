@@ -5,6 +5,10 @@ Timestamped audit trail. Entries describe actions, not preferences.
 ## Log
 2026-05-08T09:58:05Z: Implemented the 02-better-wf-and-tabs workflow, reports daemon, Tab Browser drag ordering, browser QA proof report, and live Tailscale reports URL verification.
 2026-05-08T10:31:48Z: Updated the 02-better-wf-and-tabs proof report and shared workflow guidance to use full-width media and MP4 report videos for easier browser inspection.
+2026-05-11T10:03:46Z: Integrated the external quality-rule guidance into the shared Codex AGENTS pack, excluding token-budget rules, and added validation coverage against duplicate raw rule blocks.
+2026-05-11T10:15:05Z: Wrote the acceptance checklist for `03-reflection-workflow` covering reflection intake, append-only ledger behavior, fresh-context reflection, validation tests, and `kk apply`.
+2026-05-11T10:22:09Z: Implemented the shared Codex Reflection Gate with a fresh-context reflector agent, append-only reflection ledger guidance, validation tests, and live pack projection.
+2026-05-11T10:32:51Z: Prepared `v0.1.4` release metadata for the shared Codex quality and Reflection Gate workflow changes.
 
 - 2026-05-04T08:09:50Z: Implemented the local-first single-config, Codex harness projection, docs, validation, and proof pass for `01-tui-ux-multi-harness-more`.
 - 2026-05-04T09:04:00Z: Updated `kk apply` and `kk pull` reporting so managed service restarts and live URLs are explicit after applying changes.

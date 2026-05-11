@@ -66,9 +66,9 @@ The installer reuses the local checkout, installs the `kk` launcher into `~/.loc
 
 ## Release Status
 
-Current release: [`v0.1.3`](https://github.com/klimentij/klimkit/releases/tag/v0.1.3).
+Current release: [`v0.1.4`](https://github.com/klimentij/klimkit/releases/tag/v0.1.4).
 
-`v0.1.3` is a workflow-proof release for trusted personal fleets. It adds repo-local proof reports served through Tailscale, full-width screenshot/MP4 evidence requirements for UI work, and a cleaner Switchboard Tab Browser with keyboard access and drag/drop ordering. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
+`v0.1.4` is a harness-reflection release for trusted personal fleets. It strengthens the shared Codex quality rules, adds a fresh-context Reflection Gate before final review, and introduces the `reflector` agent plus append-only `.klimkit/reflection.md` synthesis ledger. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
 
 ## Tech Stack
 

@@ -41,13 +41,22 @@ These are shared, home-level defaults. Repository-local `AGENTS.md` files add pr
    - If tests fail or behavior is surprising, use `debugger` to isolate the root cause before guessing.
    - For auth, secrets, sandboxing, infra, or compliance-sensitive changes, run `security_auditor` before calling the task done.
 
-6. **Final Review Gate**
+6. **Reflection Gate**
+   - For non-trivial implementation, run a fresh-context `reflector` pass after verification and before final reviewers.
+   - Give the reflector the current request or task path, current task notes, changed files, verification evidence, intended final result, `.klimkit/memory.md`, `.klimkit/log.md`, and a repo-wide source boundary over `.klimkit/tasks/`.
+   - Reflection considers the current task first, then the wider `.klimkit/tasks/` archive, log, and memory. Large or binary task artifacts should be listed as evidence when relevant, not read as text.
+   - `.klimkit/reflection.md` is the append-only repo-level synthesis ledger. If it is missing, create it with a short project-reflection heading before appending.
+   - Each reflection pass appends a dated entry with task reference, source-read summary, synthesis, risks or contradictions, and candidate memory/log/task follow-ups. Do not replace older entries or turn reflection into an action log.
+   - After reading the reflection entry, reconsider the implementation, evidence, and final response. If reflection exposes a material gap, update the work and rerun impacted verification before final reviewers.
+   - Tiny one-command tasks may mark reflection as not applicable, but the reason must be explicit before final review.
+
+7. **Final Review Gate**
    - Draft the exact final response before calling reviewers.
    - Run 3 `final_reviewer` subagents in parallel.
-   - Give each reviewer the original human request or task path, the checklister acceptance checklist, the changed files, verification evidence, the final HTML proof report path and Tailscale report URL for UI work, and the exact draft response.
+   - Give each reviewer the original human request or task path, the checklister acceptance checklist, the changed files, verification evidence, the reflection entry or explicit reflection-not-applicable note, the final HTML proof report path and Tailscale report URL for UI work, and the exact draft response.
    - All 3 reviewers must return PASS / READY FOR USER before you send a completion claim to __HUMAN_NAME__.
 
-7. **Report**
+8. **Report**
    - Report what changed, what passed, and any remaining risk or unavailable verification.
    - When user-visible behavior changed, include `How __HUMAN_NAME__ can check this` with concrete manual steps.
    - When proof is requested, prefer a tiny static HTML report under `.klimkit/reports/` or compact task note that is easy to skim, and include the Tailscale-served report URL when available.
@@ -61,6 +70,7 @@ Custom Codex agents are managed from `packs/codex/agents/` and synced into `~/.c
 - `code_reviewer`: correctness, regression, security, duplication, and missing-test review.
 - `debugger`: read-only reproduction and root-cause analysis for failures.
 - `manual_tester`: browser/UI verification in a runnable environment.
+- `reflector`: fresh-context synthesis keeper that appends repo-level reflection before final review.
 - `security_auditor`: auth, secrets, data exposure, sandboxing, infra, and compliance-sensitive review.
 - `test_writer`: focused test planning, implementation, and execution.
 - `web_research`: source-backed external verification, API docs, and current best practices.
@@ -75,7 +85,7 @@ Shared skills live in `~/.codex/skills/`. Prefer a matching documented skill ove
 
 ## Memory, Logs, And Task Notes
 
-At the start of meaningful repo work, read `.klimkit/memory.md` and `.klimkit/log.md` when they exist. If either file is missing and meaningful repo work is starting, create it under `.klimkit/`.
+At the start of meaningful repo work, read `.klimkit/memory.md`, `.klimkit/log.md`, and `.klimkit/reflection.md` when they exist. If memory or log is missing and meaningful repo work is starting, create it under `.klimkit/`. Create reflection when the task reaches the Reflection Gate and it is missing.
 
 Use this memory template:
 
@@ -97,19 +107,37 @@ Timestamped audit trail. Entries describe actions, not preferences.
 ## Log
 ```
 
+Use this reflection template:
+
+```markdown
+# Project Reflection
+
+Append-only synthesis ledger. Entries capture cross-task patterns, risks, contradictions, unusual insights, and candidate follow-ups. This is not an action log.
+
+## Reflections
+```
+
 - Store durable preferences, corrections, and process rules in `.klimkit/memory.md` as dated one-sentence memories.
 - Store meaningful actions in `.klimkit/log.md` as ISO-timestamped one-sentence audit entries.
+- Store non-obvious synthesis in `.klimkit/reflection.md` as dated append-only entries. Reflection should connect the current task to the broader task archive, memory, and log while staying grounded in concrete sources.
 - Task and feature work belongs under `.klimkit/tasks/<nn-feature-slug>/`.
 - Human-authored files use `-h-`; agent-authored files use `-a-`.
 - Task folders can contain planning, checklists, design notes, implementation notes, proof, screenshots, and review records.
 
 ## Engineering Quality Rules
 
-- Surface assumptions and ambiguities before coding when they affect implementation choices.
-- Keep the solution as small as the request allows; avoid speculative features and one-use abstractions.
-- Match the repository's existing style, framework, helper APIs, and test conventions.
-- Every changed line should trace to the request, checklist, or required verification.
-- Broaden tests when touching shared behavior, cross-module contracts, user-visible workflows, or persistence.
+- Think before coding. State assumptions explicitly, surface ambiguity before it affects implementation choices, and ask rather than guess when the answer cannot be discovered safely. If multiple interpretations are plausible, present them and explain which one you are taking.
+- Define success criteria for non-trivial work and checkpoint after each significant step: what changed, what is verified, and what remains. If you lose track, stop and restate the current state before continuing.
+- Keep the solution as small as the request allows. Avoid speculative features, one-use abstractions, and changes a senior engineer would reasonably call overcomplicated.
+- Keep edits surgical. Touch only what the request, checklist, or verification requires. Clean up only your own mess and do not refactor adjacent code just because you passed through it.
+- Read before writing. Before adding code, inspect exports, immediate callers, shared utilities, and relevant tests. If the structure is unclear, pause and find out why it exists.
+- Match the repository's existing style, framework, helper APIs, and test conventions even when you would choose differently in a fresh project.
+- No hacks. Do not introduce local workarounds, monkey patches, duct tape, partial solutions, or code likely to break later. If the only path is a hack, stop and say the request cannot be completed robustly; either fix the underlying flaw in a well-designed way or report the missing support honestly.
+- Prefer clarity, correctness, and maintainability over preserving a flawed design. This is a trusted operator codebase; do not keep broken APIs or behavior solely for backwards compatibility unless the task explicitly requires compatibility. When a breaking cleanup is the right fix, make it deliberately and verify the affected surface.
+- Resolve conflicts explicitly. When instructions or code patterns disagree, choose the more specific, recent, or well-tested pattern, explain the choice, and flag the other pattern for cleanup instead of blending them.
+- Use deterministic tools or code for deterministic work such as routing, retries, parsing, formatting, and bulk transforms. Use model judgment for classification, drafting, summarization, extraction, and engineering tradeoffs.
+- Tests must verify intent, not only mechanics. A useful test should fail when the business rule or safety property it protects is broken. Broaden tests when touching shared behavior, cross-module contracts, user-visible workflows, or persistence.
+- Fail loud. Do not claim completion when work, verification, or review was skipped. Do not say "tests pass" without naming skipped tests or unavailable checks. Report uncertainty, fragile areas, and any change you are not confident about.
 - If the user asks for a review, lead with findings ordered by severity, then open questions, then summary.
 
 ## Completion Bar
@@ -119,5 +147,6 @@ A task is not done until:
 - The checklister checklist exists for implementation work.
 - Required code, docs, data, or pack changes are complete.
 - Relevant automated checks and manual checks from the checklist have passed or are explicitly called out as unavailable.
+- The Reflection Gate has either appended a `.klimkit/reflection.md` entry or recorded why reflection was not applicable.
 - Meaningful memory/log/task proof has been updated when the repo workflow requires it.
 - The exact final response has passed 3 parallel `final_reviewer` reviews.
