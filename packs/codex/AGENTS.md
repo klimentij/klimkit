@@ -44,9 +44,11 @@ These are shared, home-level defaults. Repository-local `AGENTS.md` files add pr
 6. **Reflection Gate**
    - For non-trivial implementation, run a fresh-context `reflector` pass after verification and before final reviewers.
    - Give the reflector the current request or task path, current task notes, changed files, verification evidence, intended final result, `.klimkit/memory.md`, `.klimkit/log.md`, and a repo-wide source boundary over `.klimkit/tasks/`.
-   - Reflection considers the current task first, then the wider `.klimkit/tasks/` archive, log, and memory. Large or binary task artifacts should be listed as evidence when relevant, not read as text.
-   - `.klimkit/reflection.md` is the append-only repo-level synthesis ledger. If it is missing, create it with a short project-reflection heading before appending.
-   - Each reflection pass appends a dated entry with task reference, source-read summary, synthesis, risks or contradictions, and candidate memory/log/task follow-ups. Do not replace older entries or turn reflection into an action log.
+   - Reflection starts from the current work, then deliberately connects it to the wider `.klimkit/tasks/` archive, log, memory, and recent artifacts. Large or binary task artifacts should be listed as evidence when relevant, not read as text.
+   - `.klimkit/reflection.md` is the append-only timestamped cross-task Reflection Log or Synthesis Ledger. Entries are reflection sessions, not one required record per task. If the file is missing, create it with the project-reflection template before appending.
+   - Each new reflection session uses a full UTC timestamp heading such as `### 2026-05-14T09:55:00Z`. The default required sections are `Observations`, `Derived Pattern`, `Insight`, and `Next Probe`, each concise and grounded.
+   - When the synthesis needs more room, the reflector may use up to ten named sections total, such as `Signals`, `Evidence Boundary`, `Tension`, `Risk`, `Contradiction`, `Bet`, `Reconsideration`, `Follow-Up`, or `Open Question`. Do not cut off a useful idea just because it does not fit the default four sections.
+   - If older reflection formats are present, preserve them and append a new-format migrated or normalized reflection entry when the older entry is relevant. Do not delete, rewrite, reorder, summarize away, or silently ignore previous reflection content.
    - After reading the reflection entry, reconsider the implementation, evidence, and final response. If reflection exposes a material gap, update the work and rerun impacted verification before final reviewers.
    - Tiny one-command tasks may mark reflection as not applicable, but the reason must be explicit before final review.
 
@@ -112,14 +114,14 @@ Use this reflection template:
 ```markdown
 # Project Reflection
 
-Append-only synthesis ledger. Entries capture cross-task patterns, risks, contradictions, unusual insights, and candidate follow-ups. This is not an action log.
+Append-only timestamped cross-task reflection log. Entries are reflection sessions, not per-task records. Default sections are Observations, Derived Pattern, Insight, and Next Probe; wider sessions may use up to ten named sections.
 
 ## Reflections
 ```
 
 - Store durable preferences, corrections, and process rules in `.klimkit/memory.md` as dated one-sentence memories.
 - Store meaningful actions in `.klimkit/log.md` as ISO-timestamped one-sentence audit entries.
-- Store non-obvious synthesis in `.klimkit/reflection.md` as dated append-only entries. Reflection should connect the current task to the broader task archive, memory, and log while staying grounded in concrete sources.
+- Store non-obvious synthesis in `.klimkit/reflection.md` as timestamped append-only reflection sessions. Reflection should connect current work to the broader task archive, memory, log, and recent artifacts while staying grounded in concrete sources.
 - Task and feature work belongs under `.klimkit/tasks/<nn-feature-slug>/`.
 - Human-authored files use `-h-`; agent-authored files use `-a-`.
 - Task folders can contain planning, checklists, design notes, implementation notes, proof, screenshots, and review records.

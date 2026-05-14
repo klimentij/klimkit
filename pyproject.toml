@@ -1,6 +1,6 @@
 [project]
 name = "klimkit"
-version = "0.1.4"
+version = "0.1.5"
 description = "Agentic engineering across machines, under control."
 requires-python = ">=3.11"
 dependencies = [

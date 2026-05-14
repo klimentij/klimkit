@@ -66,9 +66,9 @@ The installer reuses the local checkout, installs the `kk` launcher into `~/.loc
 
 ## Release Status
 
-Current release: [`v0.1.4`](https://github.com/klimentij/klimkit/releases/tag/v0.1.4).
+Current release: [`v0.1.5`](https://github.com/klimentij/klimkit/releases/tag/v0.1.5).
 
-`v0.1.4` is a harness-reflection release for trusted personal fleets. It strengthens the shared Codex quality rules, adds a fresh-context Reflection Gate before final review, and introduces the `reflector` agent plus append-only `.klimkit/reflection.md` synthesis ledger. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
+`v0.1.5` tightens the Reflection Gate into a timestamped cross-task Reflection Log. Fresh-context `reflector` entries are sessions, not per-task records, and default to `Observations`, `Derived Pattern`, `Insight`, and `Next Probe` while allowing up to ten named sections for wider synthesis. Older reflection entries are preserved and normalized by appending new-format entries when relevant. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
 
 ## Tech Stack
 
@@ -249,6 +249,8 @@ Other subagents are used when they materially reduce risk:
 - `web_research` verifies current external APIs, docs, or best practices.
 
 For UI work, task proof belongs under the active repo's `.klimkit/reports/` directory. The HTML report should be Git-tracked, while large screenshots and native `agent-browser` video recordings stay as ignored local media referenced by relative paths. Put each screenshot and video in its own full-width section so the report is inspectable on a laptop screen. Prefer MP4 videos in the HTML report for reliable Chrome/PWA scrubbing; it is fine to convert the native `agent-browser` WebM recording to MP4 for presentation while keeping the source recording as evidence. The completion handoff should give the Tailscale-served report URL when this VM has a Tailscale DNS name; localhost report links are only local QA fallback evidence.
+
+Before final review, non-trivial implementation work runs the Reflection Gate. `.klimkit/reflection.md` is an append-only timestamped cross-task Reflection Log: entries are reflection sessions, not one required record per task. The default sections are `Observations`, `Derived Pattern`, `Insight`, and `Next Probe`; wider sessions may use up to ten named sections. Older reflection entries stay intact, and agents normalize them by appending a new-format entry when that older synthesis is relevant to the current work.
 
 The final workflow step is always 3 parallel `final_reviewer` agents before a completion claim. Each reviewer gets the original request or task path, the checklist, changed files, verification evidence, the `.klimkit/reports/` HTML proof report plus Tailscale report URL for UI work, and the exact final response draft. All 3 must pass before the response goes back to the human.
 
