@@ -111,8 +111,11 @@ XDG_RUNTIME_DIR=/run/user/$(id -u) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/
 ## Release Status
 
 - Implementation commit SHA: `d9114c25719c8dc7e5c2535019a932f635bac72b`.
-- Push target: `origin/main`; remote `main` contained
-  `d9114c25719c8dc7e5c2535019a932f635bac72b` after push.
+- Proof follow-up commit SHA:
+  `07dcb68251a5c6aeee30ae4c3516fbf720a842db`.
+- Push target: `origin/main`; remote `main` and tag `v0.1.5` contained
+  `07dcb68251a5c6aeee30ae4c3516fbf720a842db` before the final-review
+  whitespace correction.
 - Release tag: `v0.1.5`.
 - Release URL: `https://github.com/klimentij/klimkit/releases/tag/v0.1.5`.
 - Latest-release verification: `gh release list --limit 5` showed
@@ -120,6 +123,10 @@ XDG_RUNTIME_DIR=/run/user/$(id -u) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/
 
 ## Final Review
 
-- Reviewer 1: pending.
-- Reviewer 2: pending.
-- Reviewer 3: pending.
+- First final-review wave: 3/3 returned KEEP WORKING.
+- Blocking findings: committed task-note trailing whitespace in the release range,
+  missing final-review result in the draft handoff, missing reflection
+  reconsideration result in the draft handoff, and ambiguity between the
+  substantive implementation commit and the released proof commit.
+- Reconciliation: removed the trailing whitespace, clarified this proof note, and
+  reran the committed-diff whitespace check before the second final-review wave.
