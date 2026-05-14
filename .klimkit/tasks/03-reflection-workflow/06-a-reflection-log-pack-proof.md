@@ -110,15 +110,16 @@ XDG_RUNTIME_DIR=/run/user/$(id -u) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/
 
 ## Release Status
 
-- Commit SHA: pending.
-- Push target: `origin/main`.
+- Implementation commit SHA: `d9114c25719c8dc7e5c2535019a932f635bac72b`.
+- Push target: `origin/main`; remote `main` contained
+  `d9114c25719c8dc7e5c2535019a932f635bac72b` after push.
 - Release tag: `v0.1.5`.
-- Release URL: pending.
-- Latest-release verification: pending.
+- Release URL: `https://github.com/klimentij/klimkit/releases/tag/v0.1.5`.
+- Latest-release verification: `gh release list --limit 5` showed
+  `Klimkit v0.1.5 - timestamped reflection log` marked `Latest`.
 
 ## Final Review
 
 - Reviewer 1: pending.
 - Reviewer 2: pending.
 - Reviewer 3: pending.
-
