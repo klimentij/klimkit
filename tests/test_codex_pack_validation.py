@@ -108,12 +108,12 @@ class CodexPackValidationTests(unittest.TestCase):
         self.assertIn("up to ten named sections total", agents)
         self.assertIn("append a new-format migrated or normalized reflection entry", agents)
         self.assertIn("preserve them", agents)
-        self.assertIn("wider `.klimkit/tasks/` archive", agents)
+        self.assertIn("solo and operator-scoped `.klimkit/**/tasks/` folders", agents)
         self.assertIn("Large or binary task artifacts should be listed as evidence", agents)
         self.assertIn("reconsider the implementation, evidence, and final response", agents)
         self.assertIn("reflection entry or explicit reflection-not-applicable note", agents)
 
-        self.assertIn("read `.klimkit/reflection.md` when present", checklister)
+        self.assertIn("read the configured writable reflection file when present", checklister)
         self.assertIn("create it when missing and meaningful", checklister)
         self.assertIn("run reflection after verification and before final review", checklister)
         self.assertIn("append a full-timestamped cross-task Reflection Log session", checklister)
@@ -130,7 +130,7 @@ class CodexPackValidationTests(unittest.TestCase):
         self.assertIn("Return KEEP WORKING if required reflection is missing", final_reviewer)
 
         self.assertIn("Work from fresh context", reflector_instructions)
-        self.assertIn("`.klimkit/tasks/` archive", reflector_instructions)
+        self.assertIn("`.klimkit/**/tasks/` archive", reflector_instructions)
         self.assertIn("Append one full-timestamped reflection session", reflector_instructions)
         self.assertIn("Entries are reflection sessions, not one required record per task", reflector_instructions)
         self.assertIn("The default required sections are `Observations`, `Derived Pattern`, `Insight`, and `Next Probe`", reflector_instructions)
@@ -138,6 +138,53 @@ class CodexPackValidationTests(unittest.TestCase):
         self.assertIn("append a new-format migrated or normalized entry", reflector_instructions)
         self.assertIn("Do not rewrite", reflector_instructions)
         self.assertNotIn("source-read summary, non-obvious synthesis, risks or contradictions", reflector_instructions)
+
+    def test_pack_supports_team_artifact_workflow(self) -> None:
+        agents = (ROOT / "packs" / "codex" / "AGENTS.md").read_text(encoding="utf-8")
+        checklister = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "checklister.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        final_reviewer = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "final-reviewer.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        reflector = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "reflector.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        harness_tuning = (
+            ROOT / "packs" / "codex" / "skills" / "harness-tuning" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+
+        for text in (agents, checklister, final_reviewer, reflector, harness_tuning):
+            with self.subTest(text=text[:30]):
+                self.assertIn("__KLIMKIT_ARTIFACT_WORKFLOW__", text)
+                self.assertIn("__KLIMKIT_OPERATOR_FOLDER__", text)
+                self.assertNotIn("__KLIMKIT_ARTIFACT_OWNER__", text)
+
+        required_agent_guidance = (
+            "Current writable artifact root",
+            "one active operator",
+            "Solo workflow uses the flat project `.klimkit/` artifact layout",
+            "Team workflow keeps `.klimkit/` as the project evidence layer",
+            "write only under the current operator root",
+            "readable team context",
+            "attribute cross-operator facts/preferences",
+            "treat that as an unmigrated project",
+            "attribute the migrated flat artifacts to the current operator by default",
+            "kk migrate team-workflow --dry-run",
+            "__KLIMKIT_MEMORY_PATH__",
+            "__KLIMKIT_LOG_PATH__",
+            "__KLIMKIT_REFLECTION_PATH__",
+            "__KLIMKIT_TASKS_PATH__",
+            "__KLIMKIT_REPORTS_PATH__",
+        )
+        for phrase in required_agent_guidance:
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, agents)
+        for text in (checklister, final_reviewer, reflector, harness_tuning):
+            with self.subTest(text=text[:30]):
+                self.assertIn("one active operator", text)
+                self.assertIn("readable team context", text)
+        self.assertIn("solo-style flat `.klimkit` artifacts", checklister)
 
     def test_pack_engineering_rules_merge_quality_guidance(self) -> None:
         agents = (ROOT / "packs" / "codex" / "AGENTS.md").read_text(encoding="utf-8")

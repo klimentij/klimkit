@@ -1448,13 +1448,19 @@ class SwitchboardTests(unittest.TestCase):
             repo_b = root / "repo-b"
             report_a = repo_a / ".klimkit" / "reports" / "flow" / "report.html"
             report_b = repo_b / ".klimkit" / "reports" / "report.html"
+            report_team = repo_a / ".klimkit" / "Alice" / "reports" / "team-flow" / "report.html"
             media = report_a.parent / "assets" / "demo.webm"
             mp4_media = report_a.parent / "assets" / "demo.mp4"
             report_a.parent.mkdir(parents=True)
             report_b.parent.mkdir(parents=True)
+            report_team.parent.mkdir(parents=True)
             media.parent.mkdir()
             report_a.write_text(
                 '<!doctype html><title>Tab Browser QA</title><meta name="report-timestamp" content="2026-05-08T09:00:00Z"><video src="assets/demo.webm"></video>',
+                encoding="utf-8",
+            )
+            report_team.write_text(
+                '<!doctype html><title>Team Workflow QA</title><meta name="report-timestamp" content="2026-05-08T10:00:00Z">',
                 encoding="utf-8",
             )
             report_b.write_text(
@@ -1480,14 +1486,21 @@ class SwitchboardTests(unittest.TestCase):
                 self.assertIn("repo-a", index)
                 self.assertIn("repo-b", index)
                 self.assertIn("Tab Browser QA", index)
+                self.assertIn("Team Workflow QA", index)
                 self.assertIn("Older Report", index)
                 self.assertIn("Skipped missing report root", index)
+                self.assertLess(index.index("Team Workflow QA"), index.index("Tab Browser QA"))
                 self.assertLess(index.index("Tab Browser QA"), index.index("Older Report"))
 
                 report_url = f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/flow/report.html"
                 with request.urlopen(report_url, timeout=5) as response:
                     self.assertEqual(response.headers["Content-Type"], "text/html; charset=utf-8")
                     self.assertIn("assets/demo.webm", response.read().decode("utf-8"))
+
+                team_report_url = f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/@Alice/team-flow/report.html"
+                with request.urlopen(team_report_url, timeout=5) as response:
+                    self.assertEqual(response.headers["Content-Type"], "text/html; charset=utf-8")
+                    self.assertIn("Team Workflow QA", response.read().decode("utf-8"))
 
                 with request.urlopen(f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/flow/assets/demo.webm", timeout=5) as response:
                     self.assertEqual(response.headers["Content-Type"], "video/webm")

@@ -4,11 +4,13 @@ import datetime as dt
 import json
 import os
 import platform
+import re
 import shlex
 import shutil
 import subprocess
 import sys
 import textwrap
+import unicodedata
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -33,12 +35,17 @@ CONFIG_MODE = 0o600
 FILE_MODE = 0o644
 EXEC_MODE = 0o755
 TAILSCALE_SERVE_SKIPPED_EXIT = 78
+ARTIFACT_WORKFLOWS = {"solo", "team"}
+TEAM_ARTIFACT_NAMES = ("memory.md", "log.md", "reflection.md", "tasks", "reports")
+RESERVED_OPERATOR_FOLDER_NAMES = {"local", "state", "backups", "logs", "reports"}
 
 
 @dataclass(frozen=True)
 class InstallConfig:
     profile: str
     human_name: str
+    artifact_workflow: str
+    operator_folder: str
     repo_root: Path
     client_enabled: bool
     server_enabled: bool
@@ -92,8 +99,41 @@ class Action:
     component: str = "core"
 
 
+@dataclass(frozen=True)
+class TeamWorkflowMigrationEntry:
+    source: Path
+    target: Path
+    status: str
+    message: str
+
+
 def expand_path(value: str) -> Path:
     return Path(value).expanduser()
+
+
+def operator_folder_from_human_name(human_name: str) -> str:
+    normalized = unicodedata.normalize("NFKD", human_name.strip())
+    ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
+    folder = re.sub(r"[^A-Za-z0-9_.-]+", "-", ascii_name).strip("-.")
+    return folder[:80] or "Human"
+
+
+def _artifact_workflow(raw: object) -> str:
+    return str(raw or "solo").strip().lower() or "solo"
+
+
+def artifact_root_relative(config: InstallConfig) -> Path:
+    if config.artifact_workflow == "team":
+        return Path(".klimkit") / config.operator_folder
+    return Path(".klimkit")
+
+
+def artifact_root(config: InstallConfig) -> Path:
+    return config.repo_root / artifact_root_relative(config)
+
+
+def artifact_path_hint(config: InstallConfig, name: str) -> str:
+    return (artifact_root_relative(config) / name).as_posix()
 
 
 def _normalized_switchboard_config_path(path: Path) -> Path:
@@ -175,6 +215,8 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
     return InstallConfig(
         profile=_profile_from_roles(client_enabled=client_enabled, server_enabled=server_enabled),
         human_name="Human",
+        artifact_workflow="solo",
+        operator_folder=operator_folder_from_human_name("Human"),
         repo_root=OPS_REPO_ROOT,
         client_enabled=client_enabled,
         server_enabled=server_enabled,
@@ -246,6 +288,8 @@ def render_config(config: InstallConfig) -> str:
             "[operator]",
             "# Display name injected into projected harness instructions.",
             f"human_name = {json.dumps(config.human_name)}",
+            "# Active operator workflow: solo writes flat .klimkit files; team writes under .klimkit/<human_name-as-folder>/.",
+            f"workflow = {json.dumps(config.artifact_workflow)}",
             "",
             "[paths]",
             "# Repo checkout Klimkit should apply from.",
@@ -475,10 +519,15 @@ def parse_config(raw: str) -> InstallConfig:
         for value in report_roots_values
         if str(value or "").strip()
     ) or (expand_path(str(paths.get("repo_root", machine.get("repo_root", OPS_REPO_ROOT)))),)
+    repo_root = expand_path(str(paths.get("repo_root", machine.get("repo_root", OPS_REPO_ROOT))))
+    human_name = str(operator.get("human_name", operator.get("name", "Human"))).strip() or "Human"
+    operator_folder = operator_folder_from_human_name(human_name)
     return InstallConfig(
         profile=_profile_from_roles(client_enabled=client_enabled, server_enabled=server_enabled),
-        human_name=str(operator.get("human_name", operator.get("name", "Human"))).strip() or "Human",
-        repo_root=expand_path(str(paths.get("repo_root", machine.get("repo_root", OPS_REPO_ROOT)))),
+        human_name=human_name,
+        artifact_workflow=_artifact_workflow(operator.get("workflow", operator.get("artifact_workflow", "solo"))),
+        operator_folder=operator_folder,
+        repo_root=repo_root,
         client_enabled=client_enabled,
         server_enabled=server_enabled,
         codex_enabled=_bool(codex.get("enabled", components.get("codex")), client_enabled),
@@ -568,12 +617,77 @@ def load_config(path: Path = KLIMKIT_CONFIG_FILE) -> InstallConfig:
 
 def validate_config(config: InstallConfig) -> list[str]:
     errors: list[str] = []
+    if config.artifact_workflow not in ARTIFACT_WORKFLOWS:
+        errors.append("[operator] workflow must be \"solo\" or \"team\"")
+    if not config.operator_folder.strip():
+        errors.append("[operator] human_name must produce a non-empty team artifact folder")
+    if config.operator_folder in {".", ".."} or config.operator_folder.startswith("."):
+        errors.append("[operator] human_name must not produce a hidden team artifact folder")
+    if config.operator_folder in RESERVED_OPERATOR_FOLDER_NAMES:
+        errors.append(
+            "[operator] human_name maps to a reserved .klimkit directory "
+            f"({', '.join(sorted(RESERVED_OPERATOR_FOLDER_NAMES))})"
+        )
     if config.switchboard_agent_enabled and not config.switchboard_backend_url and not config.switchboard_enabled:
         errors.append(
             "[switchboard.agent] enabled = true requires backend_url, "
             "for example https://<first-vm>.<tailnet>.ts.net/switchboard"
         )
     return errors
+
+
+def team_workflow_migration_plan(config: InstallConfig) -> list[TeamWorkflowMigrationEntry]:
+    klimkit_root = config.repo_root / ".klimkit"
+    target_root = klimkit_root / config.operator_folder
+    entries: list[TeamWorkflowMigrationEntry] = []
+    for name in TEAM_ARTIFACT_NAMES:
+        source = klimkit_root / name
+        target = target_root / name
+        if not source.exists():
+            entries.append(TeamWorkflowMigrationEntry(source, target, "missing", "nothing to migrate"))
+        elif target.exists():
+            entries.append(TeamWorkflowMigrationEntry(source, target, "blocked", "target already exists"))
+        else:
+            entries.append(TeamWorkflowMigrationEntry(source, target, "move", "ready"))
+    return entries
+
+
+def migrate_team_workflow(
+    config: InstallConfig,
+    *,
+    config_path: Path = KLIMKIT_CONFIG_FILE,
+    dry_run: bool = False,
+    write_config: bool = True,
+) -> dict[str, object]:
+    plan = team_workflow_migration_plan(config)
+    blockers = [entry for entry in plan if entry.status == "blocked"]
+    updated_config = replace(config, artifact_workflow="team")
+    if blockers:
+        return {
+            "ok": False,
+            "dry_run": dry_run,
+            "config": updated_config,
+            "entries": plan,
+            "blockers": blockers,
+        }
+    if not dry_run:
+        target_root = updated_config.repo_root / ".klimkit" / updated_config.operator_folder
+        target_root.mkdir(parents=True, exist_ok=True)
+        for entry in plan:
+            if entry.status == "move":
+                entry.target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(entry.source), str(entry.target))
+        if write_config:
+            config_path.expanduser().parent.mkdir(parents=True, exist_ok=True)
+            config_path.expanduser().write_text(render_config(updated_config), encoding="utf-8")
+            config_path.expanduser().chmod(CONFIG_MODE)
+    return {
+        "ok": True,
+        "dry_run": dry_run,
+        "config": updated_config,
+        "entries": plan,
+        "blockers": blockers,
+    }
 
 
 def _template_text(path: Path, config: InstallConfig, *, config_path: Path = KLIMKIT_CONFIG_FILE) -> str:
@@ -585,6 +699,14 @@ def _template_text(path: Path, config: InstallConfig, *, config_path: Path = KLI
         "__UV_BIN__": shutil.which("uv") or "uv",
         "__STATE_DIR__": str(KLIMKIT_STATE_DIR),
         "__HUMAN_NAME__": config.human_name,
+        "__KLIMKIT_ARTIFACT_WORKFLOW__": config.artifact_workflow,
+        "__KLIMKIT_OPERATOR_FOLDER__": config.operator_folder,
+        "__KLIMKIT_ARTIFACT_ROOT__": artifact_root_relative(config).as_posix(),
+        "__KLIMKIT_MEMORY_PATH__": artifact_path_hint(config, "memory.md"),
+        "__KLIMKIT_LOG_PATH__": artifact_path_hint(config, "log.md"),
+        "__KLIMKIT_REFLECTION_PATH__": artifact_path_hint(config, "reflection.md"),
+        "__KLIMKIT_TASKS_PATH__": artifact_path_hint(config, "tasks"),
+        "__KLIMKIT_REPORTS_PATH__": artifact_path_hint(config, "reports"),
     }
     for old, new in replacements.items():
         text = text.replace(old, new)

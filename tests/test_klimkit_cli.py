@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import os
 import subprocess
 import tempfile
 import unittest
@@ -18,11 +19,11 @@ class KlimkitCliTests(unittest.TestCase):
 
         help_text = parser.format_help()
 
-        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "pull", "serve", "code-server", "uninstall"]:
+        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "pull", "migrate", "serve", "code-server", "uninstall"]:
             self.assertIn(command, help_text)
 
     def test_each_command_help_has_examples(self) -> None:
-        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "pull", "serve", "code-server", "uninstall"]:
+        for command in ["setup", "preview", "apply", "doctor", "daemon", "sync-live", "update", "pull", "migrate", "serve", "code-server", "uninstall"]:
             stdout = io.StringIO()
             with self.subTest(command=command), redirect_stdout(stdout), self.assertRaises(SystemExit) as raised:
                 cli.build_parser().parse_args([command, "--help"])
@@ -48,6 +49,120 @@ class KlimkitCliTests(unittest.TestCase):
         self.assertIn("kk apply", stdout.getvalue())
         self.assertIn("kk update", stdout.getvalue())
         self.assertIn("kk pull", stdout.getvalue())
+        self.assertIn("kk migrate team-workflow", stdout.getvalue())
+
+    def test_migrate_team_workflow_dry_run_and_apply(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / ".klimkit" / "local" / "klimkit.toml"
+            config_path.parent.mkdir(parents=True)
+            (root / ".klimkit" / "tasks" / "feature").mkdir(parents=True)
+            (root / ".klimkit" / "memory.md").write_text("# Memory\n", encoding="utf-8")
+            (root / ".klimkit" / "tasks" / "feature" / "01-a.md").write_text("task\n", encoding="utf-8")
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[operator]",
+                        'human_name = "Alice"',
+                        "",
+                        "[paths]",
+                        f'repo_root = "{root}"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            dry_stdout = io.StringIO()
+
+            with redirect_stdout(dry_stdout):
+                dry_result = cli.main(["--config", str(config_path), "migrate", "team-workflow", "--dry-run"])
+
+            self.assertEqual(dry_result, 0)
+            self.assertIn("would move", dry_stdout.getvalue())
+            self.assertTrue((root / ".klimkit" / "memory.md").exists())
+
+            apply_stdout = io.StringIO()
+            with redirect_stdout(apply_stdout):
+                apply_result = cli.main(["--config", str(config_path), "migrate", "team-workflow"])
+
+            self.assertEqual(apply_result, 0)
+            self.assertIn("moved", apply_stdout.getvalue())
+            self.assertFalse((root / ".klimkit" / "memory.md").exists())
+            self.assertTrue((root / ".klimkit" / "Alice" / "memory.md").exists())
+            self.assertTrue((root / ".klimkit" / "Alice" / "tasks" / "feature" / "01-a.md").exists())
+            self.assertIn('workflow = "team"', config_path.read_text(encoding="utf-8"))
+
+    def test_migrate_team_workflow_uses_current_project_when_config_is_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            harness = root / "harness"
+            project = root / "project"
+            config_path = harness / ".klimkit" / "local" / "klimkit.toml"
+            config_path.parent.mkdir(parents=True)
+            project_klimkit = project / ".klimkit"
+            project_klimkit.mkdir(parents=True)
+            (project_klimkit / "memory.md").write_text("# Project Memory\n", encoding="utf-8")
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[operator]",
+                        'human_name = "Dominik"',
+                        'workflow = "solo"',
+                        "",
+                        "[paths]",
+                        f'repo_root = "{harness}"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            old_cwd = Path.cwd()
+            stdout = io.StringIO()
+            try:
+                os.chdir(project)
+                with mock.patch.dict("os.environ", {"KLIMKIT_CONFIG": str(config_path)}), redirect_stdout(stdout):
+                    result = cli.main(["migrate", "team-workflow"])
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(result, 0)
+            self.assertIn(str(project), stdout.getvalue())
+            self.assertIn("(not updated for project migration)", stdout.getvalue())
+            self.assertFalse((project_klimkit / "memory.md").exists())
+            self.assertTrue((project_klimkit / "Dominik" / "memory.md").exists())
+            rendered_config = config_path.read_text(encoding="utf-8")
+            self.assertIn(f'repo_root = "{harness}"', rendered_config)
+            self.assertIn('workflow = "solo"', rendered_config)
+
+    def test_migrate_team_workflow_supports_explicit_repo_and_human_name_without_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "project"
+            project_klimkit = project / ".klimkit"
+            config_path = root / "missing" / "klimkit.toml"
+            project_klimkit.mkdir(parents=True)
+            (project_klimkit / "log.md").write_text("# Project Log\n", encoding="utf-8")
+            stdout = io.StringIO()
+
+            with redirect_stdout(stdout):
+                result = cli.main(
+                    [
+                        "--config",
+                        str(config_path),
+                        "migrate",
+                        "team-workflow",
+                        "--repo",
+                        str(project),
+                        "--human-name",
+                        "Dominik",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            self.assertIn(str(project), stdout.getvalue())
+            self.assertFalse(config_path.exists())
+            self.assertFalse((project_klimkit / "log.md").exists())
+            self.assertTrue((project_klimkit / "Dominik" / "log.md").exists())
 
     def test_code_server_capture_writes_repo_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -347,7 +462,12 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn("Proof reports: https://odev.tail11c448.ts.net/reports/", output)
             self.assertIn("Codex projection:", output)
             self.assertIn("code-server settings:", output)
-            self.assertIn("systemctl --user status klimkit.service --no-pager", output)
+            expected_check = (
+                "launchctl print gui/$(id -u)/com.klim.klimkit"
+                if cli.platform.system() == "Darwin"
+                else "systemctl --user status klimkit.service --no-pager"
+            )
+            self.assertIn(expected_check, output)
 
     def test_apply_reports_tailscale_serve_permission_skip(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -26,6 +26,7 @@ The core operating promise is parallel agent work without losing control: use Sw
 - [Release Status](#release-status)
 - [Tech Stack](#tech-stack)
 - [Single Config](#single-config)
+- [Solo And Team Artifacts](#solo-and-team-artifacts)
 - [Generated Projections](#generated-projections)
 - [Code-Server Managed Profile](#code-server-managed-profile)
 - [Harness Pack](#harness-pack)
@@ -108,13 +109,82 @@ The default first VM enables both roles:
 ```toml
 [operator]
 human_name = "Human"
+workflow = "solo"
 
 [components]
 client = true
 server = true
 ```
 
-`operator.human_name` is injected into projected Codex harness instructions so the source pack can stay generic while each machine can address its human operator by the configured name.
+`operator.human_name` is injected into projected harness instructions so the source pack can stay generic while each machine can address its human operator by the configured name. `operator.workflow` controls where agents write project evidence. `solo` keeps the existing flat `.klimkit/` layout, while `team` scopes writable evidence under `.klimkit/<human_name-as-folder>/`. A projected harness always works for one active human/operator; in team workflow that operator can still use the wider team's project knowledge as attributed context.
+
+## Solo And Team Artifacts
+
+Klimkit treats `.klimkit/` as a project evidence layer, not a private local cache. The machine-local parts stay ignored:
+
+```text
+.klimkit/local/
+.klimkit/state/
+.klimkit/backups/
+.klimkit/logs/
+```
+
+The default `solo` workflow keeps agent-authored project artifacts in the flat layout:
+
+```text
+.klimkit/memory.md
+.klimkit/log.md
+.klimkit/reflection.md
+.klimkit/tasks/
+.klimkit/reports/
+```
+
+For a team, set:
+
+```toml
+[operator]
+human_name = "Alice"
+workflow = "team"
+```
+
+In team workflow, the projected harness tells agents to read the wider project evidence but write only inside the current operator folder:
+
+```text
+.klimkit/
+  Alice/
+    memory.md
+    log.md
+    reflection.md
+    tasks/
+    reports/
+  Bob/
+    memory.md
+    log.md
+    reflection.md
+    tasks/
+    reports/
+```
+
+The active operator can be a solo human or one human in a team. In team workflow, an AI harness still works for one current human at a time: it writes that human's task notes, memories, logs, reflections, and proof reports under the filesystem-safe folder derived from that human's name, while reading other operator folders as general team knowledge when relevant. When an agent uses another operator's memory, task note, log, or reflection, it should preserve attribution by keeping the source operator and file path visible in its reasoning, task proof, or new memory entry.
+
+This keeps each operator's task notes, memories, logs, reflections, and proof reports Git-trackable without letting one agent silently rewrite another operator's evidence. Switchboard reports include both `.klimkit/reports/**/*.html` and team-scoped `.klimkit/<operator>/reports/**/*.html`. Large report media remains ignored in both layouts.
+
+To migrate an existing solo project after setting `human_name`, run the command from the project checkout:
+
+```bash
+cd /path/to/project
+kk migrate team-workflow --dry-run
+kk migrate team-workflow
+```
+
+When `kk migrate team-workflow` runs inside a checkout with `.klimkit/`, it migrates that project. For scripted migrations from another directory, or when no local Klimkit config exists, pass the project and human name explicitly:
+
+```bash
+kk migrate team-workflow --repo /path/to/project --human-name Alice --dry-run
+kk migrate team-workflow --repo /path/to/project --human-name Alice
+```
+
+The migration moves only the trackable evidence folders/files (`memory.md`, `log.md`, `reflection.md`, `tasks/`, and `reports/`) into `.klimkit/<human_name-as-folder>/` and sets `workflow = "team"` only when it is migrating the configured Klimkit repo. It does not move `.klimkit/local/`, `.klimkit/state/`, `.klimkit/backups/`, `.klimkit/logs/`, secrets, runtime DBs, or generated service state. If a target already exists, the migration stops instead of merging or overwriting. Run `kk apply` separately only after changing the active Klimkit harness config.
 
 Client-only VMs report to the first VM:
 
@@ -210,7 +280,7 @@ Other machines pick it up with `kk pull` or daemon autosync. Set `managed_profil
 
 The active Codex home-level harness is source-controlled in `packs/codex/` and projected into `~/.codex/` by `kk apply`, `kk pull`, and daemon autosync.
 
-Codex pack files may contain the `__HUMAN_NAME__` token. Klimkit replaces it with `[operator].human_name` during projection.
+Codex pack files may contain projection tokens such as `__HUMAN_NAME__`, `__KLIMKIT_ARTIFACT_WORKFLOW__`, `__KLIMKIT_OPERATOR_FOLDER__`, and `__KLIMKIT_ARTIFACT_ROOT__`. Klimkit replaces them from the local `[operator]` config during projection.
 
 Current pack contents:
 
@@ -236,7 +306,7 @@ Machines with autosync enabled pick up the commit from `origin/main`, apply the 
 
 The shared Codex pack is intentionally opinionated about how agent work reaches completion. The projected `AGENTS.md` separates the workflow into intake, checklist, planning/delegation, implementation, verification, final review, and reporting.
 
-For implementation tasks, the first blocking step is the `checklister` subagent. It writes an `Acceptance Checklist` into an agent-authored task note under `.klimkit/tasks/<feature>/`. That checklist is meant to be concrete enough for a demanding human QA pass: exact UI screens and states when UI is involved, persistence and database expectations when state changes, local files and services when projections change, cross-machine sync behavior when relevant, and the named automated/manual checks that must pass.
+For implementation tasks, the first blocking step is the `checklister` subagent. It writes an `Acceptance Checklist` into an agent-authored task note under the configured writable tasks directory: `.klimkit/tasks/<feature>/` in solo workflow or `.klimkit/<human_name-as-folder>/tasks/<feature>/` in team workflow. That checklist is meant to be concrete enough for a demanding human QA pass: exact UI screens and states when UI is involved, persistence and database expectations when state changes, local files and services when projections change, cross-machine sync behavior when relevant, and the named automated/manual checks that must pass.
 
 Other subagents are used when they materially reduce risk:
 
@@ -248,11 +318,11 @@ Other subagents are used when they materially reduce risk:
 - `debugger` isolates root causes when checks fail.
 - `web_research` verifies current external APIs, docs, or best practices.
 
-For UI work, task proof belongs under the active repo's `.klimkit/reports/` directory. The HTML report should be Git-tracked, while large screenshots and native `agent-browser` video recordings stay as ignored local media referenced by relative paths. Put each screenshot and video in its own full-width section so the report is inspectable on a laptop screen. Prefer MP4 videos in the HTML report for reliable Chrome/PWA scrubbing; it is fine to convert the native `agent-browser` WebM recording to MP4 for presentation while keeping the source recording as evidence. The completion handoff should give the Tailscale-served report URL when this VM has a Tailscale DNS name; localhost report links are only local QA fallback evidence.
+For UI work, task proof belongs under the configured writable reports directory: `.klimkit/reports/` in solo workflow or `.klimkit/<human_name-as-folder>/reports/` in team workflow. The HTML report should be Git-tracked, while large screenshots and native `agent-browser` video recordings stay as ignored local media referenced by relative paths. Put each screenshot and video in its own full-width section so the report is inspectable on a laptop screen. Prefer MP4 videos in the HTML report for reliable Chrome/PWA scrubbing; it is fine to convert the native `agent-browser` WebM recording to MP4 for presentation while keeping the source recording as evidence. The completion handoff should give the Tailscale-served report URL when this VM has a Tailscale DNS name; localhost report links are only local QA fallback evidence.
 
-Before final review, non-trivial implementation work runs the Reflection Gate. `.klimkit/reflection.md` is an append-only timestamped cross-task Reflection Log: entries are reflection sessions, not one required record per task. The default sections are `Observations`, `Derived Pattern`, `Insight`, and `Next Probe`; wider sessions may use up to ten named sections. Older reflection entries stay intact, and agents normalize them by appending a new-format entry when that older synthesis is relevant to the current work.
+Before final review, non-trivial implementation work runs the Reflection Gate. The configured writable reflection file is an append-only timestamped cross-task Reflection Log: `.klimkit/reflection.md` in solo workflow or `.klimkit/<human_name-as-folder>/reflection.md` in team workflow. Entries are reflection sessions, not one required record per task. The default sections are `Observations`, `Derived Pattern`, `Insight`, and `Next Probe`; wider sessions may use up to ten named sections. Older reflection entries stay intact, and agents normalize them by appending a new-format entry when that older synthesis is relevant to the current work.
 
-The final workflow step is always 3 parallel `final_reviewer` agents before a completion claim. Each reviewer gets the original request or task path, the checklist, changed files, verification evidence, the `.klimkit/reports/` HTML proof report plus Tailscale report URL for UI work, and the exact final response draft. All 3 must pass before the response goes back to the human.
+The final workflow step is always 3 parallel `final_reviewer` agents before a completion claim. Each reviewer gets the original request or task path, the checklist, changed files, verification evidence, the HTML proof report from the configured writable reports directory plus Tailscale report URL for UI work, and the exact final response draft. All 3 must pass before the response goes back to the human.
 
 ## Reports
 
@@ -262,6 +332,7 @@ Klimkit serves repo-local proof reports at `/reports/`. Reports stay inside each
 <repo>/.klimkit/reports/<task>/report.html
 <repo>/.klimkit/reports/<task>/assets/screenshot.png
 <repo>/.klimkit/reports/<task>/assets/demo.mp4
+<repo>/.klimkit/<operator>/reports/<task>/report.html
 ```
 
 Configure roots in `.klimkit/local/klimkit.toml`; Klimkit does not scan the whole home directory:
@@ -271,7 +342,7 @@ Configure roots in `.klimkit/local/klimkit.toml`; Klimkit does not scan the whol
 repo_roots = ["~/klimkit", "~/wt", "~/projects"]
 ```
 
-`/reports/` renders one combined table from every configured root's `.klimkit/reports/**/*.html`. Report HTML is meant to be tracked in Git; screenshots and videos under `.klimkit/reports/` are ignored so commits stay small while VM-local proof remains viewable through the reports page.
+`/reports/` renders one combined table from every configured root's `.klimkit/reports/**/*.html` and `.klimkit/<operator>/reports/**/*.html`. Report HTML is meant to be tracked in Git; screenshots and videos under both reports layouts are ignored so commits stay small while VM-local proof remains viewable through the reports page.
 
 When Tailscale Serve is available, the useful report handoff URL is `https://<machine>.<tailnet>.ts.net/reports/` or the specific report URL under that index. `kk apply`, `kk pull`, and `kk doctor` print this Tailscale reports URL so agent work can end with a shareable tailnet proof link instead of a localhost URL.
 

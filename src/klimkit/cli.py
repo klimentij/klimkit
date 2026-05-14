@@ -8,15 +8,19 @@ import shutil
 import socket
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from .install import (
     apply_plan,
     build_plan,
     capture_code_server_profile,
+    default_config,
     ensure_config,
     format_plan,
     load_config,
+    migrate_team_workflow,
+    operator_folder_from_human_name,
     render_config,
     uninstall_from_manifest,
     validate_config,
@@ -35,6 +39,8 @@ EXAMPLES = """examples:
   kk serve
   kk update
   kk pull
+  kk migrate team-workflow --dry-run
+  kk migrate team-workflow --repo /path/to/project --human-name Alice --dry-run
   kk code-server capture
 """
 
@@ -416,6 +422,7 @@ def _format_welcome() -> str:
         _command_row("kk serve", "run Switchboard"),
         _command_row("kk update", "pull the checkout only"),
         _command_row("kk pull", "pull current branch and apply this VM"),
+        _command_row("kk migrate team-workflow", "move project artifacts into the team workflow layout"),
         _command_row("kk code-server capture", "capture current code-server profile into the repo"),
     ]
     if KLIMKIT_CONFIG_FILE.exists():
@@ -549,6 +556,48 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pull.add_argument("--skip-services", action="store_true", help="Do not start or enable services.")
 
+    migrate = _add_command(
+        subparsers,
+        "migrate",
+        help="Migrate Klimkit repo artifacts between supported workflows.",
+        description="Move trackable Klimkit artifacts into a supported repo workflow layout.",
+        examples=(
+            "  kk migrate team-workflow --dry-run\n"
+            "  kk migrate team-workflow\n"
+            "  kk migrate team-workflow --repo /path/to/project --human-name Alice --dry-run"
+        ),
+    )
+    migrate_subparsers = migrate.add_subparsers(dest="migration_command", required=True)
+    team_workflow = migrate_subparsers.add_parser(
+        "team-workflow",
+        help="Move solo .klimkit artifacts into the configured team operator folder.",
+        description=(
+            "Move memory, log, reflection, tasks, and reports from the flat .klimkit layout "
+            "into .klimkit/<human_name-as-folder>/ and set [operator] workflow = \"team\"."
+        ),
+        epilog=(
+            "examples:\n"
+            "  kk migrate team-workflow --dry-run\n"
+            "  kk migrate team-workflow\n"
+            "  kk migrate team-workflow --repo /path/to/project --human-name Alice --dry-run\n"
+            "  kk migrate team-workflow --repo /path/to/project --human-name Alice"
+        ),
+        formatter_class=HelpFormatter,
+    )
+    team_workflow.add_argument("--dry-run", action="store_true", help="Show the migration plan without moving files.")
+    team_workflow.add_argument(
+        "--repo",
+        type=Path,
+        default=None,
+        help="Project repo whose .klimkit artifacts should be migrated. Defaults to configured repo_root.",
+    )
+    team_workflow.add_argument(
+        "--human-name",
+        dest="migration_human_name",
+        default=None,
+        help="Human name whose sanitized form becomes the team artifact folder. Defaults to configured [operator] human_name.",
+    )
+
     serve = _add_command(
         subparsers,
         "serve",
@@ -599,6 +648,21 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _skip_services(args: argparse.Namespace) -> bool:
     return bool(getattr(args, "skip_services", False))
+
+
+def _nearest_klimkit_project(start: Path) -> Path | None:
+    current = start.expanduser().resolve()
+    for candidate in (current, *current.parents):
+        if (candidate / ".klimkit").exists():
+            return candidate
+    return None
+
+
+def _same_path(left: Path, right: Path) -> bool:
+    try:
+        return left.expanduser().resolve() == right.expanduser().resolve()
+    except OSError:
+        return left.expanduser() == right.expanduser()
 
 
 def _setup_role(args: argparse.Namespace) -> str:
@@ -837,6 +901,95 @@ def cmd_pull(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_migrate(args: argparse.Namespace) -> int:
+    if args.migration_command != "team-workflow":
+        return 1
+    config_path = args.config.expanduser()
+    repo_override = getattr(args, "repo", None)
+    human_name_override = str(getattr(args, "migration_human_name", "") or "").strip()
+    if not config_path.exists():
+        if not human_name_override:
+            print(_error("Config is missing; run `kk setup` first, or pass --human-name."), file=sys.stderr)
+            return 1
+        config = default_config()
+    else:
+        config = load_config(args.config)
+    configured_repo = config.repo_root
+    if repo_override is not None:
+        config = replace(config, repo_root=repo_override.expanduser())
+    elif not bool(getattr(args, "config_explicit", False)):
+        cwd_project = _nearest_klimkit_project(Path.cwd())
+        if cwd_project is not None:
+            config = replace(config, repo_root=cwd_project)
+    if human_name_override:
+        config = replace(
+            config,
+            human_name=human_name_override,
+            operator_folder=operator_folder_from_human_name(human_name_override),
+        )
+    validation_errors = validate_config(config)
+    if validation_errors:
+        _print_apply_blockers(validation_errors)
+        return 1
+    write_config = repo_override is None and _same_path(config.repo_root, configured_repo)
+    result = migrate_team_workflow(
+        config,
+        config_path=args.config,
+        dry_run=bool(args.dry_run),
+        write_config=write_config,
+    )
+    updated_config = result["config"]
+    entries = result["entries"]
+    blockers = result["blockers"]
+    if not isinstance(entries, list) or not isinstance(blockers, list):
+        print(_error("Migration failed: invalid migration result."), file=sys.stderr)
+        return 1
+
+    subtitle = "Team workflow migration preview." if args.dry_run else "Team workflow migration applied."
+    print(_header("migrate", subtitle))
+    print(_kv("repo", getattr(updated_config, "repo_root", "")))
+    config_note = str(args.config.expanduser()) if write_config else f"{args.config.expanduser()} (not updated for project migration)"
+    print(_kv("config", config_note))
+    print(_kv("workflow", "team"))
+    print(_kv("human", getattr(updated_config, "human_name", "")))
+    print(_kv("folder", getattr(updated_config, "operator_folder", "")))
+    print()
+    print(_section("Artifacts"))
+    for entry in entries:
+        status = getattr(entry, "status", "")
+        source = getattr(entry, "source", "")
+        target = getattr(entry, "target", "")
+        if status == "move":
+            label = "would move" if args.dry_run else "moved"
+            print(_status(label, f"{source} -> {target}", "ok"))
+        elif status == "blocked":
+            print(_status("blocked", f"{source} -> {target} ({getattr(entry, 'message', '')})", "error"))
+        else:
+            print(_status("missing", f"{source}", "warn"))
+    if blockers:
+        print()
+        print(_error("Migration is blocked because one or more targets already exist."), file=sys.stderr)
+        return 1
+    if args.dry_run:
+        print()
+        print(_section("Next"))
+        if repo_override is None:
+            next_command = "kk migrate team-workflow"
+            if human_name_override:
+                next_command += f" --human-name {human_name_override}"
+        else:
+            next_command = (
+                f"kk migrate team-workflow --repo {repo_override.expanduser()} "
+                f"--human-name {getattr(updated_config, 'human_name', '')}"
+            )
+        print(_command_row(next_command, "apply this migration"))
+    else:
+        print()
+        print(_section("Next"))
+        print(_command_row("kk apply", "project team workflow guidance into the active harness"))
+    return 0
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     from .apps.switchboard import daemon
 
@@ -887,7 +1040,9 @@ def main(argv: list[str] | None = None) -> int:
     if not argv:
         print(_format_welcome())
         return 0
+    config_explicit = any(item == "--config" or item.startswith("--config=") for item in argv)
     args = build_parser().parse_args(argv)
+    setattr(args, "config_explicit", config_explicit)
     commands = {
         "setup": cmd_setup,
         "preview": cmd_preview,
@@ -897,6 +1052,7 @@ def main(argv: list[str] | None = None) -> int:
         "sync-live": cmd_sync_live,
         "update": cmd_update,
         "pull": cmd_pull,
+        "migrate": cmd_migrate,
         "serve": cmd_serve,
         "code-server": cmd_code_server,
         "uninstall": cmd_uninstall,
