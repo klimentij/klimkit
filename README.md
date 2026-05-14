@@ -66,9 +66,9 @@ The installer reuses the local checkout, installs the `kk` launcher into `~/.loc
 
 ## Release Status
 
-Current release: [`v0.1.5`](https://github.com/klimentij/klimkit/releases/tag/v0.1.5).
+Current release: [`v0.1.6`](https://github.com/klimentij/klimkit/releases/tag/v0.1.6).
 
-`v0.1.5` tightens the Reflection Gate into a timestamped cross-task Reflection Log. Fresh-context `reflector` entries are sessions, not per-task records, and default to `Observations`, `Derived Pattern`, `Insight`, and `Next Probe` while allowing up to ten named sections for wider synthesis. Older reflection entries are preserved and normalized by appending new-format entries when relevant. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
+`v0.1.6` integrates generic agent engineering best practices into the shared Codex harness without pasting a second template. It makes the main `AGENTS.md` rules more explicit about assumptions, simplicity, surgical changes, success criteria, conflict handling, deterministic code paths, intent-focused tests, no fake support, prototype boundaries, project language, and fail-loud reporting. Related subagents now enforce the same behavior where it matters: checklists, exploration, review, debugging, testing, final review, and harness tuning. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
 
 ## Tech Stack
 

@@ -144,19 +144,29 @@ class CodexPackValidationTests(unittest.TestCase):
 
         required_guidance = (
             "ask rather than guess",
-            "checkpoint after each significant step",
+            "Push back when a simpler approach exists.",
+            "Stop when confused and name what is unclear.",
+            "Define success criteria for non-trivial work, not just steps to follow.",
+            "Loop until verified.",
+            "Checkpoint after each significant step",
             "one-use abstractions",
+            "Do not add features beyond what was asked.",
             "Touch only what the request",
+            "Do not improve adjacent code, comments, or formatting",
             "Before adding code, inspect exports, immediate callers, shared utilities, and relevant tests.",
+            "Use project language.",
             "No hacks.",
             "If the only path is a hack, stop",
+            "fake support",
             "Prefer clarity, correctness, and maintainability over preserving a flawed design.",
             "do not keep broken APIs or behavior solely for backwards compatibility",
             "Resolve conflicts explicitly.",
             "Use deterministic tools or code for deterministic work",
             "Tests must verify intent",
+            "Hook, projection, service, and tool failures are part of the work.",
             "Fail loud.",
             "Do not claim completion when work, verification, or review was skipped.",
+            "prototypes must be clearly marked throwaway",
         )
         for phrase in required_guidance:
             with self.subTest(phrase=phrase):
@@ -164,6 +174,40 @@ class CodexPackValidationTests(unittest.TestCase):
 
         self.assertNotIn("CLAUDE.md", agents)
         self.assertNotIn("THIS IS VERY IMPORTANT", agents)
+
+    def test_pack_subagents_enforce_best_practice_guidance(self) -> None:
+        checklister = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "checklister.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        code_explorer = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "code-explorer.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        code_reviewer = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "code-reviewer.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        debugger = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "debugger.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        final_reviewer = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "final-reviewer.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        test_writer = tomllib.loads(
+            (ROOT / "packs" / "codex" / "agents" / "test-writer.toml").read_text(encoding="utf-8")
+        )["developer_instructions"]
+        harness_tuning = (ROOT / "packs" / "codex" / "skills" / "harness-tuning" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("success criteria and scope boundaries", checklister)
+        self.assertIn("prototype question", checklister)
+        self.assertIn("surface contradictory patterns", code_explorer)
+        self.assertIn("fake support", code_reviewer)
+        self.assertIn("tests that assert implementation details", code_reviewer)
+        self.assertIn("credible feedback loop", debugger)
+        self.assertIn("skipped checks, unavailable checks, projection/service failures", final_reviewer)
+        self.assertIn("public interfaces", test_writer)
+        self.assertIn("one vertical slice at a time", test_writer)
+        self.assertIn("synthesize it into the existing pack instead of pasting template blocks", harness_tuning)
 
     def test_hook_scripts_are_syntax_valid(self) -> None:
         for path in sorted((ROOT / "packs" / "codex" / "hooks").glob("*.sh")):

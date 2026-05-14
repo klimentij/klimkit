@@ -15,6 +15,7 @@ These are shared, home-level defaults. Repository-local `AGENTS.md` files add pr
 
 1. **Intake**
    - Read the request, relevant task file, repository instructions, `.klimkit/memory.md`, and `.klimkit/log.md` when present.
+   - When present and relevant, also read project language and decision docs such as `CONTEXT.md`, `CONTEXT-MAP.md`, and `docs/adr/`.
    - Identify whether the work is planning-only, implementation, review, debugging, or research.
 
 2. **Acceptance Checklist**
@@ -26,12 +27,14 @@ These are shared, home-level defaults. Repository-local `AGENTS.md` files add pr
    - State the smallest useful plan for non-trivial work.
    - Use other subagents only when they materially reduce risk or let independent work happen in parallel.
    - Prefer waves of 2-3 subagents; avoid broad fan-out unless the task truly benefits.
+   - Avoid agent fights: give parallel agents distinct questions or disjoint write scopes, then reconcile conflicts explicitly instead of averaging their answers.
 
 4. **Implement**
    - Understand before changing; explore first or delegate read-heavy tracing to `code_explorer`.
    - Prefer red/green TDD for behavior-changing work when the repository has tests.
    - Keep edits surgical, reuse existing helpers, and remove only dead code introduced by the change.
    - Do not refactor unrelated code while passing through.
+   - Fit the work mode. Production changes need robust, verified code; prototypes must be clearly marked throwaway, answer a specific question, avoid production claims, and be deleted or absorbed when done.
 
 5. **Verify**
    - Run the tests and checks that match the checklist and blast radius.
@@ -84,6 +87,7 @@ Shared skills live in `~/.codex/skills/`. Prefer a matching documented skill ove
 
 - Use `harness-tuning` when changing shared home-level Codex behavior. It keeps edits in `~/klimkit/packs/codex/` so `kk apply` and autosync project them to `~/.codex/` cleanly.
 - Use UI/browser skills for live frontend QA when a task depends on actual screen behavior.
+- If skill, agent, hook, and repository instructions conflict, follow the more specific or load-bearing instruction, state the choice, and flag stale guidance for cleanup.
 
 ## Memory, Logs, And Task Notes
 
@@ -128,17 +132,19 @@ Append-only timestamped cross-task reflection log. Entries are reflection sessio
 
 ## Engineering Quality Rules
 
-- Think before coding. State assumptions explicitly, surface ambiguity before it affects implementation choices, and ask rather than guess when the answer cannot be discovered safely. If multiple interpretations are plausible, present them and explain which one you are taking.
-- Define success criteria for non-trivial work and checkpoint after each significant step: what changed, what is verified, and what remains. If you lose track, stop and restate the current state before continuing.
-- Keep the solution as small as the request allows. Avoid speculative features, one-use abstractions, and changes a senior engineer would reasonably call overcomplicated.
-- Keep edits surgical. Touch only what the request, checklist, or verification requires. Clean up only your own mess and do not refactor adjacent code just because you passed through it.
+- Think before coding. State assumptions explicitly, surface ambiguity before it affects implementation choices, and ask rather than guess when the answer cannot be discovered safely. If multiple interpretations are plausible, present them and explain which one you are taking. Push back when a simpler approach exists. Stop when confused and name what is unclear.
+- Define success criteria for non-trivial work, not just steps to follow. Loop until verified. Checkpoint after each significant step: what changed, what is verified, and what remains. If you lose track, stop and restate the current state before continuing.
+- Keep the solution as small as the request allows. Avoid speculative features, one-use abstractions, and changes a senior engineer would reasonably call overcomplicated. Do not add features beyond what was asked.
+- Keep edits surgical. Touch only what the request, checklist, or verification requires. Clean up only your own mess and do not refactor adjacent code just because you passed through it. Do not improve adjacent code, comments, or formatting unless that cleanup is required for the task.
 - Read before writing. Before adding code, inspect exports, immediate callers, shared utilities, and relevant tests. If the structure is unclear, pause and find out why it exists.
+- Use project language. Prefer established domain terms from repo docs, task notes, memory, code, and ADRs when present; introduce a new term only when it clarifies a real concept.
 - Match the repository's existing style, framework, helper APIs, and test conventions even when you would choose differently in a fresh project.
-- No hacks. Do not introduce local workarounds, monkey patches, duct tape, partial solutions, or code likely to break later. If the only path is a hack, stop and say the request cannot be completed robustly; either fix the underlying flaw in a well-designed way or report the missing support honestly.
+- No hacks. Do not introduce local workarounds, monkey patches, duct tape, partial solutions, fake support, or code likely to break later. If the only path is a hack, stop and say the request cannot be completed robustly; either fix the underlying flaw in a well-designed way or report the missing support honestly.
 - Prefer clarity, correctness, and maintainability over preserving a flawed design. This is a trusted operator codebase; do not keep broken APIs or behavior solely for backwards compatibility unless the task explicitly requires compatibility. When a breaking cleanup is the right fix, make it deliberately and verify the affected surface.
 - Resolve conflicts explicitly. When instructions or code patterns disagree, choose the more specific, recent, or well-tested pattern, explain the choice, and flag the other pattern for cleanup instead of blending them.
 - Use deterministic tools or code for deterministic work such as routing, retries, parsing, formatting, and bulk transforms. Use model judgment for classification, drafting, summarization, extraction, and engineering tradeoffs.
 - Tests must verify intent, not only mechanics. A useful test should fail when the business rule or safety property it protects is broken. Broaden tests when touching shared behavior, cross-module contracts, user-visible workflows, or persistence.
+- Hook, projection, service, and tool failures are part of the work. Classify whether they block the task, retry with explicit evidence when appropriate, and do not claim live state until the live state was verified.
 - Fail loud. Do not claim completion when work, verification, or review was skipped. Do not say "tests pass" without naming skipped tests or unavailable checks. Report uncertainty, fragile areas, and any change you are not confident about.
 - If the user asks for a review, lead with findings ordered by severity, then open questions, then summary.
 

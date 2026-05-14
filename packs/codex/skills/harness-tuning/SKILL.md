@@ -28,14 +28,15 @@ Use this skill when __HUMAN_NAME__ asks to change shared Codex behavior, subagen
 
 1. Read the existing pack file that owns the behavior.
 2. For implementation work, create or update the task acceptance checklist before editing source-pack files.
-3. For UI-impacting workflow changes, require proof reports under `.klimkit/reports/` with Git-tracked HTML plus screenshot/video evidence, display media as full-width sections, prefer MP4 report videos for Chrome/PWA scrubbing, and include the Tailscale-served report URL in the final handoff when available.
-4. Make the smallest source-pack edit that solves the request.
-5. Run `uv run python -m unittest tests.test_codex_pack_validation -q`.
-6. Run broader tests when hooks, config parsing, or Klimkit install/apply behavior changed.
-7. Run `kk preview` for machine-affecting projection changes when useful.
-8. Run `kk apply` to make changes live on the current VM.
-9. Before final reviewers on non-trivial implementation work, run the Reflection Gate: append a full-timestamped cross-task Reflection Log session to `.klimkit/reflection.md`, using `Observations`, `Derived Pattern`, `Insight`, and `Next Probe` by default with up to ten named sections when useful; preserve older reflection formats by appending a normalized entry when relevant; reconsider the result; and rerun impacted checks if reflection exposes a gap.
-10. Commit and push when the change should autosync to other Klimkit machines.
+3. When integrating external advice, synthesize it into the existing pack instead of pasting template blocks; check `AGENTS.md`, subagents, skills, and tests for duplicate or conflicting guidance.
+4. For UI-impacting workflow changes, require proof reports under `.klimkit/reports/` with Git-tracked HTML plus screenshot/video evidence, display media as full-width sections, prefer MP4 report videos for Chrome/PWA scrubbing, and include the Tailscale-served report URL in the final handoff when available.
+5. Make the smallest source-pack edit that solves the request.
+6. Run `uv run python -m unittest tests.test_codex_pack_validation -q`.
+7. Run broader tests when hooks, config parsing, or Klimkit install/apply behavior changed.
+8. Run `kk preview` for machine-affecting projection changes when useful.
+9. Run `kk apply` to make changes live on the current VM when the user wants the current VM updated now.
+10. Before final reviewers on non-trivial implementation work, run the Reflection Gate: append a full-timestamped cross-task Reflection Log session to `.klimkit/reflection.md`, using `Observations`, `Derived Pattern`, `Insight`, and `Next Probe` by default with up to ten named sections when useful; preserve older reflection formats by appending a normalized entry when relevant; reconsider the result; and rerun impacted checks if reflection exposes a gap.
+11. Commit and push when the change should autosync to other Klimkit machines.
 
 ## Safety Note
 

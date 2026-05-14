@@ -35,3 +35,10 @@ The diff also includes separate shared engineering-quality guidance and a memory
 **Derived Pattern:** Klimkit's harness works best when each artifact has one job: checklists define acceptance, proofs hold evidence, logs record actions, memory stores durable rules, and reflection captures reusable synthesis across tasks.
 **Insight:** The new format's value is not just compression; it makes reflection cheap enough to repeat while preserving older reasoning append-only and keeping detailed validation in task-local notes.
 **Next Probe:** Watch the next few non-trivial tasks for whether agents write genuinely connective entries or mechanically restate proof, then tighten reflector/checklister wording if drift appears.
+
+### 2026-05-14T12:07:00Z
+
+**Observations:** The generic best-practice update shows the pack has matured enough that external advice should be decomposed into enforceable workflow, subagent, skill, and test changes rather than pasted as a parallel rule block.
+**Derived Pattern:** Durable harness quality comes from distributing guidance to the layer that can enforce it: AGENTS for defaults, subagents for role-specific checks, skills for workflow mechanics, and tests for regression protection.
+**Insight:** The strongest addition from the Karpathy-style and Matt Pocock material is not another checklist; it is making ambiguity, prototypes, fake support, projection failures, and weak feedback loops visible at the exact point where they usually become hidden agent errors.
+**Next Probe:** After this release, watch whether future checklists and final reviews actually flag prototype leakage, unsupported production claims, and implementation-coupled tests without needing a human reminder.
