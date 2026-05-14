@@ -50,6 +50,7 @@ Klimkit release.
 ## Release
 
 - Target tag: `v0.1.6`
-- Commit SHA: pending.
-- Release URL: pending.
-- Latest verification: pending.
+- Release URL: `https://github.com/klimentij/klimkit/releases/tag/v0.1.6`
+- Published: `2026-05-14T12:08:45Z`
+- Latest verification: `gh release list --limit 4` showed `Klimkit v0.1.6 - generic agent best practices` with the `Latest` marker.
+- Final tag target: verified in the final handoff after this proof note commit exists.
