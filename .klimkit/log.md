@@ -48,3 +48,4 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-16T04:43:51Z: Wrote the acceptance checklist for PR #1 team workflow fixes under `.klimkit/tasks/05-team-workflow-fixes/`.
 - 2026-05-16T11:10:00Z: Flattened PR #1 proof evidence back to the solo `.klimkit/` layout and removed contributor operator-scoped `.klimkit` artifacts from the public repo.
 - 2026-05-16T11:11:00Z: Recorded the durable preference that this repository remains in the solo flat `.klimkit/` artifact layout while team workflow stays optional product functionality.
+- 2026-05-16T11:49:55Z: Added a repository-local `AGENTS.md` reminder to create and mark a latest GitHub release after every commit to `main`.
