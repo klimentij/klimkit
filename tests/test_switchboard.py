@@ -1449,11 +1449,13 @@ class SwitchboardTests(unittest.TestCase):
             report_a = repo_a / ".klimkit" / "reports" / "flow" / "report.html"
             report_b = repo_b / ".klimkit" / "reports" / "report.html"
             report_team = repo_a / ".klimkit" / "Alice" / "reports" / "team-flow" / "report.html"
+            report_reserved = repo_a / ".klimkit" / "tasks" / "reports" / "accidental.html"
             media = report_a.parent / "assets" / "demo.webm"
             mp4_media = report_a.parent / "assets" / "demo.mp4"
             report_a.parent.mkdir(parents=True)
             report_b.parent.mkdir(parents=True)
             report_team.parent.mkdir(parents=True)
+            report_reserved.parent.mkdir(parents=True)
             media.parent.mkdir()
             report_a.write_text(
                 '<!doctype html><title>Tab Browser QA</title><meta name="report-timestamp" content="2026-05-08T09:00:00Z"><video src="assets/demo.webm"></video>',
@@ -1467,6 +1469,7 @@ class SwitchboardTests(unittest.TestCase):
                 '<!doctype html><h1>Older Report</h1><meta name="report-timestamp" content="2026-05-07T09:00:00Z">',
                 encoding="utf-8",
             )
+            report_reserved.write_text("<!doctype html><title>Reserved Task Report</title>", encoding="utf-8")
             media.write_bytes(b"webm")
             mp4_media.write_bytes(b"0123456789")
             secret = root / "secret.txt"
@@ -1488,6 +1491,7 @@ class SwitchboardTests(unittest.TestCase):
                 self.assertIn("Tab Browser QA", index)
                 self.assertIn("Team Workflow QA", index)
                 self.assertIn("Older Report", index)
+                self.assertNotIn("Reserved Task Report", index)
                 self.assertIn("Skipped missing report root", index)
                 self.assertLess(index.index("Team Workflow QA"), index.index("Tab Browser QA"))
                 self.assertLess(index.index("Tab Browser QA"), index.index("Older Report"))
@@ -1539,6 +1543,149 @@ class SwitchboardTests(unittest.TestCase):
                 traversal = f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/%2e%2e/%2e%2e/secret.txt"
                 with self.assertRaises(error.HTTPError) as raised:
                     request.urlopen(traversal, timeout=5)
+                self.assertEqual(raised.exception.code, 404)
+
+                reserved_owner = f"{origin}/reports/r/{MODULE.report_root_id(repo_a)}/@tasks/accidental.html"
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(reserved_owner, timeout=5)
+                self.assertEqual(raised.exception.code, 404)
+            finally:
+                running.close()
+
+    def test_reports_discovery_skips_duplicate_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            repo = root / "repo"
+            report = repo / ".klimkit" / "reports" / "report.html"
+            report.parent.mkdir(parents=True)
+            report.write_text("<!doctype html><title>One Report</title>", encoding="utf-8")
+            config = MODULE.AppConfig(
+                **{
+                    **build_config(root).__dict__,
+                    "report_roots": (repo, repo),
+                }
+            )
+
+            reports, warnings = MODULE.discover_reports(config)
+
+            self.assertEqual([report["title"] for report in reports], ["One Report"])
+            self.assertTrue(any("Skipped duplicate report root" in warning for warning in warnings))
+
+    def test_reports_reject_symlink_escape_sources_and_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            repo = root / "repo"
+            outside = root / "outside"
+            flat_reports = repo / ".klimkit" / "reports"
+            team_reports = repo / ".klimkit" / "Alice" / "reports"
+            outside.mkdir(parents=True)
+            team_reports.parent.mkdir(parents=True)
+            outside_report = outside / "report.html"
+            outside_secret = outside / "secret.txt"
+            outside_report.write_text("<!doctype html><title>Outside Report</title>", encoding="utf-8")
+            outside_secret.write_text("secret", encoding="utf-8")
+            try:
+                flat_reports.parent.mkdir(parents=True, exist_ok=True)
+                flat_reports.symlink_to(outside, target_is_directory=True)
+                team_reports.symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:  # pragma: no cover - platform dependent
+                self.skipTest(f"symlinks unavailable: {exc}")
+            config = MODULE.AppConfig(
+                **{
+                    **build_config(root).__dict__,
+                    "report_roots": (repo,),
+                }
+            )
+
+            reports, warnings = MODULE.discover_reports(config)
+
+            self.assertEqual(reports, [])
+            self.assertTrue(any("Skipped unreadable report path" in warning for warning in warnings))
+            self.assertIsNone(MODULE.resolve_report_asset(config, MODULE.report_root_id(repo), "report.html"))
+            self.assertIsNone(MODULE.resolve_report_asset(config, MODULE.report_root_id(repo), "@Alice/secret.txt"))
+
+            running = start_server(config)
+            origin = f"http://127.0.0.1:{running.server.server_address[1]}"
+            try:
+                for path in ("report.html", "@Alice/secret.txt"):
+                    with self.subTest(path=path), self.assertRaises(error.HTTPError) as raised:
+                        request.urlopen(f"{origin}/reports/r/{MODULE.report_root_id(repo)}/{path}", timeout=5)
+                    self.assertEqual(raised.exception.code, 404)
+            finally:
+                running.close()
+
+    def test_reports_reject_symlinked_operator_alias_to_reserved_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            repo = root / "repo"
+            reserved_report = repo / ".klimkit" / "tasks" / "reports" / "accidental.html"
+            reserved_report.parent.mkdir(parents=True)
+            reserved_report.write_text("<!doctype html><title>Reserved Task Report</title>", encoding="utf-8")
+            try:
+                (repo / ".klimkit" / "Alice").symlink_to(repo / ".klimkit" / "tasks", target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:  # pragma: no cover - platform dependent
+                self.skipTest(f"symlinks unavailable: {exc}")
+            config = MODULE.AppConfig(
+                **{
+                    **build_config(root).__dict__,
+                    "report_roots": (repo,),
+                }
+            )
+
+            reports, warnings = MODULE.discover_reports(config)
+
+            self.assertEqual(reports, [])
+            self.assertFalse(warnings)
+            self.assertIsNone(MODULE.resolve_report_asset(config, MODULE.report_root_id(repo), "@Alice/accidental.html"))
+
+            running = start_server(config)
+            origin = f"http://127.0.0.1:{running.server.server_address[1]}"
+            try:
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(
+                        f"{origin}/reports/r/{MODULE.report_root_id(repo)}/@Alice/accidental.html",
+                        timeout=5,
+                    )
+                self.assertEqual(raised.exception.code, 404)
+            finally:
+                running.close()
+
+    def test_reports_reject_symlinked_klimkit_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            repo = root / "repo"
+            outside_klimkit = root / "outside-klimkit"
+            repo.mkdir()
+            (outside_klimkit / "reports").mkdir(parents=True)
+            (outside_klimkit / "reports" / "report.html").write_text(
+                "<!doctype html><title>Outside Root Report</title>",
+                encoding="utf-8",
+            )
+            try:
+                (repo / ".klimkit").symlink_to(outside_klimkit, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:  # pragma: no cover - platform dependent
+                self.skipTest(f"symlinks unavailable: {exc}")
+            config = MODULE.AppConfig(
+                **{
+                    **build_config(root).__dict__,
+                    "report_roots": (repo,),
+                }
+            )
+
+            reports, warnings = MODULE.discover_reports(config)
+
+            self.assertEqual(reports, [])
+            self.assertTrue(any("Skipped unreadable report path" in warning for warning in warnings))
+            self.assertIsNone(MODULE.resolve_report_asset(config, MODULE.report_root_id(repo), "report.html"))
+
+            running = start_server(config)
+            origin = f"http://127.0.0.1:{running.server.server_address[1]}"
+            try:
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(
+                        f"{origin}/reports/r/{MODULE.report_root_id(repo)}/report.html",
+                        timeout=5,
+                    )
                 self.assertEqual(raised.exception.code, 404)
             finally:
                 running.close()

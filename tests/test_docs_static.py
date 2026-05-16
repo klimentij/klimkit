@@ -31,7 +31,9 @@ class DocsStaticTests(unittest.TestCase):
         self.assertIn(".klimkit/state/", text)
         self.assertIn("## Solo And Team Artifacts", text)
         self.assertIn("one active human/operator", text)
+        self.assertIn("Solo remains the default", text)
         self.assertIn("preserve attribution", text)
+        self.assertIn("reserved top-level names", text)
         self.assertIn("kk migrate team-workflow --dry-run", text)
         self.assertIn("kk migrate team-workflow --repo /path/to/project --human-name Alice --dry-run", text)
         self.assertIn("The core operating promise is parallel agent work", text)
@@ -44,6 +46,8 @@ class DocsStaticTests(unittest.TestCase):
         self.assertIn("full-width section", text)
         self.assertIn("Prefer MP4 videos", text)
         self.assertIn('repo_roots = ["~/klimkit", "~/wt", "~/projects"]', text)
+        self.assertIn("valid team-scoped `.klimkit/<operator>/reports/**/*.html`", text)
+        self.assertIn("symlinked report directories that escape", text)
         self.assertIn("Tailscale-served report URL", text)
         self.assertIn("https://<machine>.<tailnet>.ts.net/reports/", text)
         for screenshot in (
@@ -73,6 +77,8 @@ class DocsStaticTests(unittest.TestCase):
 
         for term in ("Switchboard", "Tailscale", "code-server", "workspace trust", "automatic tasks", "sandbox"):
             self.assertIn(term, security)
+        self.assertIn("proof reports are served only from configured repo roots", security)
+        self.assertIn("symlinked `.klimkit` roots, operator directories, or report directories", security)
         self.assertIn("uv run python -m unittest discover -s tests -q", contributing)
         self.assertIn("KLIMKIT_RUN_CODEX_SMOKE=1", contributing)
 

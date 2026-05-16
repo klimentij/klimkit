@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import platform
+import shlex
 import shutil
 import socket
 import subprocess
@@ -665,6 +666,18 @@ def _same_path(left: Path, right: Path) -> bool:
         return left.expanduser() == right.expanduser()
 
 
+def _migrate_followup_command(args: argparse.Namespace, repo_path: Path | None, human_name: str) -> str:
+    command = ["kk"]
+    if bool(getattr(args, "config_context_explicit", False)):
+        command.extend(["--config", str(args.config.expanduser())])
+    command.extend(["migrate", "team-workflow"])
+    if repo_path is not None:
+        command.extend(["--repo", str(repo_path.expanduser())])
+    if human_name:
+        command.extend(["--human-name", human_name])
+    return shlex.join(command)
+
+
 def _setup_role(args: argparse.Namespace) -> str:
     if getattr(args, "client_only", False):
         return "client-only"
@@ -907,7 +920,8 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     config_path = args.config.expanduser()
     repo_override = getattr(args, "repo", None)
     human_name_override = str(getattr(args, "migration_human_name", "") or "").strip()
-    if not config_path.exists():
+    config_exists = config_path.exists()
+    if not config_exists:
         if not human_name_override:
             print(_error("Config is missing; run `kk setup` first, or pass --human-name."), file=sys.stderr)
             return 1
@@ -915,11 +929,13 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     else:
         config = load_config(args.config)
     configured_repo = config.repo_root
+    followup_repo = repo_override
     if repo_override is not None:
         config = replace(config, repo_root=repo_override.expanduser())
     elif not bool(getattr(args, "config_explicit", False)):
         cwd_project = _nearest_klimkit_project(Path.cwd())
         if cwd_project is not None:
+            followup_repo = cwd_project
             config = replace(config, repo_root=cwd_project)
     if human_name_override:
         config = replace(
@@ -931,7 +947,7 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     if validation_errors:
         _print_apply_blockers(validation_errors)
         return 1
-    write_config = repo_override is None and _same_path(config.repo_root, configured_repo)
+    write_config = config_exists and _same_path(config.repo_root, configured_repo)
     result = migrate_team_workflow(
         config,
         config_path=args.config,
@@ -973,16 +989,10 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     if args.dry_run:
         print()
         print(_section("Next"))
-        if repo_override is None:
-            next_command = "kk migrate team-workflow"
-            if human_name_override:
-                next_command += f" --human-name {human_name_override}"
-        else:
-            next_command = (
-                f"kk migrate team-workflow --repo {repo_override.expanduser()} "
-                f"--human-name {getattr(updated_config, 'human_name', '')}"
-            )
-        print(_command_row(next_command, "apply this migration"))
+        next_human_name = human_name_override
+        if followup_repo is not None and not next_human_name:
+            next_human_name = str(getattr(updated_config, "human_name", ""))
+        print(f"  {_paint(_migrate_followup_command(args, followup_repo, next_human_name), 'accent')}")
     else:
         print()
         print(_section("Next"))
@@ -1041,8 +1051,10 @@ def main(argv: list[str] | None = None) -> int:
         print(_format_welcome())
         return 0
     config_explicit = any(item == "--config" or item.startswith("--config=") for item in argv)
+    config_context_explicit = config_explicit or "KLIMKIT_CONFIG" in os.environ
     args = build_parser().parse_args(argv)
     setattr(args, "config_explicit", config_explicit)
+    setattr(args, "config_context_explicit", config_context_explicit)
     commands = {
         "setup": cmd_setup,
         "preview": cmd_preview,

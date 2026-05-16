@@ -37,7 +37,8 @@ EXEC_MODE = 0o755
 TAILSCALE_SERVE_SKIPPED_EXIT = 78
 ARTIFACT_WORKFLOWS = {"solo", "team"}
 TEAM_ARTIFACT_NAMES = ("memory.md", "log.md", "reflection.md", "tasks", "reports")
-RESERVED_OPERATOR_FOLDER_NAMES = {"local", "state", "backups", "logs", "reports"}
+RESERVED_OPERATOR_FOLDER_NAMES = {"local", "state", "backups", "logs", *TEAM_ARTIFACT_NAMES}
+TEAM_ARTIFACT_DIRECTORY_NAMES = {"tasks", "reports"}
 
 
 @dataclass(frozen=True)
@@ -115,11 +116,28 @@ def operator_folder_from_human_name(human_name: str) -> str:
     normalized = unicodedata.normalize("NFKD", human_name.strip())
     ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
     folder = re.sub(r"[^A-Za-z0-9_.-]+", "-", ascii_name).strip("-.")
-    return folder[:80] or "Human"
+    return folder[:80].strip("-.") or "Human"
 
 
 def _artifact_workflow(raw: object) -> str:
     return str(raw or "solo").strip().lower() or "solo"
+
+
+def operator_folder_validation_error(operator_folder: str) -> str:
+    folder = operator_folder.strip()
+    lowered = folder.lower()
+    if not folder:
+        return "[operator] human_name must produce a non-empty team artifact folder"
+    if folder in {".", ".."} or folder.startswith("."):
+        return "[operator] human_name must not produce a hidden team artifact folder"
+    if folder.endswith((".", "-")):
+        return "[operator] human_name must not produce a team artifact folder ending in punctuation"
+    if lowered in RESERVED_OPERATOR_FOLDER_NAMES:
+        return (
+            "[operator] human_name maps to a reserved .klimkit directory "
+            f"({', '.join(sorted(RESERVED_OPERATOR_FOLDER_NAMES))})"
+        )
+    return ""
 
 
 def artifact_root_relative(config: InstallConfig) -> Path:
@@ -293,7 +311,7 @@ def render_config(config: InstallConfig) -> str:
             "",
             "[paths]",
             "# Repo checkout Klimkit should apply from.",
-            f'repo_root = "{config.repo_root}"',
+            f"repo_root = {json.dumps(str(config.repo_root))}",
             "# Runtime state for manifests, DBs, and local process state.",
             f"state_dir = {json.dumps(str(config.state_dir))}",
             "# Backups created before Klimkit updates managed files.",
@@ -619,15 +637,10 @@ def validate_config(config: InstallConfig) -> list[str]:
     errors: list[str] = []
     if config.artifact_workflow not in ARTIFACT_WORKFLOWS:
         errors.append("[operator] workflow must be \"solo\" or \"team\"")
-    if not config.operator_folder.strip():
-        errors.append("[operator] human_name must produce a non-empty team artifact folder")
-    if config.operator_folder in {".", ".."} or config.operator_folder.startswith("."):
-        errors.append("[operator] human_name must not produce a hidden team artifact folder")
-    if config.operator_folder in RESERVED_OPERATOR_FOLDER_NAMES:
-        errors.append(
-            "[operator] human_name maps to a reserved .klimkit directory "
-            f"({', '.join(sorted(RESERVED_OPERATOR_FOLDER_NAMES))})"
-        )
+    if config.artifact_workflow == "team":
+        operator_error = operator_folder_validation_error(config.operator_folder)
+        if operator_error:
+            errors.append(operator_error)
     if config.switchboard_agent_enabled and not config.switchboard_backend_url and not config.switchboard_enabled:
         errors.append(
             "[switchboard.agent] enabled = true requires backend_url, "
@@ -636,17 +649,79 @@ def validate_config(config: InstallConfig) -> list[str]:
     return errors
 
 
+def _path_is_same_or_inside(path: Path, maybe_parent: Path) -> bool:
+    path_resolved = path.expanduser().resolve(strict=False)
+    parent_resolved = maybe_parent.expanduser().resolve(strict=False)
+    return path_resolved == parent_resolved or parent_resolved in path_resolved.parents
+
+
 def team_workflow_migration_plan(config: InstallConfig) -> list[TeamWorkflowMigrationEntry]:
     klimkit_root = config.repo_root / ".klimkit"
     target_root = klimkit_root / config.operator_folder
     entries: list[TeamWorkflowMigrationEntry] = []
+    operator_error = operator_folder_validation_error(config.operator_folder)
+    if operator_error:
+        return [
+            TeamWorkflowMigrationEntry(
+                klimkit_root,
+                target_root,
+                "blocked",
+                operator_error,
+            )
+        ]
+    if klimkit_root.is_symlink():
+        return [
+            TeamWorkflowMigrationEntry(
+                klimkit_root,
+                target_root,
+                "blocked",
+                "project .klimkit directory must not be a symlink",
+            )
+        ]
+    if klimkit_root.exists() and not klimkit_root.is_dir():
+        return [
+            TeamWorkflowMigrationEntry(
+                klimkit_root,
+                target_root,
+                "blocked",
+                "project .klimkit path must be a directory",
+            )
+        ]
+    if target_root.is_symlink():
+        return [
+            TeamWorkflowMigrationEntry(
+                klimkit_root,
+                target_root,
+                "blocked",
+                "operator artifact root must not be a symlink",
+            )
+        ]
+    if target_root.exists() and not target_root.is_dir():
+        return [
+            TeamWorkflowMigrationEntry(
+                klimkit_root,
+                target_root,
+                "blocked",
+                "operator artifact root must be a directory",
+            )
+        ]
     for name in TEAM_ARTIFACT_NAMES:
         source = klimkit_root / name
         target = target_root / name
-        if not source.exists():
-            entries.append(TeamWorkflowMigrationEntry(source, target, "missing", "nothing to migrate"))
+        if target.is_symlink():
+            entries.append(TeamWorkflowMigrationEntry(source, target, "blocked", "target artifact is a symlink"))
         elif target.exists():
             entries.append(TeamWorkflowMigrationEntry(source, target, "blocked", "target already exists"))
+        elif source.is_symlink():
+            entries.append(TeamWorkflowMigrationEntry(source, target, "blocked", "source artifact is a symlink"))
+        elif not source.exists():
+            entries.append(TeamWorkflowMigrationEntry(source, target, "missing", "nothing to migrate"))
+        elif name in TEAM_ARTIFACT_DIRECTORY_NAMES and not source.is_dir():
+            entries.append(TeamWorkflowMigrationEntry(source, target, "blocked", "source artifact must be a directory"))
+        elif name not in TEAM_ARTIFACT_DIRECTORY_NAMES and not source.is_file():
+            entries.append(TeamWorkflowMigrationEntry(source, target, "blocked", "source artifact must be a file"))
+        elif _path_is_same_or_inside(target, source):
+            entries.append(TeamWorkflowMigrationEntry(source, target, "blocked", "target overlaps source"))
         else:
             entries.append(TeamWorkflowMigrationEntry(source, target, "move", "ready"))
     return entries

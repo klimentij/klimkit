@@ -185,6 +185,8 @@ class CodexPackValidationTests(unittest.TestCase):
                 self.assertIn("one active operator", text)
                 self.assertIn("readable team context", text)
         self.assertIn("solo-style flat `.klimkit` artifacts", checklister)
+        self.assertIn("stop and ask __HUMAN_NAME__", agents)
+        self.assertNotIn("ask Human", agents)
 
     def test_pack_engineering_rules_merge_quality_guidance(self) -> None:
         agents = (ROOT / "packs" / "codex" / "AGENTS.md").read_text(encoding="utf-8")

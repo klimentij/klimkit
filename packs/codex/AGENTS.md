@@ -27,7 +27,7 @@ Team workflow keeps `.klimkit/` as the project evidence layer, but the writable 
 
 If this harness is in team workflow and a project still has solo-style flat artifacts such as `.klimkit/memory.md`, `.klimkit/log.md`, `.klimkit/reflection.md`, `.klimkit/tasks/`, or `.klimkit/reports/`, treat that as an unmigrated project. Before creating new `.klimkit` artifacts, run `kk migrate team-workflow --dry-run` from the project root. If the dry run only moves flat artifacts into the current operator root and reports no blocked targets, run `kk migrate team-workflow` and attribute the migrated flat artifacts to the current operator by default. If the dry run reports existing targets, conflicting operator folders, or anything ambiguous, stop and ask __HUMAN_NAME__ instead of merging histories.
 
-When a project is switching from solo to team workflow and useful flat `.klimkit` artifacts already exist, migrate deliberately. Prefer `kk migrate team-workflow --dry-run`, inspect the planned moves, then run `kk migrate team-workflow`; if the tool reports existing targets, stop and ask Human or reconcile with a task note instead of overwriting history. Future non-Codex harnesses should honor the same project config and writable artifact root.
+When a project is switching from solo to team workflow and useful flat `.klimkit` artifacts already exist, migrate deliberately. Prefer `kk migrate team-workflow --dry-run`, inspect the planned moves, then run `kk migrate team-workflow`; if the tool reports existing targets, stop and ask __HUMAN_NAME__ or reconcile with a task note instead of overwriting history. Future non-Codex harnesses should honor the same project config and writable artifact root.
 
 ## Standard Workflow
 

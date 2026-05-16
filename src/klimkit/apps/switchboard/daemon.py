@@ -3141,24 +3141,88 @@ def report_root_id(root: Path) -> str:
     return f"{label}-{digest}"
 
 
-RESERVED_REPORT_OWNER_DIRS = {"local", "state", "backups", "logs", "reports"}
+RESERVED_REPORT_OWNER_DIRS = {
+    "local",
+    "state",
+    "backups",
+    "logs",
+    "memory.md",
+    "log.md",
+    "reflection.md",
+    "tasks",
+    "reports",
+}
+REPORT_OWNER_PATTERN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,79}$")
 
 
 def report_dir_for_root(root: Path) -> Path:
     return root.expanduser() / ".klimkit" / "reports"
 
 
-def report_source_dirs_for_root(root: Path) -> tuple[tuple[str, Path], ...]:
+def safe_klimkit_dir(root: Path) -> Path | None:
     expanded = root.expanduser()
     klimkit_dir = expanded / ".klimkit"
+    if klimkit_dir.is_symlink():
+        return None
+    try:
+        root_resolved = expanded.resolve()
+        klimkit_resolved = klimkit_dir.resolve(strict=False)
+        klimkit_resolved.relative_to(root_resolved)
+    except (OSError, ValueError):
+        return None
+    return klimkit_resolved
+
+
+def is_valid_report_owner(owner: str) -> bool:
+    if not owner or owner.startswith(".") or owner.lower() in RESERVED_REPORT_OWNER_DIRS:
+        return False
+    if owner in {".", ".."} or owner.endswith((".", "-")):
+        return False
+    return bool(REPORT_OWNER_PATTERN.fullmatch(owner))
+
+
+def safe_report_dir(root: Path, report_dir: Path) -> Path | None:
+    if report_dir.is_symlink():
+        return None
+    try:
+        klimkit_resolved = safe_klimkit_dir(root)
+        if klimkit_resolved is None:
+            return None
+        report_dir_resolved = report_dir.resolve()
+        report_dir_resolved.relative_to(klimkit_resolved)
+    except (OSError, ValueError):
+        return None
+    return report_dir_resolved
+
+
+def safe_report_owner_dir(root: Path, owner: str) -> Path | None:
+    if not is_valid_report_owner(owner):
+        return None
+    owner_dir = root.expanduser() / ".klimkit" / owner
+    if owner_dir.is_symlink():
+        return None
+    try:
+        klimkit_resolved = safe_klimkit_dir(root)
+        if klimkit_resolved is None:
+            return None
+        owner_dir_resolved = owner_dir.resolve()
+        owner_dir_resolved.relative_to(klimkit_resolved)
+    except (OSError, ValueError):
+        return None
+    return owner_dir if owner_dir_resolved.is_dir() else None
+
+
+def report_source_dirs_for_root(root: Path) -> tuple[tuple[str, Path], ...]:
+    expanded = root.expanduser()
+    klimkit_dir = safe_klimkit_dir(expanded)
     sources: list[tuple[str, Path]] = [("", report_dir_for_root(expanded))]
-    if not klimkit_dir.is_dir():
+    if klimkit_dir is None or not klimkit_dir.is_dir():
         return tuple(sources)
     for child in sorted(path for path in klimkit_dir.iterdir() if path.is_dir()):
-        if child.name in RESERVED_REPORT_OWNER_DIRS or child.name.startswith("."):
+        if child.is_symlink() or not is_valid_report_owner(child.name):
             continue
         report_dir = child / "reports"
-        if report_dir.exists():
+        if report_dir.exists() and safe_report_dir(expanded, report_dir) is not None:
             sources.append((child.name, report_dir))
     return tuple(sources)
 
@@ -3203,8 +3267,17 @@ def report_title_and_timestamp(path: Path) -> tuple[str, str]:
 def discover_reports(config: AppConfig) -> tuple[list[dict[str, Any]], list[str]]:
     reports: list[dict[str, Any]] = []
     warnings: list[str] = []
+    seen_roots: set[Path] = set()
     for root in config.report_roots:
         expanded_root = root.expanduser()
+        try:
+            root_key = expanded_root.resolve(strict=False)
+        except OSError:
+            root_key = expanded_root.absolute()
+        if root_key in seen_roots:
+            warnings.append(f"Skipped duplicate report root: {expanded_root}")
+            continue
+        seen_roots.add(root_key)
         if not expanded_root.exists() or not expanded_root.is_dir():
             warnings.append(f"Skipped missing report root: {expanded_root}")
             continue
@@ -3216,9 +3289,8 @@ def discover_reports(config: AppConfig) -> tuple[list[dict[str, Any]], list[str]
             if not report_dir.is_dir():
                 warnings.append(f"Skipped non-directory report path: {report_dir}")
                 continue
-            try:
-                report_dir_resolved = report_dir.resolve()
-            except OSError:
+            report_dir_resolved = safe_report_dir(expanded_root, report_dir)
+            if report_dir_resolved is None:
                 warnings.append(f"Skipped unreadable report path: {report_dir}")
                 continue
             for html_path in sorted(report_dir.rglob("*.html")):
@@ -3324,14 +3396,19 @@ def resolve_report_asset(config: AppConfig, root_id: str, relative_url_path: str
         first_part = relative_path.parts[0] if relative_path.parts else ""
         if first_part.startswith("@"):
             owner = first_part[1:]
-            if not owner or owner in RESERVED_REPORT_OWNER_DIRS or owner.startswith("."):
+            owner_dir = safe_report_owner_dir(root, owner)
+            if owner_dir is None:
                 return None
             asset_relative_path = Path(*relative_path.parts[1:])
             if not asset_relative_path.parts:
                 return None
-        report_dir = root.expanduser() / ".klimkit" / owner / "reports" if owner else report_dir_for_root(root)
+            report_dir = owner_dir / "reports"
+        else:
+            report_dir = report_dir_for_root(root)
+        report_dir_resolved = safe_report_dir(root, report_dir)
+        if report_dir_resolved is None:
+            return None
         try:
-            report_dir_resolved = report_dir.resolve()
             candidate = (report_dir / asset_relative_path).resolve()
             candidate.relative_to(report_dir_resolved)
         except (OSError, ValueError):

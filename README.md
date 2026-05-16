@@ -139,7 +139,7 @@ The default `solo` workflow keeps agent-authored project artifacts in the flat l
 .klimkit/reports/
 ```
 
-For a team, set:
+Team support is a light opt-in mode for shared repos where multiple humans use Klimkit on the same project. Solo remains the default and recommended path for a single builder. For a team, set:
 
 ```toml
 [operator]
@@ -167,7 +167,7 @@ In team workflow, the projected harness tells agents to read the wider project e
 
 The active operator can be a solo human or one human in a team. In team workflow, an AI harness still works for one current human at a time: it writes that human's task notes, memories, logs, reflections, and proof reports under the filesystem-safe folder derived from that human's name, while reading other operator folders as general team knowledge when relevant. When an agent uses another operator's memory, task note, log, or reflection, it should preserve attribution by keeping the source operator and file path visible in its reasoning, task proof, or new memory entry.
 
-This keeps each operator's task notes, memories, logs, reflections, and proof reports Git-trackable without letting one agent silently rewrite another operator's evidence. Switchboard reports include both `.klimkit/reports/**/*.html` and team-scoped `.klimkit/<operator>/reports/**/*.html`. Large report media remains ignored in both layouts.
+This keeps each operator's task notes, memories, logs, reflections, and proof reports Git-trackable without letting one agent silently rewrite another operator's evidence. The operator folder is derived from `human_name`, but reserved top-level names such as `memory.md`, `log.md`, `reflection.md`, `tasks`, `reports`, `local`, `state`, `backups`, and `logs` are rejected so migration cannot overlap solo artifacts or local runtime state. Switchboard reports include both `.klimkit/reports/**/*.html` and team-scoped `.klimkit/<operator>/reports/**/*.html`. Large report media remains ignored in both layouts.
 
 To migrate an existing solo project after setting `human_name`, run the command from the project checkout:
 
@@ -184,7 +184,7 @@ kk migrate team-workflow --repo /path/to/project --human-name Alice --dry-run
 kk migrate team-workflow --repo /path/to/project --human-name Alice
 ```
 
-The migration moves only the trackable evidence folders/files (`memory.md`, `log.md`, `reflection.md`, `tasks/`, and `reports/`) into `.klimkit/<human_name-as-folder>/` and sets `workflow = "team"` only when it is migrating the configured Klimkit repo. It does not move `.klimkit/local/`, `.klimkit/state/`, `.klimkit/backups/`, `.klimkit/logs/`, secrets, runtime DBs, or generated service state. If a target already exists, the migration stops instead of merging or overwriting. Run `kk apply` separately only after changing the active Klimkit harness config.
+The migration moves only the trackable evidence folders/files (`memory.md`, `log.md`, `reflection.md`, `tasks/`, and `reports/`) into `.klimkit/<human_name-as-folder>/` and sets `workflow = "team"` only when it is migrating the configured Klimkit repo. It does not move `.klimkit/local/`, `.klimkit/state/`, `.klimkit/backups/`, `.klimkit/logs/`, secrets, runtime DBs, or generated service state. If a target already exists, the operator folder is reserved, or a planned target would overlap a source artifact, the migration stops before moving files. Run `kk apply` separately only after changing the active Klimkit harness config.
 
 Client-only VMs report to the first VM:
 
@@ -342,7 +342,7 @@ Configure roots in `.klimkit/local/klimkit.toml`; Klimkit does not scan the whol
 repo_roots = ["~/klimkit", "~/wt", "~/projects"]
 ```
 
-`/reports/` renders one combined table from every configured root's `.klimkit/reports/**/*.html` and `.klimkit/<operator>/reports/**/*.html`. Report HTML is meant to be tracked in Git; screenshots and videos under both reports layouts are ignored so commits stay small while VM-local proof remains viewable through the reports page.
+`/reports/` renders one combined table from every configured root's `.klimkit/reports/**/*.html` and valid team-scoped `.klimkit/<operator>/reports/**/*.html`. It does not treat reserved flat artifact directories such as `.klimkit/tasks/reports` or symlinked report directories that escape the repo's `.klimkit` tree as valid report sources. Report HTML is meant to be tracked in Git; screenshots and videos under both reports layouts are ignored so commits stay small while VM-local proof remains viewable through the reports page.
 
 When Tailscale Serve is available, the useful report handoff URL is `https://<machine>.<tailnet>.ts.net/reports/` or the specific report URL under that index. `kk apply`, `kk pull`, and `kk doctor` print this Tailscale reports URL so agent work can end with a shareable tailnet proof link instead of a localhost URL.
 
