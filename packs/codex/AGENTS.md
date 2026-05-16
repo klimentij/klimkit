@@ -11,16 +11,34 @@ These are shared, home-level defaults. Repository-local `AGENTS.md` files add pr
 - Keep generated home files out of source edits; shared Codex behavior is edited in `packs/codex/`.
 - Before returning to __HUMAN_NAME__ with a completion claim, complete the required checklist, verification, and final-review gate.
 
+## Klimkit Artifact Workflow
+
+Klimkit projected this harness with:
+
+- Artifact workflow: `__KLIMKIT_ARTIFACT_WORKFLOW__`
+- Current operator folder: `__KLIMKIT_OPERATOR_FOLDER__`
+- Current writable artifact root: `__KLIMKIT_ARTIFACT_ROOT__`
+
+Klimkit projects this harness for one active operator. That operator can be a solo human or one human in a team. Treat `__HUMAN_NAME__` as the current author for new task notes, memories, logs, reflections, and proof reports. In team workflow, `__KLIMKIT_OPERATOR_FOLDER__` is the filesystem-safe folder derived from `__HUMAN_NAME__`.
+
+Solo workflow uses the flat project `.klimkit/` artifact layout for the active operator: `.klimkit/memory.md`, `.klimkit/log.md`, `.klimkit/reflection.md`, `.klimkit/tasks/`, and `.klimkit/reports/`.
+
+Team workflow keeps `.klimkit/` as the project evidence layer, but the writable part is operator-scoped. In team workflow, write only under the current operator root, for example `__KLIMKIT_ARTIFACT_ROOT__/memory.md`, `__KLIMKIT_ARTIFACT_ROOT__/log.md`, `__KLIMKIT_ARTIFACT_ROOT__/reflection.md`, `__KLIMKIT_ARTIFACT_ROOT__/tasks/`, and `__KLIMKIT_ARTIFACT_ROOT__/reports/`. Other folders under `.klimkit/<operator>/` are readable team context. You may use them as general team knowledge when relevant, but keep the source operator and file path in mind, attribute cross-operator facts/preferences when they shape the work, and do not edit, move, normalize, or delete another operator's artifacts unless __HUMAN_NAME__ explicitly asks.
+
+If this harness is in team workflow and a project still has solo-style flat artifacts such as `.klimkit/memory.md`, `.klimkit/log.md`, `.klimkit/reflection.md`, `.klimkit/tasks/`, or `.klimkit/reports/`, treat that as an unmigrated project. Before creating new `.klimkit` artifacts, run `kk migrate team-workflow --dry-run` from the project root. If the dry run only moves flat artifacts into the current operator root and reports no blocked targets, run `kk migrate team-workflow` and attribute the migrated flat artifacts to the current operator by default. If the dry run reports existing targets, conflicting operator folders, or anything ambiguous, stop and ask __HUMAN_NAME__ instead of merging histories.
+
+When a project is switching from solo to team workflow and useful flat `.klimkit` artifacts already exist, migrate deliberately. Prefer `kk migrate team-workflow --dry-run`, inspect the planned moves, then run `kk migrate team-workflow`; if the tool reports existing targets, stop and ask __HUMAN_NAME__ or reconcile with a task note instead of overwriting history. Future non-Codex harnesses should honor the same project config and writable artifact root.
+
 ## Standard Workflow
 
 1. **Intake**
-   - Read the request, relevant task file, repository instructions, `.klimkit/memory.md`, and `.klimkit/log.md` when present.
+   - Read the request, relevant task file, repository instructions, the configured writable memory/log paths, and any other operator-scoped `.klimkit/*/memory.md` and `.klimkit/*/log.md` files that are relevant context. Treat other operator files as attributed context, not current-operator state.
    - When present and relevant, also read project language and decision docs such as `CONTEXT.md`, `CONTEXT-MAP.md`, and `docs/adr/`.
    - Identify whether the work is planning-only, implementation, review, debugging, or research.
 
 2. **Acceptance Checklist**
    - For every implementation task, invoke `checklister` before coding.
-   - The checklist must be written into an agent-authored task note (`*-a-*.md`) in the relevant `.klimkit/tasks/<feature>/` folder.
+   - The checklist must be written into an agent-authored task note (`*-a-*.md`) in the configured writable tasks folder. In solo workflow that is `.klimkit/tasks/<feature>/`; in team workflow that is `__KLIMKIT_TASKS_PATH__/<feature>/`.
    - Treat every checklist item as blocking unless __HUMAN_NAME__ explicitly changes scope.
 
 3. **Plan And Delegate**
@@ -39,16 +57,16 @@ These are shared, home-level defaults. Repository-local `AGENTS.md` files add pr
 5. **Verify**
    - Run the tests and checks that match the checklist and blast radius.
    - For UI work, verify the actual screen states, empty/loading/error states, interaction states, persistence, local storage, database effects, network/API effects, and responsive behavior called out by the checklist.
-   - For UI work, produce a final HTML proof report under the active repo's `.klimkit/reports/` directory with text evidence, required screenshots, and a native `agent-browser` video recording referenced from the report. Render each screenshot and video as a full-width section so it can be inspected without opening thumbnails. Prefer MP4 in the report for reliable Chrome/PWA scrubbing; a native WebM recording may be converted to MP4 for presentation.
+   - For UI work, produce a final HTML proof report under the active repo's configured writable reports directory with text evidence, required screenshots, and a native `agent-browser` video recording referenced from the report. In solo workflow this is `.klimkit/reports/`; in team workflow this is `__KLIMKIT_REPORTS_PATH__/`. Render each screenshot and video as a full-width section so it can be inspected without opening thumbnails. Prefer MP4 in the report for reliable Chrome/PWA scrubbing; a native WebM recording may be converted to MP4 for presentation.
    - When a Tailscale DNS name is available, proof handoffs and final responses must include the Tailscale-served report URL under `https://<machine>.<tailnet>.ts.net/reports/`; localhost report URLs are only local QA fallback evidence.
    - If tests fail or behavior is surprising, use `debugger` to isolate the root cause before guessing.
    - For auth, secrets, sandboxing, infra, or compliance-sensitive changes, run `security_auditor` before calling the task done.
 
 6. **Reflection Gate**
    - For non-trivial implementation, run a fresh-context `reflector` pass after verification and before final reviewers.
-   - Give the reflector the current request or task path, current task notes, changed files, verification evidence, intended final result, `.klimkit/memory.md`, `.klimkit/log.md`, and a repo-wide source boundary over `.klimkit/tasks/`.
-   - Reflection starts from the current work, then deliberately connects it to the wider `.klimkit/tasks/` archive, log, memory, and recent artifacts. Large or binary task artifacts should be listed as evidence when relevant, not read as text.
-   - `.klimkit/reflection.md` is the append-only timestamped cross-task Reflection Log or Synthesis Ledger. Entries are reflection sessions, not one required record per task. If the file is missing, create it with the project-reflection template before appending.
+   - Give the reflector the current request or task path, current task notes, changed files, verification evidence, intended final result, the configured writable memory/log paths, and a repo-wide source boundary over solo and operator-scoped `.klimkit/**/tasks/` folders.
+   - Reflection starts from the current work, then deliberately connects it to the wider task archive, log, memory, and recent artifacts across readable operator folders. Large or binary task artifacts should be listed as evidence when relevant, not read as text.
+   - The configured writable reflection file is the append-only timestamped cross-task Reflection Log or Synthesis Ledger. In solo workflow this is `.klimkit/reflection.md`; in team workflow this is `__KLIMKIT_REFLECTION_PATH__`. Entries are reflection sessions, not one required record per task. If the file is missing, create it with the project-reflection template before appending.
    - Each new reflection session uses a full UTC timestamp heading such as `### 2026-05-14T09:55:00Z`. The default required sections are `Observations`, `Derived Pattern`, `Insight`, and `Next Probe`, each concise and grounded.
    - When the synthesis needs more room, the reflector may use up to ten named sections total, such as `Signals`, `Evidence Boundary`, `Tension`, `Risk`, `Contradiction`, `Bet`, `Reconsideration`, `Follow-Up`, or `Open Question`. Do not cut off a useful idea just because it does not fit the default four sections.
    - If older reflection formats are present, preserve them and append a new-format migrated or normalized reflection entry when the older entry is relevant. Do not delete, rewrite, reorder, summarize away, or silently ignore previous reflection content.
@@ -58,13 +76,13 @@ These are shared, home-level defaults. Repository-local `AGENTS.md` files add pr
 7. **Final Review Gate**
    - Draft the exact final response before calling reviewers.
    - Run 3 `final_reviewer` subagents in parallel.
-   - Give each reviewer the original human request or task path, the checklister acceptance checklist, the changed files, verification evidence, the reflection entry or explicit reflection-not-applicable note, the final HTML proof report path and Tailscale report URL for UI work, and the exact draft response.
+   - Give each reviewer the original human request or task path, the checklister acceptance checklist, the changed files, verification evidence, the reflection entry or explicit reflection-not-applicable note, the final HTML proof report path from the configured writable reports directory and Tailscale report URL for UI work, and the exact draft response.
    - All 3 reviewers must return PASS / READY FOR USER before you send a completion claim to __HUMAN_NAME__.
 
 8. **Report**
    - Report what changed, what passed, and any remaining risk or unavailable verification.
    - When user-visible behavior changed, include `How __HUMAN_NAME__ can check this` with concrete manual steps.
-   - When proof is requested, prefer a tiny static HTML report under `.klimkit/reports/` or compact task note that is easy to skim, and include the Tailscale-served report URL when available.
+   - When proof is requested, prefer a tiny static HTML report under the configured writable reports directory or compact task note that is easy to skim, and include the Tailscale-served report URL when available.
 
 ## Subagent Roles
 
@@ -91,14 +109,14 @@ Shared skills live in `~/.codex/skills/`. Prefer a matching documented skill ove
 
 ## Memory, Logs, And Task Notes
 
-At the start of meaningful repo work, read `.klimkit/memory.md`, `.klimkit/log.md`, and `.klimkit/reflection.md` when they exist. If memory or log is missing and meaningful repo work is starting, create it under `.klimkit/`. Create reflection when the task reaches the Reflection Gate and it is missing.
+At the start of meaningful repo work, read the configured writable memory and log files when they exist, plus relevant readable operator-scoped memory and log files from the same project. In solo workflow the writable files are `.klimkit/memory.md` and `.klimkit/log.md`; in team workflow they are `__KLIMKIT_MEMORY_PATH__` and `__KLIMKIT_LOG_PATH__`. If the writable memory or log is missing and meaningful repo work is starting, create it under the configured writable artifact root. Create the configured writable reflection file when the task reaches the Reflection Gate and it is missing. In team workflow, write new entries only to the current operator files; when an entry depends on another operator's artifact, include the source operator or path instead of flattening the attribution.
 
 Use this memory template:
 
 ```markdown
 # Project Memory
 
-Durable preferences, corrections, and process rules. Add dated one-sentence memories.
+Durable preferences, corrections, and process rules. Add dated one-sentence memories and attribute operator-specific preferences or imported team knowledge.
 
 ## Memories
 ```
@@ -123,10 +141,10 @@ Append-only timestamped cross-task reflection log. Entries are reflection sessio
 ## Reflections
 ```
 
-- Store durable preferences, corrections, and process rules in `.klimkit/memory.md` as dated one-sentence memories.
-- Store meaningful actions in `.klimkit/log.md` as ISO-timestamped one-sentence audit entries.
-- Store non-obvious synthesis in `.klimkit/reflection.md` as timestamped append-only reflection sessions. Reflection should connect current work to the broader task archive, memory, log, and recent artifacts while staying grounded in concrete sources.
-- Task and feature work belongs under `.klimkit/tasks/<nn-feature-slug>/`.
+- Store durable preferences, corrections, and process rules in the configured writable memory file as dated one-sentence memories. In team workflow, keep attribution clear when a memory came from another operator's context.
+- Store meaningful actions in the configured writable log file as ISO-timestamped one-sentence audit entries for the active operator/agent.
+- Store non-obvious synthesis in the configured writable reflection file as timestamped append-only reflection sessions. Reflection should connect current work to the broader task archive, memory, log, and recent artifacts while staying grounded in concrete sources and preserving operator attribution.
+- Task and feature work belongs under the configured writable tasks directory. In solo workflow this is `.klimkit/tasks/<nn-feature-slug>/`; in team workflow this is `__KLIMKIT_TASKS_PATH__/<nn-feature-slug>/`.
 - Human-authored files use `-h-`; agent-authored files use `-a-`.
 - Task folders can contain planning, checklists, design notes, implementation notes, proof, screenshots, and review records.
 
@@ -155,6 +173,6 @@ A task is not done until:
 - The checklister checklist exists for implementation work.
 - Required code, docs, data, or pack changes are complete.
 - Relevant automated checks and manual checks from the checklist have passed or are explicitly called out as unavailable.
-- The Reflection Gate has either appended a `.klimkit/reflection.md` entry or recorded why reflection was not applicable.
+- The Reflection Gate has either appended an entry to the configured writable reflection file or recorded why reflection was not applicable.
 - Meaningful memory/log/task proof has been updated when the repo workflow requires it.
 - The exact final response has passed 3 parallel `final_reviewer` reviews.

@@ -21,3 +21,4 @@ Durable preferences, corrections, and process rules. Add dated one-sentence memo
 - 2026-05-08: Proof reports should render screenshots and videos full-width and prefer MP4 video embeds because WebM scrubbing is unreliable in Chrome/PWA usage.
 - 2026-05-11: Shared Codex guidance should strongly prefer robust, maintainable fixes over hacks or compatibility with flawed designs, and should fail loud when work cannot be completed cleanly.
 - 2026-05-11: Non-trivial shared Codex implementation work should run a fresh-context Reflection Gate after verification and before final reviewers, appending synthesis to `.klimkit/reflection.md`.
+- 2026-05-16: This repository should remain in the solo flat `.klimkit/` artifact layout; team workflow support is optional product functionality, not this repo's committed evidence layout.

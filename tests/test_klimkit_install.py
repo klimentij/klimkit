@@ -18,9 +18,13 @@ from klimkit.install import (
     code_server_extension_ids,
     default_config,
     installed_code_server_extension_ids,
+    migrate_team_workflow,
+    operator_folder_from_human_name,
     parse_config,
     render_config,
+    team_workflow_migration_plan,
     uninstall_from_manifest,
+    validate_config,
 )
 
 
@@ -35,6 +39,8 @@ class KlimkitInstallTests(unittest.TestCase):
 
         self.assertEqual(parsed.profile, "server")
         self.assertEqual(parsed.human_name, "Human")
+        self.assertEqual(parsed.artifact_workflow, "solo")
+        self.assertEqual(parsed.operator_folder, "Human")
         self.assertTrue(parsed.client_enabled)
         self.assertTrue(parsed.server_enabled)
         self.assertEqual(parsed.repo_root, Path("/tmp/klimkit"))
@@ -52,6 +58,8 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertIn("switchboard_agent = true", render_config(config))
         self.assertIn("auto_sync_interval_seconds = 5", render_config(config))
         self.assertIn('human_name = "Human"', render_config(config))
+        self.assertIn('workflow = "solo"', render_config(config))
+        self.assertNotIn("artifact_owner", render_config(config))
         self.assertIn("enable = true", render_config(config))
         self.assertIn("[switchboard.server]", render_config(config))
         self.assertIn("max_loaded_tabs = 5", render_config(config))
@@ -60,6 +68,347 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertIn("[reports]", render_config(config))
         self.assertIn('repo_roots = ["/tmp/klimkit"]', render_config(config))
         self.assertIn("[notifications.telegram]", render_config(config))
+
+    def test_render_config_escapes_repo_root(self) -> None:
+        dangerous_root = Path('/tmp/project"\n[switchboard.server]\nauth_token = "injected')
+        config = replace(default_config(), repo_root=dangerous_root, report_roots=(Path("/tmp/klimkit"),))
+
+        rendered = render_config(config)
+        parsed = parse_config(rendered)
+
+        self.assertEqual(parsed.repo_root, dangerous_root)
+        self.assertNotIn('\n[switchboard.server]\nauth_token = "injected"', rendered)
+
+    def test_team_artifact_config_parses_and_validates(self) -> None:
+        config = parse_config(
+            "\n".join(
+                [
+                    "[operator]",
+                    'human_name = "Alice Example"',
+                    'workflow = "team"',
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(config.artifact_workflow, "team")
+        self.assertEqual(config.operator_folder, "Alice-Example")
+        self.assertEqual(validate_config(config), [])
+        self.assertEqual(operator_folder_from_human_name("Alice Example"), "Alice-Example")
+
+    def test_operator_folder_truncation_does_not_end_in_punctuation(self) -> None:
+        folder = operator_folder_from_human_name(("A" * 79) + "!B")
+
+        self.assertEqual(folder, "A" * 79)
+        config = parse_config(
+            "\n".join(
+                [
+                    "[operator]",
+                    f'human_name = "{("A" * 79)}!B"',
+                    'workflow = "team"',
+                    "",
+                ]
+            )
+        )
+        self.assertEqual(validate_config(config), [])
+
+    def test_team_artifact_config_rejects_reserved_human_folder_or_workflow(self) -> None:
+        cases = [
+            ("workflow", 'workflow = "squad"\nhuman_name = "Alice"'),
+            ("reserved", 'workflow = "team"\nhuman_name = "local"'),
+            ("reserved", 'workflow = "team"\nhuman_name = "tasks"'),
+            ("reserved", 'workflow = "team"\nhuman_name = "memory.md"'),
+            ("reserved", 'workflow = "team"\nhuman_name = "REPORTS"'),
+        ]
+
+        for expected, operator_body in cases:
+            with self.subTest(expected=expected):
+                config = parse_config(f"[operator]\n{operator_body}\n")
+                self.assertIn(expected, "\n".join(validate_config(config)))
+
+    def test_reserved_human_name_does_not_break_solo_config(self) -> None:
+        config = parse_config(
+            "\n".join(
+                [
+                    "[operator]",
+                    'human_name = "tasks"',
+                    'workflow = "solo"',
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(config.artifact_workflow, "solo")
+        self.assertEqual(validate_config(config), [])
+
+    def test_team_workflow_migration_moves_trackable_artifacts_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            klimkit = root / ".klimkit"
+            config_path = klimkit / "local" / "klimkit.toml"
+            (klimkit / "tasks" / "feature").mkdir(parents=True)
+            (klimkit / "reports" / "flow").mkdir(parents=True)
+            (klimkit / "local").mkdir(parents=True)
+            (klimkit / "state").mkdir()
+            (klimkit / "memory.md").write_text("# Memory\n", encoding="utf-8")
+            (klimkit / "log.md").write_text("# Log\n", encoding="utf-8")
+            (klimkit / "reflection.md").write_text("# Reflection\n", encoding="utf-8")
+            (klimkit / "tasks" / "feature" / "01-a.md").write_text("task\n", encoding="utf-8")
+            (klimkit / "reports" / "flow" / "report.html").write_text("<title>Proof</title>", encoding="utf-8")
+            (klimkit / "local" / "secret.toml").write_text("token = 'x'\n", encoding="utf-8")
+            (klimkit / "state" / "db.sqlite3").write_text("state\n", encoding="utf-8")
+            config = parse_config(
+                "\n".join(
+                    [
+                        "[operator]",
+                        'human_name = "Alice"',
+                        "",
+                        "[paths]",
+                        f'repo_root = "{root}"',
+                        "",
+                    ]
+                )
+            )
+
+            dry_run = migrate_team_workflow(config, config_path=config_path, dry_run=True)
+
+            self.assertTrue(dry_run["ok"])
+            self.assertTrue((klimkit / "memory.md").exists())
+
+            result = migrate_team_workflow(config, config_path=config_path)
+
+            self.assertTrue(result["ok"])
+            migrated = klimkit / "Alice"
+            self.assertFalse((klimkit / "memory.md").exists())
+            self.assertEqual((migrated / "memory.md").read_text(encoding="utf-8"), "# Memory\n")
+            self.assertTrue((migrated / "tasks" / "feature" / "01-a.md").exists())
+            self.assertTrue((migrated / "reports" / "flow" / "report.html").exists())
+            self.assertTrue((klimkit / "local" / "secret.toml").exists())
+            self.assertTrue((klimkit / "state" / "db.sqlite3").exists())
+            rendered = config_path.read_text(encoding="utf-8")
+            self.assertIn('workflow = "team"', rendered)
+
+    def test_team_workflow_migration_blocks_existing_targets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            klimkit = root / ".klimkit"
+            (klimkit / "Alice").mkdir(parents=True)
+            (klimkit / "memory.md").write_text("source\n", encoding="utf-8")
+            (klimkit / "Alice" / "memory.md").write_text("target\n", encoding="utf-8")
+            config = parse_config(
+                "\n".join(
+                    [
+                        "[operator]",
+                        'human_name = "Alice"',
+                        'workflow = "team"',
+                        "",
+                        "[paths]",
+                        f'repo_root = "{root}"',
+                        "",
+                    ]
+                )
+            )
+
+            plan = team_workflow_migration_plan(config)
+            result = migrate_team_workflow(config, config_path=klimkit / "local" / "klimkit.toml")
+
+            self.assertTrue(any(entry.status == "blocked" for entry in plan))
+            self.assertFalse(result["ok"])
+            self.assertEqual((klimkit / "memory.md").read_text(encoding="utf-8"), "source\n")
+            self.assertEqual((klimkit / "Alice" / "memory.md").read_text(encoding="utf-8"), "target\n")
+
+    def test_team_workflow_migration_blocks_partial_existing_targets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            klimkit = root / ".klimkit"
+            (klimkit / "Alice").mkdir(parents=True)
+            (klimkit / "Alice" / "memory.md").write_text("already migrated\n", encoding="utf-8")
+            (klimkit / "tasks" / "feature").mkdir(parents=True)
+            (klimkit / "tasks" / "feature" / "01-a.md").write_text("still flat\n", encoding="utf-8")
+            config = parse_config(
+                "\n".join(
+                    [
+                        "[operator]",
+                        'human_name = "Alice"',
+                        'workflow = "team"',
+                        "",
+                        "[paths]",
+                        f'repo_root = "{root}"',
+                        "",
+                    ]
+                )
+            )
+
+            result = migrate_team_workflow(config, config_path=klimkit / "local" / "klimkit.toml")
+
+            self.assertFalse(result["ok"])
+            self.assertTrue((klimkit / "tasks" / "feature" / "01-a.md").exists())
+            self.assertFalse((klimkit / "Alice" / "tasks").exists())
+            self.assertFalse((klimkit / "local" / "klimkit.toml").exists())
+            self.assertIn("target already exists", "\n".join(str(getattr(entry, "message", "")) for entry in result["entries"]))
+
+    def test_team_workflow_migration_rejects_reserved_operator_without_partial_moves(self) -> None:
+        for human_name in ("tasks", "memory.md"):
+            with self.subTest(human_name=human_name), tempfile.TemporaryDirectory() as tmpdir:
+                root = Path(tmpdir)
+                klimkit = root / ".klimkit"
+                (klimkit / "tasks" / "feature").mkdir(parents=True)
+                (klimkit / "memory.md").write_text("# Memory\n", encoding="utf-8")
+                (klimkit / "log.md").write_text("# Log\n", encoding="utf-8")
+                (klimkit / "reflection.md").write_text("# Reflection\n", encoding="utf-8")
+                (klimkit / "tasks" / "feature" / "01-a.md").write_text("task\n", encoding="utf-8")
+                config = parse_config(
+                    "\n".join(
+                        [
+                            "[operator]",
+                            f'human_name = "{human_name}"',
+                            'workflow = "team"',
+                            "",
+                            "[paths]",
+                            f'repo_root = "{root}"',
+                            "",
+                        ]
+                    )
+                )
+
+                plan = team_workflow_migration_plan(config)
+                result = migrate_team_workflow(config, config_path=klimkit / "local" / "klimkit.toml")
+
+                self.assertTrue(any(entry.status == "blocked" for entry in plan))
+                self.assertFalse(result["ok"])
+                self.assertTrue((klimkit / "memory.md").exists())
+                self.assertTrue((klimkit / "log.md").exists())
+                self.assertTrue((klimkit / "reflection.md").exists())
+                self.assertTrue((klimkit / "tasks" / "feature" / "01-a.md").exists())
+                self.assertFalse((klimkit / human_name / "memory.md").exists())
+
+    def test_team_workflow_migration_rejects_symlinked_operator_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            outside = root / "outside"
+            klimkit = root / "project" / ".klimkit"
+            outside.mkdir(parents=True)
+            klimkit.mkdir(parents=True)
+            (klimkit / "memory.md").write_text("# Memory\n", encoding="utf-8")
+            try:
+                (klimkit / "Alice").symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:  # pragma: no cover - platform dependent
+                self.skipTest(f"symlinks unavailable: {exc}")
+            config = parse_config(
+                "\n".join(
+                    [
+                        "[operator]",
+                        'human_name = "Alice"',
+                        'workflow = "team"',
+                        "",
+                        "[paths]",
+                        f'repo_root = "{root / "project"}"',
+                        "",
+                    ]
+                )
+            )
+
+            result = migrate_team_workflow(config, config_path=klimkit / "local" / "klimkit.toml")
+
+            self.assertFalse(result["ok"])
+            self.assertTrue((klimkit / "memory.md").exists())
+            self.assertFalse((outside / "memory.md").exists())
+            self.assertIn("symlink", "\n".join(str(getattr(entry, "message", "")) for entry in result["entries"]))
+
+    def test_team_workflow_migration_rejects_non_directory_klimkit_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "project"
+            project.mkdir()
+            (project / ".klimkit").write_text("not a directory\n", encoding="utf-8")
+            config = parse_config(
+                "\n".join(
+                    [
+                        "[operator]",
+                        'human_name = "Alice"',
+                        'workflow = "team"',
+                        "",
+                        "[paths]",
+                        f'repo_root = "{project}"',
+                        "",
+                    ]
+                )
+            )
+
+            result = migrate_team_workflow(config, config_path=project / ".klimkit" / "local" / "klimkit.toml")
+
+            self.assertFalse(result["ok"])
+            self.assertIn("must be a directory", "\n".join(str(getattr(entry, "message", "")) for entry in result["entries"]))
+
+    def test_team_workflow_migration_rejects_dangling_source_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            klimkit = root / ".klimkit"
+            klimkit.mkdir()
+            try:
+                (klimkit / "memory.md").symlink_to(root / "missing-memory.md")
+            except (OSError, NotImplementedError) as exc:  # pragma: no cover - platform dependent
+                self.skipTest(f"symlinks unavailable: {exc}")
+            config = parse_config(
+                "\n".join(
+                    [
+                        "[operator]",
+                        'human_name = "Alice"',
+                        'workflow = "team"',
+                        "",
+                        "[paths]",
+                        f'repo_root = "{root}"',
+                        "",
+                    ]
+                )
+            )
+
+            result = migrate_team_workflow(config, config_path=klimkit / "local" / "klimkit.toml")
+
+            self.assertFalse(result["ok"])
+            self.assertTrue((klimkit / "memory.md").is_symlink())
+            self.assertFalse((klimkit / "Alice" / "memory.md").exists())
+            self.assertIn("source artifact is a symlink", "\n".join(str(getattr(entry, "message", "")) for entry in result["entries"]))
+
+    def test_team_workflow_migration_rejects_malformed_source_artifact_shapes(self) -> None:
+        cases = (
+            ("tasks", "file", "source artifact must be a directory"),
+            ("reports", "file", "source artifact must be a directory"),
+            ("memory.md", "directory", "source artifact must be a file"),
+            ("log.md", "directory", "source artifact must be a file"),
+            ("reflection.md", "directory", "source artifact must be a file"),
+        )
+        for artifact_name, shape, message in cases:
+            with self.subTest(artifact_name=artifact_name, shape=shape), tempfile.TemporaryDirectory() as tmpdir:
+                root = Path(tmpdir)
+                klimkit = root / ".klimkit"
+                klimkit.mkdir()
+                artifact_path = klimkit / artifact_name
+                if shape == "file":
+                    artifact_path.write_text("wrong shape\n", encoding="utf-8")
+                else:
+                    artifact_path.mkdir()
+                config = parse_config(
+                    "\n".join(
+                        [
+                            "[operator]",
+                            'human_name = "Alice"',
+                            'workflow = "team"',
+                            "",
+                            "[paths]",
+                            f'repo_root = "{root}"',
+                            "",
+                        ]
+                    )
+                )
+
+                result = migrate_team_workflow(config, config_path=klimkit / "local" / "klimkit.toml")
+
+                self.assertFalse(result["ok"])
+                self.assertTrue(artifact_path.exists())
+                self.assertFalse((klimkit / "Alice" / artifact_name).exists())
+                self.assertFalse((klimkit / "local" / "klimkit.toml").exists())
+                self.assertIn(message, "\n".join(str(getattr(entry, "message", "")) for entry in result["entries"]))
 
     def test_reports_roots_are_configurable(self) -> None:
         config = parse_config(
@@ -174,7 +523,10 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertIn("You're Ada's coding agent.", agents_action.content)
         self.assertIn("Before returning to Ada", agents_action.content)
         self.assertIn("when Ada asks", skill_action.content)
+        self.assertIn("Artifact workflow: `solo`", agents_action.content)
+        self.assertIn("Current writable artifact root: `.klimkit`", agents_action.content)
         self.assertNotIn("__HUMAN_NAME__", agents_action.content)
+        self.assertNotIn("__KLIMKIT_ARTIFACT_ROOT__", agents_action.content)
         self.assertNotIn("Klim's coding agent", agents_action.content)
 
     def test_single_config_uses_private_backend_settings(self) -> None:

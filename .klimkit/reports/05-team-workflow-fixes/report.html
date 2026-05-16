@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="report-timestamp" content="2026-05-16T05:04:31Z">
+  <title>Team Workflow Fixes Proof</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17211d;
+      --muted: #5d6f66;
+      --line: #d9e2de;
+      --soft: #f4f8f6;
+      --panel: #ffffff;
+      --accent: #247a56;
+      --danger: #9c2f2f;
+      --code: #0c1713;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #eef4f1;
+    }
+    main {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    header {
+      padding: 24px 0 28px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 40px 0 12px;
+      font-size: 1.55rem;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    h3 {
+      margin: 24px 0 8px;
+      font-size: 1.05rem;
+      letter-spacing: 0;
+    }
+    p { margin: 0 0 14px; }
+    a { color: var(--accent); }
+    .lede {
+      max-width: 880px;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin: 22px 0 0;
+    }
+    .status {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .status strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--accent);
+    }
+    .story {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 18px 0;
+    }
+    .risk {
+      border-left: 4px solid var(--danger);
+    }
+    .fix {
+      border-left: 4px solid var(--accent);
+    }
+    ul {
+      margin: 8px 0 16px;
+      padding-left: 22px;
+    }
+    li { margin: 4px 0; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--code);
+      background: #e7efeb;
+      padding: 0.08rem 0.28rem;
+      border-radius: 4px;
+      overflow-wrap: anywhere;
+    }
+    pre {
+      margin: 12px 0;
+      padding: 14px;
+      overflow: auto;
+      color: #d7f5e5;
+      background: #07100d;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    pre code {
+      color: inherit;
+      background: transparent;
+      padding: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      background: var(--panel);
+    }
+    th, td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--soft); }
+    figure {
+      margin: 24px 0;
+      padding: 0;
+    }
+    figcaption {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    img, video {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #000;
+    }
+    .note {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    @media (max-width: 720px) {
+      main { padding: 20px 12px 44px; }
+      h1 { font-size: 2rem; }
+      table, thead, tbody, tr, th, td { display: block; }
+      th { display: none; }
+      td { border-top: 0; }
+      tr { border-top: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Team Workflow Fixes Proof</h1>
+    <p class="lede">This report explains the fixes applied on top of Dominik's PR #1. The product stance is intentionally narrow: Klimkit remains solo-builder-first by default, and team workflow is light opt-in support for shared project evidence.</p>
+    <div class="status-grid">
+      <div class="status"><strong>Branch</strong><code>review/pr-1-dominik</code></div>
+      <div class="status"><strong>Checklist</strong><code>.klimkit/tasks/05-team-workflow-fixes/01-a-acceptance-checklist.md</code></div>
+      <div class="status"><strong>Proof Note</strong><code>.klimkit/tasks/05-team-workflow-fixes/03-a-implementation-proof.md</code></div>
+      <div class="status"><strong>Report Index</strong><code>https://odev.tail11c448.ts.net/reports/</code></div>
+      <div class="status"><strong>Direct Report</strong><code>https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/05-team-workflow-fixes/report.html</code></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Why This Fix Exists</h2>
+    <div class="story risk">
+      <h3>The original PR got the direction right</h3>
+      <p>Dominik's PR turned `.klimkit` into a shared project evidence layer with per-operator write boundaries. That matches the Klimkipedia team-Klimkit discussion: useful task notes, logs, memories, reflections, and proof reports should compound across a team instead of dying on a single VM.</p>
+      <p>The issue was not the idea. The issue was hardening the boundary so light team support does not make solo mode fragile or expose unintended files.</p>
+    </div>
+    <div class="story fix">
+      <h3>The implemented stance</h3>
+      <p>Solo stays boring and default. A fresh config still renders `workflow = "solo"` and keeps the flat `.klimkit/memory.md`, `.klimkit/log.md`, `.klimkit/reflection.md`, `.klimkit/tasks/`, and `.klimkit/reports/` model. Team mode is activated only by explicit config or an intentional migration command.</p>
+      <p>After Klim clarified that this repository itself must remain solo, the committed proof evidence was flattened back into the solo `.klimkit/` layout and contributor operator-scoped `.klimkit` artifacts were removed from the public repo.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What Changed</h2>
+    <table>
+      <thead><tr><th>Area</th><th>Before</th><th>After</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Migration names</td>
+          <td>`human_name = "tasks"` could produce `.klimkit/tasks/tasks` and partially move files before crashing.</td>
+          <td>Reserved top-level names such as `tasks`, `memory.md`, `log.md`, `reflection.md`, `reports`, `local`, `state`, `backups`, and `logs` are rejected before planning moves.</td>
+        </tr>
+        <tr>
+          <td>Migration preflight</td>
+          <td>Some source/target overlaps were discovered only during `shutil.move`.</td>
+          <td>The plan blocks reserved names, trailing-punctuation operator folders, malformed source artifact shapes, existing or partially migrated targets, source/target overlaps, and symlinked roots before any move, then writes `workflow = "team"` only after safe completion.</td>
+        </tr>
+        <tr>
+          <td>Dry-run commands</td>
+          <td>The printed `Next` command dropped explicit `--config`, `--repo`, or quote-sensitive values.</td>
+          <td>The command is produced with `shlex.join`, preserving explicit context, `KLIMKIT_CONFIG`, inferred project paths, and safe shell quoting.</td>
+        </tr>
+        <tr>
+          <td>Reports</td>
+          <td><code>.klimkit/&lt;dir&gt;/reports</code> looked like an operator report source, including <code>.klimkit/tasks/reports</code>.</td>
+          <td>Only flat <code>.klimkit/reports</code> and valid <code>.klimkit/&lt;operator&gt;/reports</code> are accepted; reserved pseudo-owners, duplicate roots, symlinked <code>.klimkit</code> roots, symlinked operator roots, and symlink escapes are rejected or skipped.</td>
+        </tr>
+        <tr>
+          <td>Codex pack</td>
+          <td>One migration-conflict sentence said to ask `Human`.</td>
+          <td>The pack now uses `__HUMAN_NAME__`, and validation prevents reintroducing `ask Human`.</td>
+        </tr>
+        <tr>
+          <td>Repo evidence</td>
+          <td>The PR branch carried operator-scoped committed evidence under `.klimkit/Klim/` and `.klimkit/Dominik/`.</td>
+          <td>This repository is back to flat solo evidence: `.klimkit/tasks/`, `.klimkit/reports/`, `.klimkit/memory.md`, `.klimkit/log.md`, and `.klimkit/reflection.md`; `git ls-files .klimkit/Klim .klimkit/Dominik` returns no paths.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Files Touched</h2>
+    <ul>
+      <li><code>src/klimkit/install.py</code>: reserved operator names plus migration overlap, symlink, and artifact-shape preflight.</li>
+      <li><code>src/klimkit/cli.py</code>: safe dry-run follow-up command rendering and configured-repo migration config updates.</li>
+      <li><code>src/klimkit/apps/switchboard/daemon.py</code>: report owner validation, symlink/path canonicalization, safer asset resolution.</li>
+      <li><code>packs/codex/AGENTS.md</code>: `__HUMAN_NAME__` instead of stale `Human`.</li>
+      <li><code>README.md</code>: solo-first language, optional team mode, migration/report safety boundaries.</li>
+      <li><code>SECURITY.md</code>: explicit report-serving boundary and symlink policy.</li>
+      <li><code>tests/*</code>: regression coverage for every review finding.</li>
+      <li><code>.klimkit/memory.md</code>, <code>.klimkit/log.md</code>, <code>.klimkit/reflection.md</code>, <code>.klimkit/tasks/</code>, and <code>.klimkit/reports/</code>: flat solo proof evidence for this repo; no committed `.klimkit/Klim` or `.klimkit/Dominik` paths remain.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Command Evidence</h2>
+    <h3>Focused tests</h3>
+    <pre><code>uv run python -m unittest tests.test_klimkit_install -q
+Ran 43 tests in 0.139s
+OK
+
+uv run python -m unittest tests.test_klimkit_cli -q
+Ran 28 tests in 0.293s
+OK
+
+uv run python -m unittest tests.test_switchboard -q
+Ran 46 tests in 9.736s
+OK
+
+uv run python -m unittest tests.test_codex_pack_validation -q
+Ran 11 tests in 0.020s
+OK
+
+uv run python -m unittest tests.test_docs_static -q
+Ran 4 tests in 0.008s
+OK</code></pre>
+    <h3>Full suite</h3>
+    <pre><code>uv run python -m unittest discover -s tests -q
+installing code-server extension: publisher.example
+code-server extension already installed: publisher.example
+apply ok
+klimkit: sent autosync Telegram notification
+Ran 169 tests in 10.247s
+OK (skipped=1)
+
+git diff --check
+passed with no output</code></pre>
+  </section>
+
+  <section>
+    <h2>Adversarial CLI QA</h2>
+    <h3>Reserved name fails before moving files</h3>
+    <pre><code>status=1
+error Apply is blocked until the local config is complete.
+required [operator] human_name maps to a reserved .klimkit directory
+
+tree:
+.klimkit/local/klimkit.toml
+.klimkit/log.md
+.klimkit/memory.md
+.klimkit/reflection.md
+.klimkit/tasks/feature/01-a.md</code></pre>
+    <h3>Copyable dry-run follow-up command</h3>
+    <pre><code>kk --config '/tmp/.../config dir/klimkit.toml' migrate team-workflow --repo '/tmp/.../project with spaces' --human-name 'Alice O'"'"'Connor; rm -rf nope'</code></pre>
+    <h3>Normal migration still works</h3>
+    <pre><code>workflow   team
+human      Alice Example
+folder     Alice-Example
+moved      .../.klimkit/memory.md -> .../.klimkit/Alice-Example/memory.md
+moved      .../.klimkit/tasks -> .../.klimkit/Alice-Example/tasks</code></pre>
+  </section>
+
+  <section>
+    <h2>HTTP QA</h2>
+    <pre><code>reports= [('@Alice/ok/report.html', 'Valid Team Report')]
+reserved_asset= None
+symlink_asset= None
+symlink_operator_root_ok= False
+symlink_operator_root_messages= ['operator artifact root must not be a symlink']
+symlink_klimkit_root_reports= []
+symlink_klimkit_root_asset= None
+symlink_operator_alias_asset= None
+configured_repo_config= workflow = "team"
+implicit_dry_run_next= kk --config /tmp/.../klimkit.toml migrate team-workflow --repo /tmp/.../project --human-name Alice
+malformed_tasks_file_ok= False
+malformed_memory_dir_ok= False
+partial_existing_target_ok= False
+truncated_operator_folder= AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+repo_root_toml_injection_ok= False
+duplicate_report_roots_indexed= False
+live_codex_conflict_prompt= ask Klim
+
+status valid team: 200
+status reserved tasks: 404
+status traversal: 404
+status media range: 206 4
+2345</code></pre>
+    <h3>Flattened proof URL</h3>
+    <pre><code>curl -I -sS https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/05-team-workflow-fixes/report.html
+HTTP/2 200
+content-type: text/html; charset=utf-8
+
+curl -I -sS https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/@Klim/05-team-workflow-fixes/report.html
+HTTP/2 404</code></pre>
+  </section>
+
+  <section>
+    <h2>Browser Proof</h2>
+    <p class="note">Browser QA used `agent-browser` with Chrome `--no-sandbox`, required by this VM's browser sandbox environment. The test server used synthetic temp report roots so no live repo evidence was migrated or mutated.</p>
+
+    <figure>
+      <img src="assets/01-reports-index-desktop.png" alt="Reports index desktop showing Team Proof and Solo Proof only">
+      <figcaption>Desktop `/reports/` index. It shows valid team and solo reports. The intentionally planted `.klimkit/tasks/reports` and `.klimkit/state/reports` entries are absent.</figcaption>
+    </figure>
+
+    <figure>
+      <img src="assets/02-team-report-detail.png" alt="Team report detail page">
+      <figcaption>Valid team-scoped report served from `.klimkit/Alice/reports/team-flow/report.html`.</figcaption>
+    </figure>
+
+    <figure>
+      <img src="assets/03-reserved-rejected.png" alt="404 page for reserved @tasks report path">
+      <figcaption>Reserved pseudo-owner path `@tasks/bad.html` is rejected with 404 instead of serving `.klimkit/tasks/reports/bad.html`.</figcaption>
+    </figure>
+
+    <figure>
+      <img src="assets/04-reports-index-mobile.png" alt="Reports index mobile layout">
+      <figcaption>Mobile-width `/reports/` index remains readable and non-overlapping.</figcaption>
+    </figure>
+
+    <figure>
+      <img src="assets/05-reports-empty-state.png" alt="Empty reports index">
+      <figcaption>Empty state when a configured root has no valid report HTML.</figcaption>
+    </figure>
+
+    <figure>
+      <video controls src="assets/reports-flow.mp4"></video>
+      <figcaption>MP4 recording of opening the reports index, opening a valid team report, checking a rejected reserved path, and viewing the mobile/empty states. Native WebM evidence is retained as <code>assets/reports-flow.webm</code>.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Security Review</h2>
+    <p id="security-review-status">PASS. The final security auditor reported no findings after checking TOML serialization, destructive migration preflight, symlink and traversal boundaries for report serving, command quoting/context, Switchboard auth, README, and SECURITY alignment.</p>
+    <pre><code>Final code review: PASS, no findings.
+Final security review: PASS, no findings.
+Post-final-review blocker code review: PASS, no findings.
+Post-final-review blocker security review: PASS, no findings.
+
+Representative reviewer verification:
+uv run python -m unittest tests.test_klimkit_install tests.test_klimkit_cli tests.test_switchboard tests.test_docs_static tests.test_codex_pack_validation -q
+Ran 132 tests
+OK
+
+uv run python -m unittest discover -s tests -q
+Ran 169 tests
+OK (skipped=1)
+
+git diff --check
+passed with no output</code></pre>
+  </section>
+
+  <section>
+    <h2>Reflection And Final Review</h2>
+    <p id="reflection-status">Reflection appended at <code>.klimkit/reflection.md</code> under <code>2026-05-16T05:40:04Z</code>. The reflection specifically required replacing this report's pending placeholders before final handoff; this section records that update.</p>
+    <p>Final review round 1 found two blockers: the live generated Codex projection still said <code>ask Human</code>, and duplicate configured report roots could duplicate index rows. Both were fixed and verified before the final review rerun.</p>
+    <p>Round 1 result: one PASS and two BLOCK findings that were addressed. Round 2 result: all three final reviewers returned <code>PASS / READY FOR USER</code>.</p>
+  </section>
+</main>
+</body>
+</html>

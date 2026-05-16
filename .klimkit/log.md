@@ -45,3 +45,6 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-14T11:48:29Z: Prepared the generic best-practice harness update and `mattpocock/skills` comparison for review without applying, committing, or releasing.
 - 2026-05-14T12:04:52Z: Prepared `v0.1.6` release metadata for the generic best-practice harness update.
 - 2026-05-14T12:08:45Z: Published GitHub release `v0.1.6` as the latest release for the generic best-practice harness update.
+- 2026-05-16T04:43:51Z: Wrote the acceptance checklist for PR #1 team workflow fixes under `.klimkit/tasks/05-team-workflow-fixes/`.
+- 2026-05-16T11:10:00Z: Flattened PR #1 proof evidence back to the solo `.klimkit/` layout and removed contributor operator-scoped `.klimkit` artifacts from the public repo.
+- 2026-05-16T11:11:00Z: Recorded the durable preference that this repository remains in the solo flat `.klimkit/` artifact layout while team workflow stays optional product functionality.
