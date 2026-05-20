@@ -10,6 +10,14 @@ class TelegramNotificationConfig(Protocol):
     telegram_chat_id: str
 
 
+def build_direct_code_server_url(dns_name: str, folder: str) -> str:
+    host = str(dns_name or "").strip().rstrip(".")
+    target = str(folder or "").strip()
+    if not host or not target or "/" in host or ":" in host:
+        return ""
+    return f"https://{host}/?folder={parse.quote(target, safe='/')}"
+
+
 def send_telegram_notification(config: TelegramNotificationConfig, text: str) -> bool:
     return send_telegram_message(config, text)
 

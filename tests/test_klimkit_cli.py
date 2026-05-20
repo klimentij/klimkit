@@ -722,9 +722,24 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn("📝 Changes: 1 files changed", notification)
             self.assertIn("restart Klimkit user service", notification)
             self.assertIn("https://odev.tail11c448.ts.net/proxy/4721/", notification)
+            self.assertIn(f"↗ Code-server direct: https://odev.tail11c448.ts.net/?folder={cli.OPS_REPO_ROOT}", notification)
             self.assertIn("📄 Reports: https://odev.tail11c448.ts.net/reports/", notification)
             self.assertIn("telegram", stdout.getvalue())
             self.assertIn("sent apply summary to Telegram", stdout.getvalue())
+
+    def test_apply_notification_omits_direct_code_server_without_tailnet_dns(self) -> None:
+        config = default_config("client")
+
+        with mock.patch.object(cli, "_tailscale_dns_name", return_value=""):
+            notification = cli._apply_notification_text(
+                config,
+                {"actions": [], "changed": []},
+                command_name="apply",
+                services_skipped=False,
+            )
+
+        self.assertNotIn("Code-server direct", notification)
+        self.assertNotIn("https:///?folder=", notification)
 
     def test_deferred_apply_skips_telegram_to_avoid_autosync_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

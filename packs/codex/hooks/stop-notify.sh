@@ -205,6 +205,8 @@ elif seen_turn_before(session_id, turn_id):
     skip_notification = True
 
 remote_url = None
+code_server_url = None
+machine_dns = ""
 try:
     tailscale_status = subprocess.run(
         ["tailscale", "status", "--json"],
@@ -217,14 +219,18 @@ try:
     host = str(self_info.get("HostName") or host).strip() or host
     dns_name = (self_info.get("DNSName") or "").rstrip(".")
     if dns_name:
+        machine_dns = dns_name
         target = urllib.parse.urlencode({
             "session": session_id,
             "machine": host,
             "folder": folder,
         })
         remote_url = f"https://{dns_name}/proxy/4721/#{target}"
+        code_server_url = f"https://{dns_name}/?folder={urllib.parse.quote(folder, safe=chr(47))}"
 except Exception:
     remote_url = None
+    code_server_url = None
+    machine_dns = ""
 
 def load_thread_title(session_id: str) -> str:
     if not session_id:
@@ -318,6 +324,13 @@ if remote_url:
         remote_url,
     ])
 
+if code_server_url:
+    parts.extend([
+        "",
+        "↗ <b>Open code-server directly</b>",
+        code_server_url,
+    ])
+
 notification = "\n".join(parts)
 if skip_notification:
     notification = ""
@@ -329,6 +342,7 @@ if not skip_notification:
         "session_id": session_id,
         "turn_id": turn_id,
         "machine": host,
+        "machine_dns": machine_dns,
         "cwd": folder,
         "workspace": workspace,
         "status": classify_status(message),
@@ -336,6 +350,7 @@ if not skip_notification:
         "branch": current_branch(cwd),
         "message": message,
         "remote_url": remote_url or "",
+        "code_server_url": code_server_url or "",
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
         "source": "codex_stop_hook",
     }

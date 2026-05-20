@@ -27,7 +27,7 @@ from .install import (
     validate_config,
     with_role,
 )
-from .notifications import send_telegram_notification
+from .notifications import build_direct_code_server_url, send_telegram_notification
 from .paths import KLIMKIT_CONFIG_FILE, KLIMKIT_MANIFEST_FILE, OPS_REPO_ROOT
 
 
@@ -291,6 +291,12 @@ def _notification_reports_url(config: object) -> str:
     return _tailnet_reports_url(config)
 
 
+def _notification_code_server_url(config: object) -> str:
+    if not bool(getattr(config, "code_server_enabled", False)):
+        return ""
+    return build_direct_code_server_url(_tailscale_dns_name(), str(getattr(config, "repo_root", "")))
+
+
 def _apply_notification_text(
     config: object,
     manifest: dict[str, object],
@@ -311,6 +317,9 @@ def _apply_notification_text(
     switchboard_url = _notification_switchboard_url(config)
     if switchboard_url:
         parts.append(f"🔗 {switchboard_url}")
+    code_server_url = _notification_code_server_url(config)
+    if code_server_url:
+        parts.append(f"↗ Code-server direct: {code_server_url}")
     reports_url = _notification_reports_url(config)
     if reports_url:
         parts.append(f"📄 Reports: {reports_url}")

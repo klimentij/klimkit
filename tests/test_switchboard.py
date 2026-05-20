@@ -1891,8 +1891,37 @@ class SwitchboardTests(unittest.TestCase):
                 self.assertIn("/Users/klim", text)
                 self.assertIn(full_completion_message, text)
                 self.assertIn("https://workstation.example.ts.net/switchboard/#", text)
+                self.assertIn("https://macbook-air-8.tail11c448.ts.net/?folder=/Users/klim", text)
+                self.assertLess(
+                    text.index("Open in Klimkit Switchboard"),
+                    text.index("Open code-server directly"),
+                )
             finally:
                 app.close()
+
+    def test_telegram_notification_omits_direct_code_server_when_url_unavailable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app = MODULE.SwitchboardApp(build_config(Path(tmpdir)))
+            try:
+                text = app._format_telegram_notification(
+                    {
+                        "session_id": "thread-1",
+                        "event_id": "turn-1",
+                        "machine": "workstation",
+                        "folder": "repo",
+                        "status": "done",
+                        "attention_kind": "completion_unseen",
+                        "message": "Done.",
+                        "switchboard_url": "https://workstation.example.ts.net/switchboard/#session=thread-1",
+                        "code_server_url": "",
+                    }
+                )
+            finally:
+                app.close()
+
+        self.assertIn("Open in Klimkit Switchboard", text)
+        self.assertNotIn("Open code-server directly", text)
+        self.assertNotIn("https:///?folder=", text)
 
     def test_long_done_message_flows_from_rollout_to_telegram_notification(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

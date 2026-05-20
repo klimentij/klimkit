@@ -1,0 +1,18 @@
+# Acceptance Checklist
+
+- [x] Every Telegram-producing path keeps the Switchboard link as the primary/main open option: CLI apply/pull summaries, supervisor autosync summaries, Switchboard attention notifications, and the Codex stop hook notification.
+- [x] When a Tailscale DNS name and workspace/folder path are available, each Telegram notification also includes a separate direct code-server iframe URL using the same target the Switchboard iframe would load, for example `https://<machine>.<tailnet>.ts.net/?folder=<encoded-path>`.
+- [x] Direct code-server links are omitted, not shown as blank placeholders, malformed labels, `None`, empty strings, local loopback URLs, or partial `https:///` URLs, whenever the Tailscale URL or folder target is unavailable.
+- [x] The Switchboard deep link remains visually and textually the main option, and the direct code-server link is clearly secondary without replacing or weakening the Switchboard link.
+- [x] Notification formatting escapes/encodes user-controlled path, title, and message content correctly for each path's Telegram mode, including HTML-mode Switchboard and Codex stop-hook messages.
+- [x] Tests cover notification text formatting for Switchboard attention notifications from snapshot/session data, Codex stop-hook notifications, CLI apply/pull summaries, and supervisor autosync summaries.
+- [x] Tests cover both URL-present and URL-unavailable cases, including assertions that no empty/broken direct code-server URL appears when Tailscale DNS or workspace path data is missing.
+- [x] The external `grill-me` skill from `https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md` is added under the source-controlled Codex pack at `packs/codex/skills/grill-me/SKILL.md`, not under generated `~/.codex/` output.
+- [x] The added `grill-me` skill preserves the source intent and has valid Codex skill frontmatter with a non-empty `name` and `description` that stays within the repository's CLI description-limit expectations.
+- [x] Pack validation passes, including `python -m unittest tests.test_codex_pack_validation` and any existing skill projection/description-limit tests that cover `packs/codex/skills/**/SKILL.md`.
+- [x] Notification path coverage passes with focused tests, including the relevant Switchboard, supervisor, CLI, and Codex pack hook test modules.
+- [x] Run the broader relevant automated suite for the changed surface, at minimum `python -m unittest tests.test_switchboard tests.test_klimkit_supervisor tests.test_klimkit_cli tests.test_codex_pack_validation tests.test_klimkit_install`, or record any unavailable check with the reason.
+- [x] If the pack change should be live on this VM, run `kk apply` after validation and verify the projected `~/.codex/skills/grill-me/SKILL.md` exists; if not applying locally, record that decision explicitly in the task proof.
+- [x] The implementation proof records changed files, commands run, notable outputs, and any skipped/unavailable verification under `.klimkit/tasks/06-telegram-iframe-url-and-grill-me/`.
+- [x] Reflection Gate is completed after verification and before final review: read `.klimkit/reflection.md`, append a full UTC timestamped Reflection Log session using `Observations`, `Derived Pattern`, `Insight`, and `Next Probe`, then reconsider the result and rerun impacted checks if reflection finds a gap.
+- [ ] Final Review Gate is completed before any completion claim: draft the final response, run 3 parallel `final_reviewer` passes with the request, this checklist, changed files, verification evidence, reflection entry, and draft response, and require all 3 to return PASS / READY FOR USER.

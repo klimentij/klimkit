@@ -3,6 +3,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
+from urllib.parse import unquote_plus
 from unittest import mock
 
 from klimkit import notifications
@@ -236,6 +237,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
             mock.patch.object(MODULE, "save_supervisor_state") as save_mock,
             mock.patch.object(MODULE, "run_apply_for_autosync", return_value="apply ok") as apply_mock,
             mock.patch.object(MODULE, "send_telegram_notification", return_value=True) as telegram_mock,
+            mock.patch.object(MODULE, "tailscale_dns_name", return_value="vm-1.tailnet.ts.net"),
             mock.patch.object(MODULE, "restart_managed_service", return_value="restarted systemd user service") as restart_mock,
         ):
             summary = MODULE.auto_sync_once(config, state)
@@ -292,6 +294,8 @@ class KlimkitSupervisorTests(unittest.TestCase):
             telegram_enabled=True,
             telegram_bot_token="bot-token",
             telegram_chat_id="chat-id",
+            code_server_enabled=True,
+            switchboard_backend_url="https://server.example.ts.net/switchboard",
         )
         update = MODULE.CheckoutUpdate(
             previous_revision="abcdef123456",
@@ -301,6 +305,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
 
         with (
             mock.patch.object(MODULE.socket, "gethostname", return_value="vm-1"),
+            mock.patch.object(MODULE, "tailscale_dns_name", return_value="vm-1.tailnet.ts.net"),
             mock.patch.object(notifications.request, "urlopen") as urlopen_mock,
         ):
             urlopen_mock.return_value.__enter__.return_value.read.return_value = b'{"ok":true}'
@@ -313,6 +318,9 @@ class KlimkitSupervisorTests(unittest.TestCase):
         self.assertIn("chat_id=chat-id", body)
         self.assertIn("vm-1", body)
         self.assertIn("Codex+pack", body)
+        decoded_body = unquote_plus(body)
+        self.assertIn("Switchboard: https://server.example.ts.net/switchboard", decoded_body)
+        self.assertIn("Code-server direct: https://vm-1.tailnet.ts.net/?folder=/tmp/klimkit", decoded_body)
 
     def test_restart_managed_service_treats_self_restart_sigterm_as_success(self) -> None:
         with mock.patch.object(
@@ -377,6 +385,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
             mock.patch.object(MODULE, "save_supervisor_state") as save_mock,
             mock.patch.object(MODULE, "run_apply_for_autosync", return_value="apply ok") as apply_mock,
             mock.patch.object(MODULE, "send_telegram_notification", return_value=True) as telegram_mock,
+            mock.patch.object(MODULE, "tailscale_dns_name", return_value="vm-1.tailnet.ts.net"),
             mock.patch.object(MODULE, "restart_managed_service", return_value="restarted systemd user service") as restart_mock,
         ):
             summary = MODULE.auto_sync_once(config, state)

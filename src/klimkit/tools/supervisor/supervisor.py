@@ -16,7 +16,7 @@ from typing import Any
 
 from klimkit.harnesses.codex import codex_harness
 from klimkit.install import default_config, parse_config, render_config, with_role
-from klimkit.notifications import send_telegram_notification
+from klimkit.notifications import build_direct_code_server_url, send_telegram_notification
 from klimkit.paths import (
     KLIMKIT_CONFIG_FILE,
     KLIMKIT_LOGS_DIR,
@@ -64,6 +64,9 @@ class SupervisorConfig:
     telegram_enabled: bool = False
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    code_server_enabled: bool = False
+    switchboard_backend_url: str = ""
+    switchboard_port: int = 4721
 
 
 @dataclass(frozen=True)
@@ -136,6 +139,9 @@ def load_machine_config(path: Path) -> SupervisorConfig:
         telegram_enabled=config.telegram_enabled,
         telegram_bot_token=config.telegram_bot_token,
         telegram_chat_id=config.telegram_chat_id,
+        code_server_enabled=config.code_server_enabled,
+        switchboard_backend_url=config.switchboard_backend_url,
+        switchboard_port=config.switchboard_port,
     )
 
 
@@ -320,19 +326,64 @@ def summarize_changed_files(changed_files: tuple[str, ...]) -> str:
     return ", ".join(groups[:4])
 
 
+def tailscale_dns_name() -> str:
+    try:
+        result = subprocess.run(
+            ["tailscale", "status", "--json"],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=2,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if result.returncode != 0:
+        return ""
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    self_info = payload.get("Self")
+    if not isinstance(self_info, dict):
+        return ""
+    return str(self_info.get("DNSName") or "").strip().rstrip(".")
+
+
+def autosync_notification_link_lines(config: SupervisorConfig) -> list[str]:
+    dns_name = tailscale_dns_name()
+    lines: list[str] = []
+    switchboard_url = ""
+    if config.switchboard_backend_url:
+        switchboard_url = config.switchboard_backend_url
+    elif config.manage_switchboard and dns_name:
+        switchboard_url = f"https://{dns_name}/proxy/{config.switchboard_port}/"
+    if switchboard_url:
+        lines.append(f"🔗 Switchboard: {switchboard_url}")
+    code_server_url = (
+        build_direct_code_server_url(dns_name, str(config.repo_root))
+        if config.code_server_enabled
+        else ""
+    )
+    if code_server_url:
+        lines.append(f"↗ Code-server direct: {code_server_url}")
+    return lines
+
+
 def autosync_notification_text(config: SupervisorConfig, update: CheckoutUpdate) -> str:
     machine = socket.gethostname()
     summary = summarize_changed_files(update.changed_files)
-    return "\n".join(
-        [
-            "🔄 Klimkit autosync",
-            f"🖥 Machine: {machine}",
-            f"🧩 Profile: {config.profile}",
-            f"🌿 Revision: {update.previous_revision[:7]} -> {update.new_revision[:7]}",
-            f"📝 Changes: {len(update.changed_files)} files ({summary})",
-            "🔁 Live: projections applied; restarting Klimkit service",
-        ]
-    )
+    lines = [
+        "🔄 Klimkit autosync",
+        f"🖥 Machine: {machine}",
+        f"🧩 Profile: {config.profile}",
+        f"🌿 Revision: {update.previous_revision[:7]} -> {update.new_revision[:7]}",
+        f"📝 Changes: {len(update.changed_files)} files ({summary})",
+        "🔁 Live: projections applied; restarting Klimkit service",
+    ]
+    lines.extend(autosync_notification_link_lines(config))
+    return "\n".join(lines)
 
 
 def restart_managed_service() -> str:

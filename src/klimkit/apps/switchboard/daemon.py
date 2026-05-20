@@ -2218,6 +2218,10 @@ class SwitchboardApp:
         title = clip_text(str(session.get("title") or folder).strip(), 80)
         resolved_machine = machine or str(session.get("machine") or "").strip()
         resolved_dns = self.store.resolve_machine_dns(resolved_machine, machine_dns or str(session.get("machine_dns") or ""))
+        code_server_url = build_code_server_url(
+            MachineIdentity(machine=resolved_machine, dns_name=resolved_dns),
+            cwd,
+        )
         return {
             "session_id": session_id,
             "event_id": event_id,
@@ -2231,6 +2235,7 @@ class SwitchboardApp:
             "message": message,
             "created_at": created_at,
             "switchboard_url": self._switchboard_url_for_session(resolved_machine, cwd, session_id),
+            "code_server_url": code_server_url,
         }
 
     def _should_send_telegram_for_event(self, session_id: str, event_id: str, created_at: str) -> bool:
@@ -2305,6 +2310,8 @@ class SwitchboardApp:
             lines.extend(["", "📝 <b>Latest message</b>", html.escape(message)])
         if notification.get("switchboard_url"):
             lines.extend(["", "🔗 <b>Open in Klimkit Switchboard</b>", html.escape(notification["switchboard_url"])])
+        if notification.get("code_server_url"):
+            lines.extend(["", "↗ <b>Open code-server directly</b>", html.escape(notification["code_server_url"])])
         return "\n".join(line for line in lines if line)
 
     def start_background_workers(self) -> None:
