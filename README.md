@@ -6,19 +6,27 @@
 [![Runtime: Tailscale](https://img.shields.io/badge/Runtime-Tailscale-6f8d7e.svg)](https://tailscale.com/)
 [![Harness: Codex](https://img.shields.io/badge/Harness-Codex-edfff5.svg)](packs/codex/)
 
-![Klimkit. Agentic engineering across machines, under control.](assets/brand/klimkit-readme-hero.png)
+![Klimkit. Agentic engineering across machines, under control.](assets/brand/klimkit-readme-hero.jpg)
 
 Klimkit keeps an agent-ready machine reproducible. One repo owns the local instructions, harness packs, services, dashboards, and machine-specific settings needed to make a fresh VM behave like Klim's working environment. You edit the repo, preview exactly what will change, apply it locally, and use normal Git flow to carry the same operator setup to another machine.
+
+Klimkit is most useful when an agent run is long enough that you cannot keep it all in your head. The proof has to live in the repo: task notes, checks, diffs, screenshots, reports, reflections, and final review.
+
+### A 7.5 Hour Run Without Losing The Thread
+
+![Codex verification output showing a completed 7.5 hour agent run with tests, Playwright checks, secret scanning, Git checks, and clean pushed state.](assets/screenshots/seven-hour-codex-run.png)
+
+One dogfood moment that captures the point: a vanilla Klimkit/Codex run worked for 7h 30m, stayed on goal without an outer loop such as `/goal`, and closed with backend tests, frontend checks, Playwright, secret scanning, Git checks, and a clean pushed state. The claim is not that every agent run should be seven hours. The claim is that long runs need inspectable artifacts after the model stops.
 
 The core operating promise is parallel agent work without losing control: use Switchboard to keep 5-7 Codex/code-server workspaces open across machines, each on its own branch and worktree, while Klimkit keeps the harness, browser profile, services, and notifications synced.
 
 ### Switchboard PWA Workspace
 
-![Klimkit Switchboard running as a Chrome PWA with code-server and Codex terminal panes.](assets/screenshots/switchboard-pwa-workspace.png)
+![Klimkit Switchboard running as a Chrome PWA with code-server and Codex terminal panes.](assets/screenshots/switchboard-pwa-workspace.jpg)
 
 ### Workspace Catalog
 
-![Klimkit Switchboard workspace catalog with create controls, filters, batch actions, and workspace rows.](assets/screenshots/switchboard-catalog.png)
+![Klimkit Switchboard workspace catalog with create controls, filters, batch actions, and workspace rows.](assets/screenshots/switchboard-catalog.jpg)
 
 ## Table of Contents
 
@@ -67,9 +75,9 @@ The installer reuses the local checkout, installs the `kk` launcher into `~/.loc
 
 ## Release Status
 
-Current release: [`v0.1.6`](https://github.com/klimentij/klimkit/releases/tag/v0.1.6).
+Current release: [`v0.1.9`](https://github.com/klimentij/klimkit/releases/tag/v0.1.9).
 
-`v0.1.6` integrates generic agent engineering best practices into the shared Codex harness without pasting a second template. It makes the main `AGENTS.md` rules more explicit about assumptions, simplicity, surgical changes, success criteria, conflict handling, deterministic code paths, intent-focused tests, no fake support, prototype boundaries, project language, and fail-loud reporting. Related subagents now enforce the same behavior where it matters: checklists, exploration, review, debugging, testing, final review, and harness tuning. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
+`v0.1.9` publishes the README marketing pass: the 7.5-hour Codex dogfood moment, clearer Switchboard framing, and higher-quality optimized README images that avoid the noisy low-bit-depth compression from the first draft. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
 
 ## Tech Stack
 
@@ -510,7 +518,7 @@ Set `auto_sync = false` only on a VM where you want manual `kk pull` control.
 
 When `[notifications.telegram]` is enabled, each successful autosync sends one short message with the hostname, role, commit range, changed file count, changed areas, and restart status.
 
-![Telegram notifications from Klimkit autosync and Codex completion events, including deep links back to Switchboard.](assets/screenshots/telegram-notifications.png)
+![Telegram notifications from Klimkit autosync and Codex completion events, including deep links back to Switchboard.](assets/screenshots/telegram-notifications.jpg)
 
 ## Contributing
 

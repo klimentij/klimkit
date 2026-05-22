@@ -51,9 +51,11 @@ class DocsStaticTests(unittest.TestCase):
         self.assertIn("Tailscale-served report URL", text)
         self.assertIn("https://<machine>.<tailnet>.ts.net/reports/", text)
         for screenshot in (
-            "assets/screenshots/switchboard-pwa-workspace.png",
-            "assets/screenshots/switchboard-catalog.png",
-            "assets/screenshots/telegram-notifications.png",
+            "assets/brand/klimkit-readme-hero.jpg",
+            "assets/screenshots/seven-hour-codex-run.png",
+            "assets/screenshots/switchboard-pwa-workspace.jpg",
+            "assets/screenshots/switchboard-catalog.jpg",
+            "assets/screenshots/telegram-notifications.jpg",
         ):
             self.assertIn(screenshot, text)
             self.assertTrue((ROOT / screenshot).exists(), screenshot)
