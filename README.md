@@ -75,9 +75,9 @@ The installer reuses the local checkout, installs the `kk` launcher into `~/.loc
 
 ## Release Status
 
-Current release: [`v0.1.9`](https://github.com/klimentij/klimkit/releases/tag/v0.1.9).
+Current release: [`v0.1.10`](https://github.com/klimentij/klimkit/releases/tag/v0.1.10).
 
-`v0.1.9` publishes the README marketing pass: the 7.5-hour Codex dogfood moment, clearer Switchboard framing, and higher-quality optimized README images that avoid the noisy low-bit-depth compression from the first draft. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
+`v0.1.10` keeps the public repo focused by removing internal marketing task artifacts from Klimkit after moving those notes to Klimkipedia. The public README, optimized images, and GitHub-facing project copy remain in place. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
 
 ## Tech Stack
 
