@@ -206,6 +206,7 @@ elif seen_turn_before(session_id, turn_id):
 
 remote_url = None
 code_server_url = None
+codex_thread_url = f"codex://threads/{session_id}" if session_id else ""
 machine_dns = ""
 try:
     tailscale_status = subprocess.run(
@@ -322,6 +323,13 @@ if remote_url:
         "",
         "🔗 <b>Open in Klimkit Switchboard</b>",
         remote_url,
+    ])
+
+if codex_thread_url:
+    parts.extend([
+        "",
+        "🧭 <b>Open in Codex app</b>",
+        html.escape(codex_thread_url),
     ])
 
 if code_server_url:

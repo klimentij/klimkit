@@ -17,7 +17,13 @@ def write_executable(path: Path, content: str) -> None:
 
 
 class CodexStopHookTests(unittest.TestCase):
-    def run_hook(self, *, tailscale_script: str) -> tuple[str, list[str]]:
+    def run_hook(
+        self,
+        *,
+        tailscale_script: str,
+        payload_updates: dict[str, str] | None = None,
+        omit_payload_keys: tuple[str, ...] = (),
+    ) -> tuple[str, list[str]]:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             home = root / "home"
@@ -54,11 +60,15 @@ class CodexStopHookTests(unittest.TestCase):
             )
             write_executable(bin_dir / "tailscale", tailscale_script)
             payload = {
-                "session_id": "thread-1",
+                "session_id": "019e551a-3b8b-7e72-9a91-e48b23f1681c",
                 "turn_id": "turn-1",
                 "last_assistant_message": "Implemented and verified the notification change.",
                 "cwd": "/home/ubuntu/klimkit",
             }
+            if payload_updates:
+                payload.update(payload_updates)
+            for key in omit_payload_keys:
+                payload.pop(key, None)
             env = {
                 **os.environ,
                 "HOME": str(home),
@@ -99,10 +109,13 @@ class CodexStopHookTests(unittest.TestCase):
         self.assertEqual(json.loads(stdout), {"continue": True})
         text = self.telegram_text(args)
         self.assertIn("Open in Klimkit Switchboard", text)
+        self.assertIn("Open in Codex app", text)
         self.assertIn("Open code-server directly", text)
-        self.assertLess(text.index("Open in Klimkit Switchboard"), text.index("Open code-server directly"))
+        self.assertLess(text.index("Open in Klimkit Switchboard"), text.index("Open in Codex app"))
+        self.assertLess(text.index("Open in Codex app"), text.index("Open code-server directly"))
+        self.assertIn("codex://threads/019e551a-3b8b-7e72-9a91-e48b23f1681c", text)
         self.assertIn(
-            "https://odev.tail11c448.ts.net/proxy/4721/#session=thread-1&machine=odev&folder=%2Fhome%2Fubuntu%2Fklimkit",
+            "https://odev.tail11c448.ts.net/proxy/4721/#session=019e551a-3b8b-7e72-9a91-e48b23f1681c&machine=odev&folder=%2Fhome%2Fubuntu%2Fklimkit",
             text,
         )
         self.assertIn("https://odev.tail11c448.ts.net/?folder=/home/ubuntu/klimkit", text)
@@ -119,8 +132,43 @@ class CodexStopHookTests(unittest.TestCase):
         self.assertEqual(json.loads(stdout), {"continue": True})
         text = self.telegram_text(args)
         self.assertNotIn("Open in Klimkit Switchboard", text)
+        self.assertIn("Open in Codex app", text)
+        self.assertIn("codex://threads/019e551a-3b8b-7e72-9a91-e48b23f1681c", text)
         self.assertNotIn("Open code-server directly", text)
         self.assertNotIn("https:///?folder=", text)
+
+    def test_notification_omits_codex_app_url_without_session_id(self) -> None:
+        stdout, args = self.run_hook(
+            tailscale_script="""
+            #!/bin/sh
+            if [ "$1" = "status" ] && [ "$2" = "--json" ]; then
+              printf '%s\n' '{"Self":{"HostName":"odev","DNSName":"odev.tail11c448.ts.net."}}'
+              exit 0
+            fi
+            exit 1
+            """,
+            omit_payload_keys=("session_id",),
+        )
+
+        self.assertEqual(json.loads(stdout), {"continue": True})
+        text = self.telegram_text(args)
+        self.assertIn("Open in Klimkit Switchboard", text)
+        self.assertNotIn("Open in Codex app", text)
+        self.assertNotIn("codex://threads/", text)
+
+    def test_notification_omits_codex_app_url_with_empty_session_id(self) -> None:
+        stdout, args = self.run_hook(
+            tailscale_script="""
+            #!/bin/sh
+            exit 1
+            """,
+            payload_updates={"session_id": ""},
+        )
+
+        self.assertEqual(json.loads(stdout), {"continue": True})
+        text = self.telegram_text(args)
+        self.assertNotIn("Open in Codex app", text)
+        self.assertNotIn("codex://threads/", text)
 
 
 if __name__ == "__main__":
