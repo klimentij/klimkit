@@ -298,6 +298,8 @@ Current pack contents:
 - `packs/codex/skills/` for reusable local skills, including `harness-tuning`.
 - `packs/codex/hooks/` for Codex Stop notifications and Switchboard event hints.
 
+During `packs/codex/config.toml` projection, Klimkit keeps the shared pack settings authoritative while preserving machine-local Codex tables for plugins, connectors, MCP servers, project trust, and hook trust state that already exist in `~/.codex/config.toml`. Because that projected file can contain machine-local connector state, Klimkit writes it with `0600` permissions. Keep VM-specific plugin connections and any credentials in machine-local Codex state; do not copy Slack or other connector state into the source-controlled pack.
+
 To tune the shared harness, edit `~/klimkit/packs/codex/`, not `~/.codex/`. Then run:
 
 ```bash

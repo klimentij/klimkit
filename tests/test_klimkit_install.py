@@ -4,6 +4,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -528,6 +529,99 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertNotIn("__HUMAN_NAME__", agents_action.content)
         self.assertNotIn("__KLIMKIT_ARTIFACT_ROOT__", agents_action.content)
         self.assertNotIn("Klim's coding agent", agents_action.content)
+
+    def test_codex_config_projection_preserves_vm_local_plugin_tables(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            home = root / "home"
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+            live_config = codex_home / "config.toml"
+            live_config.write_text(
+                "\n".join(
+                    [
+                        'model = "older-local-model"',
+                        "",
+                        '[plugins."github@openai-curated"]',
+                        "enabled = false",
+                        "",
+                        '[plugins."slack@openai-curated"]',
+                        "enabled = true",
+                        "",
+                        '[plugins."example@local".connector]',
+                        'workspace = "vm-local"',
+                        'endpoint = "https://example.invalid"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            config = replace(default_config(), repo_root=ROOT, code_server_enabled=False)
+
+            with mock.patch("klimkit.install.Path.home", return_value=home):
+                actions = build_plan(config, skip_services=True)
+            codex_action = next(action for action in actions if action.id == "codex-config")
+
+            manifest = apply_plan(
+                [codex_action],
+                manifest_path=root / "state" / "manifest.json",
+                backup_root=root / "backups",
+                managed_roots=(codex_home,),
+            )
+
+            projected = tomllib.loads(live_config.read_text(encoding="utf-8"))
+            self.assertEqual(projected["model"], "gpt-5.5")
+            self.assertTrue(projected["plugins"]["github@openai-curated"]["enabled"])
+            self.assertTrue(projected["plugins"]["slack@openai-curated"]["enabled"])
+            self.assertEqual(projected["plugins"]["example@local"]["connector"]["workspace"], "vm-local")
+            self.assertEqual(projected["plugins"]["example@local"]["connector"]["endpoint"], "https://example.invalid")
+            self.assertEqual(live_config.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(manifest["changed"][0]["status"], "updated")
+            backup = Path(manifest["changed"][0]["backup"])
+            self.assertTrue(backup.exists())
+            self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+
+    def test_codex_config_projection_preserves_local_runtime_tables(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            home = root / "home"
+            codex_home = home / ".codex"
+            codex_home.mkdir(parents=True)
+            (codex_home / "config.toml").write_text(
+                "\n".join(
+                    [
+                        '[mcp_servers.local_tool]',
+                        'command = "local-tool"',
+                        'args = ["serve"]',
+                        "",
+                        '[projects."/tmp/project"]',
+                        'trust_level = "trusted"',
+                        "",
+                        "[hooks.state]",
+                        "",
+                        '[hooks.state."/home/user/.codex/config.toml:stop:0:0"]',
+                        'trusted_hash = "sha256:local"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            config = replace(default_config(), repo_root=ROOT, code_server_enabled=False)
+
+            with mock.patch("klimkit.install.Path.home", return_value=home):
+                actions = build_plan(config, skip_services=True)
+            codex_action = next(action for action in actions if action.id == "codex-config")
+
+            self.assertIsNotNone(codex_action.content)
+            assert codex_action.content is not None
+            projected = tomllib.loads(codex_action.content)
+            self.assertEqual(projected["mcp_servers"]["local_tool"]["command"], "local-tool")
+            self.assertEqual(projected["mcp_servers"]["playwright"]["command"], "npx")
+            self.assertEqual(projected["projects"]["/tmp/project"]["trust_level"], "trusted")
+            self.assertEqual(
+                projected["hooks"]["state"]["/home/user/.codex/config.toml:stop:0:0"]["trusted_hash"],
+                "sha256:local",
+            )
 
     def test_single_config_uses_private_backend_settings(self) -> None:
         config = replace(

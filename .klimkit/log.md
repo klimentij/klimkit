@@ -51,3 +51,5 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-16T11:49:55Z: Added a repository-local `AGENTS.md` reminder to create and mark a latest GitHub release after every commit to `main`.
 - 2026-05-20T03:43:31Z: Implemented secondary direct code-server Tailscale links across Telegram notifications, added the `grill-me` Codex pack skill, verified projection, and ran the full test suite.
 - 2026-05-20T04:08:00Z: Added runtime stop-hook Telegram payload tests after final review found the broken embedded Python quoting path, fixed the projected hook, and reran the full suite.
+- 2026-05-26T04:14:27Z: Implemented Codex config projection preservation for VM-local plugin/connector tables, verified Slack stayed enabled after `kk apply --skip-services`, and ran focused plus full unit suites.
+- 2026-05-26T04:23:02Z: Fixed the Codex config preservation security review finding by projecting `~/.codex/config.toml` and its update backups with `0600`, then reran focused, supervisor, full unit, diff, and live apply checks.

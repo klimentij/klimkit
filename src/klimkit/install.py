@@ -39,6 +39,15 @@ ARTIFACT_WORKFLOWS = {"solo", "team"}
 TEAM_ARTIFACT_NAMES = ("memory.md", "log.md", "reflection.md", "tasks", "reports")
 RESERVED_OPERATOR_FOLDER_NAMES = {"local", "state", "backups", "logs", *TEAM_ARTIFACT_NAMES}
 TEAM_ARTIFACT_DIRECTORY_NAMES = {"tasks", "reports"}
+CODEX_LOCAL_CONFIG_TABLE_PREFIXES = (
+    ("plugins",),
+    ("plugin_settings",),
+    ("connectors",),
+    ("apps",),
+    ("mcp_servers",),
+    ("projects",),
+    ("hooks", "state"),
+)
 
 
 @dataclass(frozen=True)
@@ -788,6 +797,128 @@ def _template_text(path: Path, config: InstallConfig, *, config_path: Path = KLI
     return text
 
 
+def _strip_toml_comment(line: str) -> str:
+    quote = ""
+    escaped = False
+    for index, char in enumerate(line):
+        if escaped:
+            escaped = False
+            continue
+        if quote == '"' and char == "\\":
+            escaped = True
+            continue
+        if char in {'"', "'"}:
+            if quote == char:
+                quote = ""
+            elif not quote:
+                quote = char
+            continue
+        if char == "#" and not quote:
+            return line[:index]
+    return line
+
+
+def _split_toml_dotted_key(key: str) -> tuple[str, ...]:
+    parts: list[str] = []
+    start = 0
+    quote = ""
+    escaped = False
+    for index, char in enumerate(key):
+        if escaped:
+            escaped = False
+            continue
+        if quote == '"' and char == "\\":
+            escaped = True
+            continue
+        if char in {'"', "'"}:
+            if quote == char:
+                quote = ""
+            elif not quote:
+                quote = char
+            continue
+        if char == "." and not quote:
+            parts.append(key[start:index].strip())
+            start = index + 1
+    parts.append(key[start:].strip())
+
+    decoded: list[str] = []
+    for part in parts:
+        if len(part) >= 2 and part[0] == part[-1] and part[0] in {'"', "'"}:
+            try:
+                decoded.append(str(tomllib.loads(f"key = {part}\n")["key"]))
+            except tomllib.TOMLDecodeError:
+                decoded.append(part[1:-1])
+        else:
+            decoded.append(part)
+    return tuple(decoded)
+
+
+def _toml_table_key(line: str) -> tuple[str, ...] | None:
+    header = _strip_toml_comment(line).strip()
+    if not header.startswith("[") or header.startswith("[[") or not header.endswith("]"):
+        return None
+    key = header[1:-1].strip()
+    if not key:
+        return None
+    return _split_toml_dotted_key(key)
+
+
+def _toml_table_blocks(text: str) -> list[tuple[tuple[str, ...], str]]:
+    lines = text.splitlines()
+    starts: list[tuple[int, tuple[str, ...]]] = []
+    for index, line in enumerate(lines):
+        key = _toml_table_key(line)
+        if key is not None:
+            starts.append((index, key))
+    blocks: list[tuple[tuple[str, ...], str]] = []
+    for position, (start, key) in enumerate(starts):
+        end = starts[position + 1][0] if position + 1 < len(starts) else len(lines)
+        block = "\n".join(lines[start:end]).strip()
+        if block:
+            blocks.append((key, block))
+    return blocks
+
+
+def _is_preservable_codex_config_table(key: tuple[str, ...]) -> bool:
+    return any(key[: len(prefix)] == prefix for prefix in CODEX_LOCAL_CONFIG_TABLE_PREFIXES)
+
+
+def _merge_codex_config_content(managed_content: str, target: Path) -> str:
+    if not target.exists() or not target.is_file():
+        return managed_content
+    try:
+        existing_content = target.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return managed_content
+    if not existing_content.strip():
+        return managed_content
+
+    managed_keys = {key for key, _block in _toml_table_blocks(managed_content)}
+    preserved_blocks: list[str] = []
+    preserved_keys: set[tuple[str, ...]] = set()
+    for key, block in _toml_table_blocks(existing_content):
+        if key in managed_keys or key in preserved_keys:
+            continue
+        if not _is_preservable_codex_config_table(key):
+            continue
+        preserved_blocks.append(block)
+        preserved_keys.add(key)
+    if not preserved_blocks:
+        return managed_content
+
+    merged_content = (
+        managed_content.rstrip()
+        + "\n\n# Machine-local Codex configuration preserved by Klimkit.\n"
+        + "\n\n".join(preserved_blocks)
+        + "\n"
+    )
+    try:
+        tomllib.loads(merged_content)
+    except tomllib.TOMLDecodeError:
+        return managed_content
+    return merged_content
+
+
 def _file_action(
     action_id: str,
     source: Path,
@@ -805,6 +936,8 @@ def _file_action(
         if config is not None and (source.suffix in {".service", ".plist"} or component == "codex")
         else None
     )
+    if action_id == "codex-config" and content is not None:
+        content = _merge_codex_config_content(content, target)
     return Action(
         id=action_id,
         kind=kind,
@@ -978,6 +1111,7 @@ def build_plan(
                         projection.target,
                         projection.description,
                         component=projection.component,
+                        mode=CONFIG_MODE if projection.id == "codex-config" else FILE_MODE,
                         config=config,
                         config_path=config_path,
                     )
@@ -1416,6 +1550,7 @@ def apply_plan(
             backup_path = backup_root / action.target.relative_to(action.target.anchor)
             backup_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(action.target, backup_path)
+            backup_path.chmod(action.mode)
             backup = str(backup_path)
         if action.content is not None:
             action.target.write_text(action.content, encoding="utf-8")
