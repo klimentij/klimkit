@@ -3,6 +3,12 @@
 Timestamped audit trail. Entries describe actions, not preferences.
 
 ## Log
+2026-05-24T05:59:00Z: Added Codex app thread deep links to Telegram stop notifications, verified local projection and tests, pushed commit `2e9119759bf886c149df4f64531cb70dfb5e6d3e`, published latest release `v0.1.11`, and recorded the VM verification boundary.
+2026-05-22T04:08:45Z: Pushed Klimkit marketing asset commit `f1eb323` to `origin/main`, created latest GitHub release `v0.1.9`, and verified the live GitHub README and Tailscale proof report.
+2026-05-22T04:03:14Z: Reworked README image optimization to higher-quality JPEGs, restored rejected noisy PNG edits, verified local README rendering, and prepared the marketing hygiene changes for GitHub main publication.
+2026-05-22T03:04:00Z: Added Klimkit README marketing hygiene, optimized README images, GitHub topics, a public-safe 7.5 hour run proof moment, a draft Show HN post, and browser proof evidence.
+2026-05-22T02:59:45Z: Expanded the Symphony reflection with Klimkipedia raw/index/search analysis, Klim's agentic-engineering trajectory, and a GitHub-first orchestration strategy for Klimkit.
+2026-05-21T10:12:05Z: Created the `07-symphony-reflection` research task comparing OpenAI Symphony with Klimkit and evaluating GitHub Issues versus Linear for future orchestration.
 2026-05-08T09:58:05Z: Implemented the 02-better-wf-and-tabs workflow, reports daemon, Tab Browser drag ordering, browser QA proof report, and live Tailscale reports URL verification.
 2026-05-08T10:31:48Z: Updated the 02-better-wf-and-tabs proof report and shared workflow guidance to use full-width media and MP4 report videos for easier browser inspection.
 2026-05-11T10:03:46Z: Integrated the external quality-rule guidance into the shared Codex AGENTS pack, excluding token-budget rules, and added validation coverage against duplicate raw rule blocks.
