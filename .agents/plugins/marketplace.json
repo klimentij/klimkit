@@ -1,0 +1,20 @@
+{
+  "name": "klimkit",
+  "interface": {
+    "displayName": "Klimkit"
+  },
+  "plugins": [
+    {
+      "name": "klimkit",
+      "source": {
+        "source": "local",
+        "path": "./plugins/klimkit"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
