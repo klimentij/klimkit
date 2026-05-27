@@ -45,23 +45,23 @@ On branch `codex-plugin-first`, extract Klimkit's Codex harness pack into a publ
 - [ ] `.klimkit/log.md` receives a concise timestamped entry describing the implementation and verification outcome.
 - [ ] Reflection Gate is completed after verification and before final review: read `.klimkit/reflection.md`, append a full UTC timestamped session with `Observations`, `Derived Pattern`, `Insight`, and `Next Probe`, reconsider plugin-first positioning and verification after reflection, and rerun impacted checks if reflection exposes a gap.
 - [ ] Final Review Gate follows the user override for this task: draft the exact final response, run one `final_reviewer` pass with this checklist, changed files, verification evidence, reflection entry, proof note path, and exact draft response, and require PASS / READY FOR USER before claiming completion.
-- [ ] If the implementation commit lands on `main`, a next patch GitHub release is created for that commit and marked latest per repository-local `AGENTS.md`; if no commit lands on `main`, proof records that the release step is not applicable.
+- [x] If the implementation commit lands on `main`, a next patch GitHub release is created for that commit and marked latest per repository-local `AGENTS.md`; if no commit lands on `main`, proof records that the release step is not applicable.
 
 ## Publish And Live Plugin Proof Checklist
 
-- [ ] The `codex-plugin-first` worktree is reviewed for intended changes only, then committed on the branch; proof records the commit SHA and the tracked proof artifacts included in the commit.
-- [ ] The branch is pushed to `origin/codex-plugin-first`, and the remote branch points at the intended commit as verified by GitHub or `git ls-remote`.
-- [ ] A PR from `codex-plugin-first` into `main` is created with summary, verification, and task proof references; required review and CI/status checks pass or any unavailable checks are explicitly recorded.
-- [ ] The PR is merged or otherwise accepted into `main`, local `main` is updated to the accepted commit, and proof records the merge/acceptance method and resulting `main` commit SHA.
-- [ ] A next patch GitHub release is created for the new `main` commit, marked latest, and proof records the tag, release URL, and release commit SHA.
-- [ ] Before install or upgrade, live VM Codex plugin state is captured, including Codex plugin list output, marketplace state, and relevant `~/.codex` plugin/cache/home paths showing whether Klimkit is absent, present, or stale.
-- [ ] The released Klimkit Codex plugin is installed on this VM from the published marketplace/source, and post-install proof shows the installed plugin version plus the home-directory/cache paths Codex actually uses.
-- [ ] A slight, intentional skill modification is made in the plugin source, with a manifest version bump or marketplace metadata change if Codex upgrade detection requires it; proof records the exact skill text/version before and after.
-- [ ] The marketplace refresh or upgrade path is exercised, including `codex plugin marketplace upgrade ...` and any `codex plugin add` or refresh command the current CLI requires, with before/after evidence proving the upgraded Klimkit plugin is selected.
-- [ ] Home/cache verification proves the modified skill reached the live installed copy by inspecting the relevant `~/.codex` plugin/cache files and comparing them against the released plugin source and CLI-reported version.
-- [ ] Verification reruns the affected repository and CLI checks, including plugin validation, focused plugin/docs tests, full unittest discovery or named replacement suites, `git diff --check`, and safe Codex CLI help/state checks used by the proof.
-- [ ] The task proof note and `.klimkit/log.md` are updated with commit, push, PR, merge, release, install, upgrade, command outputs, home/cache file paths, skipped checks, and remaining risks.
-- [ ] Reflection Gate is completed after publish/install/upgrade verification and before final review: append a fresh `.klimkit/reflection.md` session and reconsider the release/live-install evidence before reviewers.
+- [x] The `codex-plugin-first` worktree is reviewed for intended changes only, then committed on the branch; proof records the commit SHA and the tracked proof artifacts included in the commit.
+- [x] The branch is pushed to `origin/codex-plugin-first`, and the remote branch points at the intended commit as verified by GitHub or `git ls-remote`.
+- [x] A PR from `codex-plugin-first` into `main` is created with summary, verification, and task proof references; required review and CI/status checks pass or any unavailable checks are explicitly recorded.
+- [x] The PR is merged or otherwise accepted into `main`, local `main` is updated to the accepted commit, and proof records the merge/acceptance method and resulting `main` commit SHA.
+- [x] A next patch GitHub release is created for the new `main` commit, marked latest, and proof records the tag, release URL, and release commit SHA.
+- [x] Before install or upgrade, live VM Codex plugin state is captured, including Codex plugin list output, marketplace state, and relevant `~/.codex` plugin/cache/home paths showing whether Klimkit is absent, present, or stale.
+- [x] The released Klimkit Codex plugin is installed on this VM from the published marketplace/source, and post-install proof shows the installed plugin version plus the home-directory/cache paths Codex actually uses.
+- [x] A slight, intentional skill modification is made in the plugin source, with a manifest version bump or marketplace metadata change if Codex upgrade detection requires it; proof records the exact skill text/version before and after.
+- [x] The marketplace refresh or upgrade path is exercised, including `codex plugin marketplace upgrade ...` and any `codex plugin add` or refresh command the current CLI requires, with before/after evidence proving the upgraded Klimkit plugin is selected.
+- [x] Home/cache verification proves the modified skill reached the live installed copy by inspecting the relevant `~/.codex` plugin/cache files and comparing them against the released plugin source and CLI-reported version.
+- [x] Verification reruns the affected repository and CLI checks, including plugin validation, focused plugin/docs tests, full unittest discovery or named replacement suites, `git diff --check`, and safe Codex CLI help/state checks used by the proof.
+- [x] The task proof note and `.klimkit/log.md` are updated with commit, push, PR, merge, release, install, upgrade, command outputs, home/cache file paths, skipped checks, and remaining risks.
+- [x] Reflection Gate is completed after publish/install/upgrade verification and before final review: append a fresh `.klimkit/reflection.md` session and reconsider the release/live-install evidence before reviewers.
 - [ ] Final Review Gate is completed with the exact final response, this updated checklist, publish/live plugin proof, reflection entry, and 3 parallel `final_reviewer` PASS / READY FOR USER results before completion is claimed.
 
 ## Progress

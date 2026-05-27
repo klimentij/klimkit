@@ -3,6 +3,7 @@
 Timestamped audit trail. Entries describe actions, not preferences.
 
 ## Log
+2026-05-27T08:12:45Z: Published `codex-plugin-first` through PR #2, merged it to `main` at `f8b8700c7a325daed15a2cbda69ce2f58407d361`, created latest release `v0.1.15`, installed and upgraded the Klimkit Codex plugin on this VM, repointed its marketplace to released `main`, and verified cache version `0.1.15`.
 2026-05-27T08:01:33Z: Updated the codex-plugin-first acceptance checklist with blocking publish, release, live plugin install, upgrade, home/cache proof, reflection, and final-review criteria.
 2026-05-27T05:17:44Z: Added the public Klimkit Codex plugin package and marketplace, repositioned README around plugin-first Codex app usage, and verified plugin/docs/static coverage plus full unittest discovery on `codex-plugin-first`.
 2026-05-27T04:44:14Z: Disabled Klimkit autosync by default, set the local machine config to `auto_sync = false`, restarted `klimkit.service`, and verified the install/supervisor/default-off behavior with unit tests.

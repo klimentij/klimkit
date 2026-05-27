@@ -104,9 +104,9 @@ The installer reuses the local checkout, installs the `kk` launcher into `~/.loc
 
 ## Release Status
 
-Current release: [`v0.1.15`](https://github.com/klimentij/klimkit/releases/tag/v0.1.15).
+Current release: [`v0.1.16`](https://github.com/klimentij/klimkit/releases/tag/v0.1.16).
 
-`v0.1.15` introduces the public Klimkit Codex plugin as the default distribution path while keeping repo-managed machine projection as the advanced path. Add the public Klimkit marketplace, install the `klimkit` plugin, and upgrade with `codex plugin marketplace upgrade klimkit`. Fork-first repo management remains available for technical users who want to tune the full machine harness and selectively merge upstream releases.
+`v0.1.16` records the post-merge live install and upgrade proof for the public Klimkit Codex plugin rollout. The plugin package version is `0.1.15`: add the public Klimkit marketplace, install the `klimkit` plugin, and upgrade with `codex plugin marketplace upgrade klimkit`. Fork-first repo management remains available for technical users who want to tune the full machine harness and selectively merge upstream releases.
 
 ## Tech Stack
 

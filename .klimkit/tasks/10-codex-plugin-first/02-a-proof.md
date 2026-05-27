@@ -61,9 +61,20 @@ git diff --check
 passed with no output
 ```
 
+## Publish, Merge, Release, And Live Plugin Proof
+
+- Branch baseline commit: `cb59fc521fd3458162d911d7f8dc02a188d65a2c` (`Add Klimkit Codex plugin`) was pushed to `origin/codex-plugin-first`.
+- Live install baseline: `codex plugin marketplace add klimentij/klimkit --ref codex-plugin-first` added marketplace `klimkit`, then `codex plugin add klimkit@klimkit` installed cache root `/home/ubuntu/.codex/plugins/cache/klimkit/klimkit/0.1.14`.
+- Upgrade commit: `dbd4e1aac03734a49d0204522ba398193633b887` (`Bump Klimkit plugin update guidance`) bumped plugin manifest version from `0.1.14` to `0.1.15` and added this `klimkit-workflow` skill line: `For Git-backed plugin updates, refresh the marketplace snapshot and re-add the plugin so the local cache moves to the new version.`
+- Upgrade proof: `codex plugin marketplace upgrade klimkit` refreshed the Git marketplace, and `codex plugin add klimkit@klimkit` installed cache root `/home/ubuntu/.codex/plugins/cache/klimkit/klimkit/0.1.15`.
+- Home/cache proof: `codex plugin list --marketplace klimkit` reported `klimkit@klimkit` as `installed, enabled` at version `0.1.15`, and `/home/ubuntu/.codex/plugins/cache/klimkit/klimkit/0.1.15/skills/klimkit-workflow/SKILL.md` contains the modified skill line.
+- PR proof: [PR #2](https://github.com/klimentij/klimkit/pull/2) passed GitHub Actions and was squash-merged into `main` at `f8b8700c7a325daed15a2cbda69ce2f58407d361`.
+- Release proof: [v0.1.15](https://github.com/klimentij/klimkit/releases/tag/v0.1.15) was created as latest for `main`; `origin/main` and tag `v0.1.15` both pointed at `f8b8700c7a325daed15a2cbda69ce2f58407d361`.
+- Post-merge VM state: the local Klimkit marketplace was repointed from `codex-plugin-first` to released `main`; `~/.codex/config.toml` records `source = "https://github.com/klimentij/klimkit.git"`, `ref = "main"`, and `last_revision = "f8b8700c7a325daed15a2cbda69ce2f58407d361"`.
+- Publication proof location: the `v0.1.15` GitHub release notes and PR #2 comment both include the live install/upgrade proof so the published artifact carries the runtime evidence.
+
 ## Skipped Checks
 
-- Live plugin installation into the current `~/.codex` was skipped to avoid mutating the operator's live Codex marketplace/config state. Static plugin validation, CLI help checks, and repository tests cover manifest shape, marketplace shape, install/upgrade command syntax, docs text, and default-off settings.
 - UI/browser proof report was not applicable: this task changed packaging, documentation, and static tests, not a browser UI surface.
 
 ## Remaining Risk
@@ -73,4 +84,4 @@ passed with no output
 ## Reflection
 
 - Appended `.klimkit/reflection.md` session `2026-05-27T05:19:03Z`.
-- Reconsideration outcome: keep the handoff precise that `v0.1.14` was the autosync-default-off main release, the plugin-first work remains on `codex-plugin-first`, and live plugin installation was intentionally skipped to avoid mutating the operator's Codex config.
+- Appended a fresh post-publish/live-plugin reflection session after the PR merge, release, install, upgrade, and cache verification.
