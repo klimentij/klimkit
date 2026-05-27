@@ -11,6 +11,7 @@ Use this skill when the user asks for Klimkit, asks for a checklist/proof-driven
 
 - Prefer the Codex app for day-to-day multi-machine interaction, remote follow-up, and live thread control.
 - Use this plugin for reusable workflow guidance and skills.
+- For Git-backed plugin updates, refresh the marketplace snapshot and re-add the plugin so the local cache moves to the new version.
 - Use the full Klimkit repo-managed path only when the user needs machine orchestration, code-server profile projection, Switchboard, Tailscale Serve, Stop hooks, or home-level Codex config/subagent projection.
 
 ## Working Rules
