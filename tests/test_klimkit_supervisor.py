@@ -124,7 +124,7 @@ class KlimkitSupervisorTests(unittest.TestCase):
 
         self.assertEqual(config.profile, "server")
         self.assertTrue(config.manage_switchboard)
-        self.assertTrue(config.live_sync_enabled)
+        self.assertFalse(config.live_sync_enabled)
         self.assertEqual(config.live_sync_interval_seconds, 5)
         self.assertEqual(config.fetch_ref, "origin/main")
 

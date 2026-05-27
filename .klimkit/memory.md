@@ -23,3 +23,4 @@ Durable preferences, corrections, and process rules. Add dated one-sentence memo
 - 2026-05-11: Non-trivial shared Codex implementation work should run a fresh-context Reflection Gate after verification and before final reviewers, appending synthesis to `.klimkit/reflection.md`.
 - 2026-05-16: This repository should remain in the solo flat `.klimkit/` artifact layout; team workflow support is optional product functionality, not this repo's committed evidence layout.
 - 2026-05-20: Telegram notifications should keep the Switchboard link as the primary option and include a secondary direct code-server Tailscale URL when a machine DNS name and folder target are available.
+- 2026-05-27: Klimkit daemon autosync should be default-off; machines should opt into daemon-managed pull/apply/restart behavior with `[workers] auto_sync = true`.

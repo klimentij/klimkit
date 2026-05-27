@@ -407,7 +407,7 @@ kk pull
 
 `kk pull` fast-forwards the current branch from its upstream and then applies the local config. It refuses to pull over dirty local changes.
 
-The daemon also autosyncs by default: every 5 seconds it fetches `origin/main`, fast-forwards the checkout when `main` is ahead, applies projections, and restarts the managed service.
+When autosync is enabled, the daemon fetches `origin/main` on the configured interval, fast-forwards the checkout when `main` is ahead, applies projections, and restarts the managed service.
 
 ## Parallel Agent Worktrees
 
@@ -507,16 +507,16 @@ kk pull
 
 Use `--skip-services` only when you intentionally want to write files without touching the running service.
 
-Autosync is enabled in new configs:
+Autosync is disabled in new configs:
 
 ```toml
 [workers]
-auto_sync = true
+auto_sync = false
 auto_sync_interval_seconds = 5
 auto_sync_ref = "origin/main"
 ```
 
-Set `auto_sync = false` only on a VM where you want manual `kk pull` control.
+Set `auto_sync = true` only on a VM where you want daemon-managed `kk pull` behavior.
 
 When `[notifications.telegram]` is enabled, each successful autosync sends one short message with the hostname, role, commit range, changed file count, changed areas, and restart status.
 

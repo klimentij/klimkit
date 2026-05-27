@@ -47,7 +47,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertEqual(parsed.repo_root, Path("/tmp/klimkit"))
         self.assertTrue(parsed.switchboard_enabled)
         self.assertTrue(parsed.switchboard_agent_enabled)
-        self.assertTrue(parsed.live_sync_enabled)
+        self.assertFalse(parsed.live_sync_enabled)
         self.assertEqual(parsed.live_sync_interval_seconds, 5)
         self.assertEqual(parsed.live_sync_ref, "origin/main")
         self.assertTrue(parsed.install_code_server_if_missing)
@@ -55,7 +55,7 @@ class KlimkitInstallTests(unittest.TestCase):
         self.assertEqual(parsed.switchboard_max_loaded_tabs, 5)
         self.assertEqual(parsed.state_dir, ROOT / ".klimkit" / "state")
         self.assertIn("only human-edited Klimkit config", render_config(config))
-        self.assertIn("auto_sync = true", render_config(config))
+        self.assertIn("auto_sync = false", render_config(config))
         self.assertIn("switchboard_agent = true", render_config(config))
         self.assertIn("auto_sync_interval_seconds = 5", render_config(config))
         self.assertIn('human_name = "Human"', render_config(config))
@@ -441,7 +441,7 @@ class KlimkitInstallTests(unittest.TestCase):
 
         self.assertEqual(config.profile, "client")
         self.assertTrue(config.codex_enabled)
-        self.assertTrue(config.live_sync_enabled)
+        self.assertFalse(config.live_sync_enabled)
         self.assertFalse(config.switchboard_enabled)
         self.assertTrue(config.switchboard_agent_enabled)
 

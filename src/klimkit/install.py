@@ -251,7 +251,7 @@ def default_config(profile: str = "first-vm") -> InstallConfig:
         code_server_enabled=client_enabled,
         code_server_managed_profile=True,
         supervisor_enabled=client_enabled or server_enabled,
-        live_sync_enabled=True,
+        live_sync_enabled=False,
         live_sync_interval_seconds=5,
         live_sync_ref="origin/main",
         switchboard_agent_enabled=client_enabled or server_enabled,
@@ -337,7 +337,7 @@ def render_config(config: InstallConfig) -> str:
             f"supervisor = {str(config.supervisor_enabled).lower()}",
             "",
             "[workers]",
-            "# auto_sync: daemon fetches main, fast-forwards this checkout, applies projections, and restarts services.",
+            "# auto_sync: when enabled, daemon fetches main, fast-forwards this checkout, applies projections, and restarts services.",
             f"auto_sync = {str(config.live_sync_enabled).lower()}",
             "# Check interval for auto_sync. Keep small on personal VMs; default is 5 seconds.",
             f"auto_sync_interval_seconds = {config.live_sync_interval_seconds}",
@@ -561,7 +561,7 @@ def parse_config(raw: str) -> InstallConfig:
         code_server_enabled=_bool(code_server.get("enabled", components.get("code_server")), client_enabled),
         code_server_managed_profile=_bool(code_server.get("managed_profile"), True),
         supervisor_enabled=_bool(components.get("supervisor"), client_enabled or server_enabled),
-        live_sync_enabled=_bool(workers.get("auto_sync"), True),
+        live_sync_enabled=_bool(workers.get("auto_sync"), False),
         live_sync_interval_seconds=max(
             1,
             int(

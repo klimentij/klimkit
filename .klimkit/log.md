@@ -3,6 +3,7 @@
 Timestamped audit trail. Entries describe actions, not preferences.
 
 ## Log
+2026-05-27T04:44:14Z: Disabled Klimkit autosync by default, set the local machine config to `auto_sync = false`, restarted `klimkit.service`, and verified the install/supervisor/default-off behavior with unit tests.
 2026-05-24T05:59:00Z: Added Codex app thread deep links to Telegram stop notifications, verified local projection and tests, pushed commit `2e9119759bf886c149df4f64531cb70dfb5e6d3e`, published latest release `v0.1.11`, and recorded the VM verification boundary.
 2026-05-22T04:08:45Z: Pushed Klimkit marketing asset commit `f1eb323` to `origin/main`, created latest GitHub release `v0.1.9`, and verified the live GitHub README and Tailscale proof report.
 2026-05-22T04:03:14Z: Reworked README image optimization to higher-quality JPEGs, restored rejected noisy PNG edits, verified local README rendering, and prepared the marketing hygiene changes for GitHub main publication.
