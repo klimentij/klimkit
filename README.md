@@ -8,9 +8,11 @@
 
 ![Klimkit. Agentic engineering across machines, under control.](assets/brand/klimkit-readme-hero.jpg)
 
-Klimkit keeps an agent-ready machine reproducible. One repo owns the local instructions, harness packs, services, dashboards, and machine-specific settings needed to make a fresh VM behave like Klim's working environment. You edit the repo, preview exactly what will change, apply it locally, and use normal Git flow to carry the same operator setup to another machine.
+Klimkit is now distributed first as a public Codex plugin. Install the plugin to get Klimkit's reusable Codex workflow, skills, and harness references without forking this repo or letting Klimkit manage your machine.
 
-Klimkit is most useful when an agent run is long enough that you cannot keep it all in your head. The proof has to live in the repo: task notes, checks, diffs, screenshots, reports, reflections, and final review.
+The repo-managed Klimkit kit is still here for the deeper path: one repo can own local instructions, harness packs, services, dashboards, and machine-specific settings needed to make a fresh VM behave like a tuned agent workstation. That path is useful when you want `kk apply`, code-server profile projection, Switchboard, Tailscale Serve, Stop hooks, or fork-based machine sync.
+
+Klimkit is most useful when an agent run is long enough that you cannot keep it all in your head. The proof has to live in the repo: task notes, checks, diffs, screenshots, reports, reflections, and final review. The Codex plugin gives you that workflow directly inside Codex; the full repo-managed kit adds machine orchestration around it.
 
 ### A 7.5 Hour Run Without Losing The Thread
 
@@ -18,7 +20,7 @@ Klimkit is most useful when an agent run is long enough that you cannot keep it 
 
 One dogfood moment that captures the point: a vanilla Klimkit/Codex run worked for 7h 30m, stayed on goal without an outer loop such as `/goal`, and closed with backend tests, frontend checks, Playwright, secret scanning, Git checks, and a clean pushed state. The claim is not that every agent run should be seven hours. The claim is that long runs need inspectable artifacts after the model stops.
 
-The core operating promise is parallel agent work without losing control: use Switchboard to keep 5-7 Codex/code-server workspaces open across machines, each on its own branch and worktree, while Klimkit keeps the harness, browser profile, services, and notifications synced.
+The default operating promise is plugin-first Codex work without losing evidence: use the Codex app as the day-to-day control surface across local and remote machines, install the Klimkit plugin, and let each project carry its own task proof. Switchboard remains available as the advanced local dashboard for people who want code-server tabs, repo-managed worktrees, and private tailnet orchestration.
 
 ### Switchboard PWA Workspace
 
@@ -31,13 +33,14 @@ The core operating promise is parallel agent work without losing control: use Sw
 ## Table of Contents
 
 - [Quick Install](#quick-install)
+- [Advanced Repo-Managed Install](#advanced-repo-managed-install)
 - [Release Status](#release-status)
 - [Tech Stack](#tech-stack)
 - [Single Config](#single-config)
 - [Solo And Team Artifacts](#solo-and-team-artifacts)
 - [Generated Projections](#generated-projections)
 - [Code-Server Managed Profile](#code-server-managed-profile)
-- [Harness Pack](#harness-pack)
+- [Codex Plugin And Harness Pack](#codex-plugin-and-harness-pack)
 - [Codex Harness Workflow](#codex-harness-workflow)
 - [Reports](#reports)
 - [Security Model](#security-model)
@@ -52,7 +55,33 @@ The core operating promise is parallel agent work without losing control: use Sw
 
 ## Quick Install
 
-Forking this repo first is recommended so your machines sync your operator profile, not the upstream default flavor. It is not required for trying Klimkit; the installer works from any local Klimkit checkout:
+The default path is the Codex app plus the public Klimkit plugin. This gives Codex the Klimkit workflow and bundled skills without taking over your `~/.codex` home, code-server profile, services, or machine sync.
+
+Install from the public Klimkit marketplace source:
+
+```bash
+codex plugin marketplace add klimentij/klimkit --ref main
+codex plugin add klimkit@klimkit
+```
+
+Then open a fresh Codex thread and ask Codex to use Klimkit, or invoke the bundled `klimkit-workflow` skill directly from the plugin picker. The Codex app is the recommended day-to-day surface for multi-machine work now because it can keep local and remote Codex sessions visible and redirectable without Klimkit's older Switchboard/code-server layer.
+
+To update the plugin:
+
+```bash
+codex plugin marketplace upgrade klimkit
+codex plugin add klimkit@klimkit
+```
+
+`marketplace upgrade` refreshes the Git-backed marketplace snapshot. Re-running `codex plugin add` refreshes the installed plugin cache when the plugin version or contents changed. Pin a release tag instead of `main` if you want slower, manually reviewed updates.
+
+Supported Codex targets are the Codex app, Codex CLI, and other Codex surfaces that load installed plugins. Native Klimkit machine management is optional.
+
+## Advanced Repo-Managed Install
+
+Use this path only when you want Klimkit to manage machine-level projections and services: `~/.codex/AGENTS.md`, `~/.codex/config.toml`, local Codex subagents, hooks, code-server profile, Switchboard, reports serving, Tailscale Serve, or daemon-managed `kk pull`.
+
+Forking this repo first is recommended for that advanced path so your machines sync your operator profile, not the upstream default flavor. It is not required for trying Klimkit; the installer works from any local Klimkit checkout:
 
 ```bash
 git clone https://github.com/<you>/klimkit.git ~/klimkit
@@ -60,9 +89,9 @@ cd ~/klimkit
 ./install.sh
 ```
 
-Supported targets are macOS, Linux, and WSL2. Native Windows and Android/Termux are not supported targets yet.
+Supported repo-managed targets are macOS, Linux, and WSL2. Native Windows and Android/Termux are not supported targets yet.
 
-Chrome is the preferred browser for Switchboard because Klimkit dogfoods the UI against Chrome/code-server/Tailscale Serve paths. For the best day-to-day experience, install Switchboard as a Chrome PWA from Chrome's install-app control in the address bar.
+Chrome is the preferred browser for Switchboard because Klimkit dogfoods the UI against Chrome/code-server/Tailscale Serve paths. Switchboard is no longer the default Klimkit entry point; install it as a Chrome PWA only if you want the advanced dashboard workflow.
 
 After installation:
 
@@ -75,9 +104,9 @@ The installer reuses the local checkout, installs the `kk` launcher into `~/.loc
 
 ## Release Status
 
-Current release: [`v0.1.10`](https://github.com/klimentij/klimkit/releases/tag/v0.1.10).
+Current release: [`v0.1.15`](https://github.com/klimentij/klimkit/releases/tag/v0.1.15).
 
-`v0.1.10` keeps the public repo focused by removing internal marketing task artifacts from Klimkit after moving those notes to Klimkipedia. The public README, optimized images, and GitHub-facing project copy remain in place. The recommended path is still fork-first for real fleets: clone your fork, tune the repo-managed profile and harness pack, commit your changes, and let your machines sync from your fork. Direct upstream checkouts are fine for trying Klimkit. Treat upstream releases as review points for changes you may want to merge into your own operator repo.
+`v0.1.15` introduces the public Klimkit Codex plugin as the default distribution path while keeping repo-managed machine projection as the advanced path. Add the public Klimkit marketplace, install the `klimkit` plugin, and upgrade with `codex plugin marketplace upgrade klimkit`. Fork-first repo management remains available for technical users who want to tune the full machine harness and selectively merge upstream releases.
 
 ## Tech Stack
 
@@ -88,6 +117,7 @@ Current release: [`v0.1.10`](https://github.com/klimentij/klimkit/releases/tag/v
 - systemd user services and launchd LaunchAgents for the supervisor
 - code-server for browser IDE access
 - Tailscale Serve for private tailnet exposure
+- Codex plugin packaging through `.agents/plugins/marketplace.json` and `plugins/klimkit/`
 - Codex CLI projection for AGENTS guidance, config, hooks, subagents, and skills
 - vanilla HTML/CSS/JS for Switchboard
 - `unittest`, `coverage`, static pack validation, and optional live Codex startup smoke checks
@@ -235,6 +265,8 @@ chat_id = ""
 
 ## Generated Projections
 
+Generated projections are part of the advanced repo-managed path, not the default plugin install. Installing the Klimkit Codex plugin does not rewrite your `~/.codex` home, start services, or enable notifications.
+
 Generated projections are files Klimkit writes because another tool expects a specific location. Edit `.klimkit/local/klimkit.toml` and repo pack files, not generated projections.
 
 Current projections include:
@@ -284,13 +316,21 @@ git push
 
 Other machines pick it up with `kk pull` or daemon autosync. Set `managed_profile = false` only on a VM that should keep a local-only code-server profile; in that mode Klimkit seeds `User` defaults only when the files are missing.
 
-## Harness Pack
+## Codex Plugin And Harness Pack
 
-The active Codex home-level harness is source-controlled in `packs/codex/` and projected into `~/.codex/` by `kk apply`, `kk pull`, and daemon autosync.
+The public Codex plugin lives in `plugins/klimkit/` and is exposed through `.agents/plugins/marketplace.json`. It is the default distribution surface for Klimkit's reusable workflow and skills.
+
+Plugin contents:
+
+- `plugins/klimkit/.codex-plugin/plugin.json` for public plugin metadata.
+- `plugins/klimkit/skills/` for installable Codex skills, including `klimkit-workflow`.
+- `plugins/klimkit/reference/` for public-safe reference material from the repo-managed harness: AGENTS guidance, subagent TOML, config defaults, and Stop notification hook reference.
+
+The advanced Codex home-level harness remains source-controlled in `packs/codex/` and projected into `~/.codex/` by `kk apply`, `kk pull`, and daemon autosync when users opt into repo-managed machine orchestration.
 
 Codex pack files may contain projection tokens such as `__HUMAN_NAME__`, `__KLIMKIT_ARTIFACT_WORKFLOW__`, `__KLIMKIT_OPERATOR_FOLDER__`, and `__KLIMKIT_ARTIFACT_ROOT__`. Klimkit replaces them from the local `[operator]` config during projection.
 
-Current pack contents:
+Current repo-managed pack contents:
 
 - `packs/codex/AGENTS.md` for shared home-level instructions.
 - `packs/codex/config.toml` for GPT-5.5, xhigh reasoning, hooks, plugins, and trusted yolo defaults.
@@ -298,7 +338,13 @@ Current pack contents:
 - `packs/codex/skills/` for reusable local skills, including `harness-tuning`.
 - `packs/codex/hooks/` for Codex Stop notifications and Switchboard event hints.
 
-During `packs/codex/config.toml` projection, Klimkit keeps the shared pack settings authoritative while preserving machine-local Codex tables for plugins, connectors, MCP servers, project trust, and hook trust state that already exist in `~/.codex/config.toml`. Because that projected file can contain machine-local connector state, Klimkit writes it with `0600` permissions. Keep VM-specific plugin connections and any credentials in machine-local Codex state; do not copy Slack or other connector state into the source-controlled pack.
+During `packs/codex/config.toml` projection, Klimkit keeps the shared pack settings authoritative while preserving machine-local Codex tables for plugins, connectors, MCP servers, project trust, and hook trust state that already exist in `~/.codex/config.toml`. Because that projected file can contain machine-local connector state, Klimkit writes it with `0600` permissions. Keep VM-specific plugin connections and any credentials in machine-local Codex state; do not copy Slack or other connector state into the source-controlled pack or the public plugin.
+
+To validate the public plugin:
+
+```bash
+python3 /home/ubuntu/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/klimkit
+```
 
 To tune the shared harness, edit `~/klimkit/packs/codex/`, not `~/.codex/`. Then run:
 
@@ -314,7 +360,9 @@ Machines with autosync enabled pick up the commit from `origin/main`, apply the 
 
 ## Codex Harness Workflow
 
-The shared Codex pack is intentionally opinionated about how agent work reaches completion. The projected `AGENTS.md` separates the workflow into intake, checklist, planning/delegation, implementation, verification, final review, and reporting.
+The Klimkit plugin and shared Codex pack are intentionally opinionated about how agent work reaches completion. The plugin exposes the workflow through the `klimkit-workflow` skill. The repo-managed path additionally projects `AGENTS.md` so those defaults become home-level Codex instructions.
+
+The workflow separates work into intake, checklist, planning/delegation, implementation, verification, reflection, final review, and reporting.
 
 For implementation tasks, the first blocking step is the `checklister` subagent. It writes an `Acceptance Checklist` into an agent-authored task note under the configured writable tasks directory: `.klimkit/tasks/<feature>/` in solo workflow or `.klimkit/<human_name-as-folder>/tasks/<feature>/` in team workflow. That checklist is meant to be concrete enough for a demanding human QA pass: exact UI screens and states when UI is involved, persistence and database expectations when state changes, local files and services when projections change, cross-machine sync behavior when relevant, and the named automated/manual checks that must pass.
 
@@ -332,7 +380,7 @@ For UI work, task proof belongs under the configured writable reports directory:
 
 Before final review, non-trivial implementation work runs the Reflection Gate. The configured writable reflection file is an append-only timestamped cross-task Reflection Log: `.klimkit/reflection.md` in solo workflow or `.klimkit/<human_name-as-folder>/reflection.md` in team workflow. Entries are reflection sessions, not one required record per task. The default sections are `Observations`, `Derived Pattern`, `Insight`, and `Next Probe`; wider sessions may use up to ten named sections. Older reflection entries stay intact, and agents normalize them by appending a new-format entry when that older synthesis is relevant to the current work.
 
-The final workflow step is always 3 parallel `final_reviewer` agents before a completion claim. Each reviewer gets the original request or task path, the checklist, changed files, verification evidence, the HTML proof report from the configured writable reports directory plus Tailscale report URL for UI work, and the exact final response draft. All 3 must pass before the response goes back to the human.
+In the full repo-managed harness, the final workflow step is 3 parallel `final_reviewer` agents before a completion claim. Each reviewer gets the original request or task path, the checklist, changed files, verification evidence, the HTML proof report from the configured writable reports directory plus Tailscale report URL for UI work, and the exact final response draft. All 3 must pass before the response goes back to the human unless a repository-local instruction or explicit task scope overrides that count.
 
 ## Reports
 
@@ -358,7 +406,9 @@ When Tailscale Serve is available, the useful report handoff URL is `https://<ma
 
 ## Security Model
 
-Klimkit is designed for a trusted personal machine or private tailnet, not arbitrary public internet exposure.
+The Klimkit plugin is a workflow and skills package. It does not by itself enable yolo-mode, rewrite `~/.codex/config.toml`, start services, expose ports, install code-server, or enable Telegram.
+
+The repo-managed Klimkit kit is designed for a trusted personal machine or private tailnet, not arbitrary public internet exposure.
 
 **Important yolo-mode warning:** the default Codex pack is intended for a dedicated VM or external sandbox where `danger-full-access` and `approval_policy = "never"` are acceptable. Do not run this profile on a laptop or server that carries broad cloud credentials, sensitive private data, production write access, or unrelated personal files.
 
@@ -381,7 +431,9 @@ See `SECURITY.md` for the concise security notes.
 
 ## Workflow
 
-On the VM where you are editing:
+For normal Codex work, stay in the Codex app or CLI with the Klimkit plugin installed. Let the project repo carry `.klimkit/tasks/`, `.klimkit/reports/`, `.klimkit/log.md`, and `.klimkit/reflection.md` as evidence.
+
+Use the repo-managed workflow only on a VM where you want Klimkit to write managed projections and services. On the VM where you are editing:
 
 ```bash
 ./install.sh
@@ -407,11 +459,13 @@ kk pull
 
 `kk pull` fast-forwards the current branch from its upstream and then applies the local config. It refuses to pull over dirty local changes.
 
-When autosync is enabled, the daemon fetches `origin/main` on the configured interval, fast-forwards the checkout when `main` is ahead, applies projections, and restarts the managed service.
+When autosync is enabled, the daemon fetches `origin/main` on the configured interval, fast-forwards the checkout when `main` is ahead, applies projections, and restarts the managed service. Autosync is disabled by default; opt in per machine with `[workers] auto_sync = true`.
 
 ## Parallel Agent Worktrees
 
-Before starting a feature, create a separate Git worktree and branch. The recommended pattern is:
+For most multi-machine coordination, use the Codex app first. It is now the recommended surface for seeing and steering Codex work across machines.
+
+If you prefer repo-managed local worktrees and code-server tabs, create a separate Git worktree and branch before starting a feature. The advanced pattern is:
 
 - keep `main` as the staging or release-ready branch;
 - keep `dev` as the integration branch that accumulates accepted feature branches;
@@ -431,7 +485,7 @@ For projects where `dev` should be fast-forwarded with `main` and pushed before 
 PUSH_SYNCED_BASE=1 examples/create-worktree.sh "switchboard archive polish"
 ```
 
-The script prints `switchboard_folder=<path>`. Use that folder in Switchboard's Create Workspace form so the new tab opens code-server directly on the feature worktree. Repeat this across machines to keep 5-7 agents working in parallel branches while Switchboard keeps their tabs and statuses visible.
+The script prints `switchboard_folder=<path>`. Use that folder in Switchboard's Create Workspace form so the new tab opens code-server directly on the feature worktree. Repeat this across machines when you want 5-7 agents working in parallel branches while Switchboard keeps their tabs and statuses visible.
 
 ## Common Commands
 
@@ -475,6 +529,8 @@ tailscale serve status
 If Tailscale asks for operator permissions, run `sudo tailscale set --operator=$USER` once and repeat `kk apply`.
 
 ## Switchboard Browser Use
+
+Switchboard is the advanced dashboard for repo-managed machines. Prefer the Codex app unless you specifically want Klimkit's code-server iframe tabs, workspace catalog, and private Tailscale Serve dashboard.
 
 Chrome is the preferred Switchboard browser. Installing the Switchboard URL as a Chrome PWA gives the cleanest app window and avoids mixing agent tabs into a normal browsing session.
 
@@ -520,6 +576,15 @@ Set `auto_sync = true` only on a VM where you want daemon-managed `kk pull` beha
 
 When `[notifications.telegram]` is enabled, each successful autosync sends one short message with the hostname, role, commit range, changed file count, changed areas, and restart status.
 
+Telegram is disabled by default:
+
+```toml
+[notifications.telegram]
+enabled = false
+bot_token = ""
+chat_id = ""
+```
+
 ![Telegram notifications from Klimkit autosync and Codex completion events, including deep links back to Switchboard.](assets/screenshots/telegram-notifications.jpg)
 
 ## Contributing
@@ -538,6 +603,8 @@ uv run coverage report -m
 
 ```text
 src/klimkit/                 Python package and runtime modules
+plugins/klimkit/             public Codex plugin package
+.agents/plugins/             repo marketplace for public Codex plugin install
 packs/codex/                 Codex AGENTS/config/hooks/agents/skills pack
 templates/code-server/       code-server config and user settings
 templates/systemd/user/      Linux user service template

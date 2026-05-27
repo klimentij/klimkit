@@ -166,3 +166,10 @@ Before the HN post goes out, inspect the GitHub README once more from a logged-o
 **Derived Pattern:** Projection features that preserve local runtime state need to carry permission and backup semantics with the merge logic, because protecting source-controlled packs is not enough if copied live artifacts become world-readable.
 **Insight:** Setting `codex-config` to `CONFIG_MODE`/`0600`, chmodding backups after copy, documenting the mode, and asserting both live and backup permissions closes the material security gap exposed after the first reflection.
 **Next Probe:** For the next managed-file preservation change, add file-mode and backup-mode expectations to the initial checklist before implementation so security review validates intent instead of discovering an omitted artifact boundary late.
+
+### 2026-05-27T05:19:03Z
+
+**Observations:** The plugin-first task deliberately reverses the older fork/Switchboard/autosync onboarding emphasis while preserving the repo-managed harness as an advanced path and carrying forward task 09's VM-local Codex state boundary.
+**Derived Pattern:** Klimkit needs layered adoption contracts: the public Codex plugin should install skills, workflow, and safe reference material; `kk apply` should remain the explicit machine-projection boundary; autosync and Telegram should stay opt-in automation beyond that boundary.
+**Insight:** The extraction is strongest when docs and tests prevent surface confusion, because a plugin can make Klimkit's completion discipline portable without inheriting yolo-mode, hooks, connector state, Tailscale serving, or daemon-managed restarts.
+**Next Probe:** Before final review, make the handoff precise that live plugin installation was intentionally skipped, v0.1.14 covered the prior autosync-default-off publication, and this branch's plugin-first work is verified by manifest/CLI-help/static tests until it lands and is released.

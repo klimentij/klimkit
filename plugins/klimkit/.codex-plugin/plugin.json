@@ -1,0 +1,38 @@
+{
+  "name": "klimkit",
+  "version": "0.1.15",
+  "description": "Klimkit's Codex workflow, skills, and harness references packaged as an installable plugin.",
+  "author": {
+    "name": "Klimkit"
+  },
+  "homepage": "https://github.com/klimentij/klimkit",
+  "repository": "https://github.com/klimentij/klimkit",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "workflow",
+    "skills",
+    "agentic-engineering",
+    "klimkit"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Klimkit",
+    "shortDescription": "Codex workflow skills for inspectable agent work.",
+    "longDescription": "Klimkit packages reusable Codex workflow guidance, browser QA skills, frontend design guidance, and harness-tuning references for project evidence, verification, reflection, and final review.",
+    "developerName": "Klimkit",
+    "category": "Productivity",
+    "capabilities": [
+      "Skills",
+      "Workflow",
+      "Reference"
+    ],
+    "websiteURL": "https://github.com/klimentij/klimkit",
+    "defaultPrompt": [
+      "Use Klimkit to plan this implementation.",
+      "Use Klimkit to verify this change.",
+      "Use Klimkit to write task proof."
+    ],
+    "brandColor": "#10A37F"
+  }
+}

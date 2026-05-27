@@ -1,3 +1,5 @@
+import json
+import re
 import subprocess
 import unittest
 from pathlib import Path
@@ -9,6 +11,16 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PLUGIN_ROOT = ROOT / "plugins" / "klimkit"
+
+
+SEMVER_RE = re.compile(
+    r"^(0|[1-9]\d*)\."
+    r"(0|[1-9]\d*)\."
+    r"(0|[1-9]\d*)"
+    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
 
 
 class CodexPackValidationTests(unittest.TestCase):
@@ -257,6 +269,98 @@ class CodexPackValidationTests(unittest.TestCase):
         self.assertIn("public interfaces", test_writer)
         self.assertIn("one vertical slice at a time", test_writer)
         self.assertIn("synthesize it into the existing pack instead of pasting template blocks", harness_tuning)
+
+
+class CodexPluginValidationTests(unittest.TestCase):
+    def test_klimkit_plugin_manifest_is_public_ready(self) -> None:
+        manifest = json.loads((PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(manifest["name"], "klimkit")
+        self.assertEqual(PLUGIN_ROOT.name, manifest["name"])
+        self.assertRegex(manifest["version"], SEMVER_RE)
+        self.assertIn("Codex workflow", manifest["description"])
+        self.assertEqual(manifest["author"]["name"], "Klimkit")
+        self.assertEqual(manifest["homepage"], "https://github.com/klimentij/klimkit")
+        self.assertEqual(manifest["repository"], "https://github.com/klimentij/klimkit")
+        self.assertEqual(manifest["license"], "MIT")
+        self.assertEqual(manifest["skills"], "./skills/")
+        self.assertNotIn("hooks", manifest)
+        self.assertNotIn("apps", manifest)
+        self.assertNotIn("mcpServers", manifest)
+
+        interface = manifest["interface"]
+        self.assertEqual(interface["displayName"], "Klimkit")
+        self.assertIn("Codex workflow", interface["shortDescription"])
+        self.assertIn("project evidence", interface["longDescription"])
+        self.assertEqual(interface["developerName"], "Klimkit")
+        self.assertEqual(interface["category"], "Productivity")
+        self.assertIn("Skills", interface["capabilities"])
+        self.assertIn("Workflow", interface["capabilities"])
+        self.assertGreaterEqual(len(interface["defaultPrompt"]), 1)
+
+    def test_klimkit_plugin_marketplace_entry_is_repo_local(self) -> None:
+        marketplace = json.loads((ROOT / ".agents" / "plugins" / "marketplace.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(marketplace["name"], "klimkit")
+        self.assertEqual(marketplace["interface"]["displayName"], "Klimkit")
+        entries = {entry["name"]: entry for entry in marketplace["plugins"]}
+        self.assertIn("klimkit", entries)
+        entry = entries["klimkit"]
+        self.assertEqual(entry["source"], {"source": "local", "path": "./plugins/klimkit"})
+        self.assertEqual(entry["policy"]["installation"], "AVAILABLE")
+        self.assertEqual(entry["policy"]["authentication"], "ON_INSTALL")
+        self.assertNotIn("products", entry["policy"])
+        self.assertEqual(entry["category"], "Productivity")
+
+    def test_klimkit_plugin_contains_public_safe_harness_content(self) -> None:
+        required = (
+            "skills/klimkit-workflow/SKILL.md",
+            "skills/agent-browser/SKILL.md",
+            "skills/frontend-design/SKILL.md",
+            "skills/grill-me/SKILL.md",
+            "skills/harness-tuning/SKILL.md",
+            "reference/AGENTS.md",
+            "reference/config.toml",
+            "reference/hooks/stop-notify.sh",
+            "reference/agents/checklister.toml",
+            "reference/agents/final-reviewer.toml",
+        )
+        for relative in required:
+            with self.subTest(relative=relative):
+                self.assertTrue((PLUGIN_ROOT / relative).is_file(), relative)
+
+        forbidden = (
+            "__HUMAN_NAME__",
+            "__KLIMKIT_",
+            "[TODO:",
+            "Local developer",
+            "PANTERA",
+            "tail11",
+        )
+        for path in sorted(PLUGIN_ROOT.rglob("*")):
+            if not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for token in forbidden:
+                with self.subTest(path=path, token=token):
+                    self.assertNotIn(token, text)
+
+        reference_config = (PLUGIN_ROOT / "reference" / "config.toml").read_text(encoding="utf-8")
+        self.assertNotIn("[plugins.", reference_config)
+
+    def test_readme_documents_current_plugin_commands_and_defaults(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("codex plugin marketplace add klimentij/klimkit --ref main", readme)
+        self.assertIn("codex plugin add klimkit@klimkit", readme)
+        self.assertIn("codex plugin marketplace upgrade klimkit", readme)
+        self.assertNotIn("codex plugin install", readme)
+        self.assertIn("The default path is the Codex app plus the public Klimkit plugin.", readme)
+        self.assertIn("Switchboard is no longer the default Klimkit entry point", readme)
+        self.assertIn("Autosync is disabled in new configs", readme)
+        self.assertIn("auto_sync = false", readme)
+        self.assertIn("Telegram is disabled by default", readme)
+        self.assertIn("[notifications.telegram]\nenabled = false", readme)
 
     def test_hook_scripts_are_syntax_valid(self) -> None:
         for path in sorted((ROOT / "packs" / "codex" / "hooks").glob("*.sh")):
