@@ -122,6 +122,14 @@ Validate a single skill with Codex's local skill creator tools when available:
 python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" skills/klimkit-workflow
 ```
 
+Run the fresh-machine Codex smoke test from Docker:
+
+```bash
+tests/fresh-codex-smoke/run.sh
+```
+
+The smoke test builds a small Linux container, copies only `auth.json` and `installation_id` from your Codex home into a temporary read-only mount, clones this branch, installs the root skills with the Vercel Skills CLI, runs `codex exec`, and verifies that `klimkit-setup` creates an operator-scoped `.klimkit` skeleton.
+
 ## Security
 
 Klimkit proof artifacts are meant to be inspectable, but public artifacts must not expose secrets, private repo names, customer data, private chat, tailnet internals, or local machine paths. Keep secrets in environment variables or your secret manager, not in `.klimkit/<operator>/config.toml` or installed skill folders.
