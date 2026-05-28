@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Tdd"
+  short_description: "Klimkit red-green-refactor TDD"
+  default_prompt: "Use klimkit-tdd to implement this behavior with focused red-green-refactor loops."

@@ -9,10 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: uv run python -m unittest discover -s tests -q
-      - run: uv run coverage run -m unittest discover -s tests -q
-      - run: uv run coverage report -m
+      - run: python -m unittest discover -s tests -q

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Tuning"
+  short_description: "Tune Klimkit repo-managed Codex packs"
+  default_prompt: "Use $harness-tuning to update Klimkit's Codex harness safely."

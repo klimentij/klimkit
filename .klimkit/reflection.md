@@ -180,3 +180,24 @@ Before the HN post goes out, inspect the GitHub README once more from a logged-o
 **Derived Pattern:** Klimkit plugin distribution needs two proofs: source/release proof that the public marketplace points at the intended commit, and home/cache proof that Codex has materialized the expected version and skill text under `~/.codex/plugins/cache`.
 **Insight:** Keeping the repo-managed harness as the advanced path is credible only if the plugin path is verified with Codex's real cache behavior; the decisive evidence is not just PR merge or manifest validation, but the installed cache containing the modified skill after `codex plugin marketplace upgrade` and `codex plugin add`.
 **Next Probe:** When the next plugin package release changes installable content, bump the plugin manifest version deliberately, verify cache movement on a non-development marketplace ref if possible, and record the installed cache path before final review rather than relying only on release notes.
+
+### 2026-05-27T08:40:43Z
+
+**Observations:** The skill cleanup follows the `v0.1.15` plugin-first release/cache proof by turning the installable package from a copied harness bundle into five validated skills with proper titles, concise trigger descriptions, OpenAI UI metadata, and `klimkit-workflow`-owned references.
+**Derived Pattern:** Plugin distribution works best when the plugin owns only skill-level surfaces and public-safe references, while `kk apply` remains the boundary for home-level AGENTS, subagents, hooks, config, Switchboard, Tailscale Serve, autosync, and connector state.
+**Insight:** Removing `plugins/klimkit/reference/**` is a quality improvement, not a loss, because users now see the workflow through the skill invocation path that Codex actually loads, and tests enforce that broad copied harness material does not silently become plugin API.
+**Next Probe:** Before publishing these content changes, bump the plugin manifest version deliberately and repeat the live marketplace/cache upgrade proof from task 10; until then, the current evidence supports source/package correctness but not installed-cache availability.
+
+### 2026-05-28T02:37:11Z
+
+**Observations:** The Symphony/control-plane research resolves several prior threads into one staged path: Matt Pocock's composable task skills supply method, Klimkit's checklist/proof/reflection/final-review gates supply trust, the neutral private candidate walkthrough/report pattern supplies human-review UX, and Symphony supplies the later scheduler/runner shape.
+**Derived Pattern:** Klimkit's next autonomy layer should expose skills first, make GitHub Issues/Projects the manual control-plane contract, then add a thin orchestrator that consumes the same issue, workpad, worktree, and `.klimkit/tasks` evidence surfaces before attempting PR/CI/merge shepherding.
+**Insight:** The useful synthesis is not choosing between skill-only distribution and orchestration; it is making skills define the stable, reviewable contracts that an eventual daemon can call without replacing Klimkit's local evidence spine or leaking private-derived implementation text.
+**Next Probe:** For the first implementation wave, test whether `klimkit-report-server`, `klimkit-walkthrough`, and `klimkit-github-control-plane` can be built as public-safe skills with shared validation for both root `skills/` distribution and Codex plugin packaging before any runner service is introduced.
+
+### 2026-05-28T09:43:22Z
+
+**Observations:** The root `skills/` package turns the plugin-first and control-plane research threads into a Vercel Skills CLI install/update surface, while deliberately keeping legacy Switchboard, sync, and repo-managed runtime concepts out of the new skill text.
+**Derived Pattern:** Klimkit is splitting portable agent behavior into skill-local instructions, references, scripts, and metadata, with long-running runtime machinery treated as deprecated compatibility unless it is reintroduced through a narrow skill-owned helper.
+**Insight:** The first report-server reference script is the right salvage model: useful runtime affordances can migrate forward when they become public-safe, progressively loaded, validated skill assets instead of root-level operational assumptions.
+**Next Probe:** Before release, make root `skills/` and plugin packaging agree on the canonical skill set, then migrate only the remaining useful helper patterns into skill-local references without reviving the deprecated control plane.
