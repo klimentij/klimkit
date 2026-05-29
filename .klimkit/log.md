@@ -3,6 +3,7 @@
 Timestamped audit trail. Entries describe actions, not preferences.
 
 ## Log
+2026-05-29T09:06:04Z: Extracted the deprecated checklister, code explorer, security auditor, reflector, and final reviewer subagent roles into root skills and added `klimkit-implement` as the skills-first implementation workflow.
 2026-05-29T05:28:29Z: Updated the Klimkit grill-me skill to write an auditable Question Triage grid with up to 10 considered questions, importance estimates, and the reason the current question was chosen.
 2026-05-29T05:27:20Z: Refined the Klimkit grill-me skill so it restores Matt-style human grilling while preparing a priority-ranked question list from repo and web context, then reranking after each answer.
 2026-05-29T05:22:00Z: Added the Klimkit-adapted grill-me skill to the root skills package with question-by-question decision tracking in operator-scoped task notes.

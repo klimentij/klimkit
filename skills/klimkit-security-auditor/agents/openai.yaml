@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Security Auditor"
+  short_description: "Audit security-sensitive changes"
+  default_prompt: "Use klimkit-security-auditor to review auth, secrets, data exposure, sandboxing, and unsafe defaults."

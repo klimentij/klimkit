@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Reflector"
+  short_description: "Append cross-task reflection"
+  default_prompt: "Use klimkit-reflector to append a concise cross-task reflection after verification and before final review."

@@ -5,7 +5,7 @@ description: Use Klimkit's evidence-first workflow for implementation, debugging
 
 # Klimkit Workflow
 
-Use this as the coordination skill. Pair it with task-method skills such as `klimkit-diagnose`, `klimkit-tdd`, `klimkit-walkthrough`, `klimkit-report-server`, or `klimkit-worktree-stack` instead of expanding this skill into a monolith.
+Use this as the lightweight coordination skill. For non-trivial implementation work, prefer `klimkit-implement`; it owns the checklist, verification, reflection, and final-review workflow. Pair this skill with task-method skills such as `klimkit-diagnose`, `klimkit-tdd`, `klimkit-walkthrough`, `klimkit-report-server`, or `klimkit-worktree-stack` instead of expanding this skill into a monolith.
 
 ## Default Path
 

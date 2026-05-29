@@ -8,7 +8,13 @@ SKILLS = ROOT / "skills"
 
 EXPECTED_SKILLS = {
     "klimkit-workflow",
+    "klimkit-implement",
     "klimkit-setup",
+    "klimkit-checklister",
+    "klimkit-code-explorer",
+    "klimkit-security-auditor",
+    "klimkit-reflector",
+    "klimkit-final-reviewer",
     "klimkit-grill-me",
     "klimkit-diagnose",
     "klimkit-tdd",
@@ -97,6 +103,35 @@ class RootSkillTests(unittest.TestCase):
         self.assertIn("number-prefixed agent-authored Markdown note", grill)
         self.assertIn(".klimkit/<operator>/tasks/", grill)
         self.assertIn("Approved decision:", grill)
+
+    def test_implement_routes_old_subagent_roles_to_skills(self) -> None:
+        implement = (SKILLS / "klimkit-implement" / "SKILL.md").read_text(encoding="utf-8")
+
+        for skill_name in (
+            "klimkit-checklister",
+            "klimkit-code-explorer",
+            "klimkit-security-auditor",
+            "klimkit-reflector",
+            "klimkit-final-reviewer",
+        ):
+            with self.subTest(skill_name=skill_name):
+                self.assertIn(skill_name, implement)
+        self.assertIn("Do not use subagents for exploration, checklists, debugging, security, or reflection", implement)
+        self.assertIn("final-review gate", implement)
+
+    def test_extracted_role_skills_cover_legacy_roles(self) -> None:
+        expected_phrases = {
+            "klimkit-checklister": "Acceptance Checklist",
+            "klimkit-code-explorer": "Trace the execution path",
+            "klimkit-security-auditor": "plausible abuse path",
+            "klimkit-reflector": "### YYYY-MM-DDTHH:MM:SSZ",
+            "klimkit-final-reviewer": "READY FOR USER",
+        }
+
+        for skill_name, phrase in expected_phrases.items():
+            with self.subTest(skill_name=skill_name):
+                content = (SKILLS / skill_name / "SKILL.md").read_text(encoding="utf-8")
+                self.assertIn(phrase, content)
 
     def test_readme_and_skills_exclude_deferred_issue_scope(self) -> None:
         public_text = [ROOT.joinpath("README.md").read_text(encoding="utf-8")]

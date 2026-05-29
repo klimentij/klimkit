@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Implement"
+  short_description: "Run the full implementation workflow"
+  default_prompt: "Use klimkit-implement to run Klimkit's checklist, implementation, verification, reflection, and final-review workflow."

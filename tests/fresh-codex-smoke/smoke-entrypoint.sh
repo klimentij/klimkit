@@ -44,7 +44,13 @@ from pathlib import Path
 
 expected = {
     "klimkit-workflow",
+    "klimkit-implement",
     "klimkit-setup",
+    "klimkit-checklister",
+    "klimkit-code-explorer",
+    "klimkit-security-auditor",
+    "klimkit-reflector",
+    "klimkit-final-reviewer",
     "klimkit-grill-me",
     "klimkit-diagnose",
     "klimkit-tdd",

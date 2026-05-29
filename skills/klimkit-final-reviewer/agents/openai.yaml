@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Final Reviewer"
+  short_description: "Fresh-context final acceptance gate"
+  default_prompt: "Use klimkit-final-reviewer to verify the draft final response against the request, checklist, changes, and evidence."

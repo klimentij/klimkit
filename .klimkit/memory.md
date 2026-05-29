@@ -4,6 +4,7 @@ Durable preferences, corrections, and process rules. Add dated one-sentence memo
 
 ## Memories
 
+- 2026-05-29: Klimkit should move old global `AGENTS.md` implementation workflow into root skills, with intermediate roles as inline skills and only final review preferring fresh subagents.
 - 2026-05-29: GitHub releases should have one concise paragraph of high-signal release notes that explains the essence of the change, not only generated changelog links.
 - 2026-05-28: The useful fresh-machine test for Klimkit skills is a Docker smoke that mounts only Codex auth, installs the root skills with the Vercel Skills CLI, runs `codex exec`, and verifies `klimkit-setup` creates an operator-scoped `.klimkit` skeleton.
 - 2026-05-04: Defer shared harness pack extraction; keep `packs/codex/` as a clean hand-authored pack until another harness exists.

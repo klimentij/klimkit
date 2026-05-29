@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Code Explorer"
+  short_description: "Trace code paths before edits"
+  default_prompt: "Use klimkit-code-explorer to trace the relevant code paths and report files, symbols, and risks before implementation."

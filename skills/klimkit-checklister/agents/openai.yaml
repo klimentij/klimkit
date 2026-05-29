@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Checklister"
+  short_description: "Write blocking acceptance checklists"
+  default_prompt: "Use klimkit-checklister to turn this request into a concrete acceptance checklist before implementation."
