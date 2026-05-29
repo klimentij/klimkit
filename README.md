@@ -78,14 +78,14 @@ The root `skills/` package is the product:
 - `klimkit-report-server`: local/Tailscale serving checks for operator-scoped proof reports.
 - `klimkit-walkthrough`: static HTML walkthrough reports with media and redaction checks.
 - `klimkit-worktree-stack`: isolated branch worktrees for parallel agent work.
-- `klimkit-agent-browser`: imported browser automation skill candidate from `vercel-labs/agent-browser`.
-- `klimkit-web-design-guidelines`: imported web interface review candidate from `vercel-labs/agent-skills`.
-- `klimkit-ui-ux-pro-max`: imported UI/UX heuristic candidate from `nextlevelbuilder/ui-ux-pro-max-skill`.
-- `klimkit-improve-codebase-architecture`: imported architecture review candidate from Matt Pocock's skills.
-- `klimkit-impeccable`: imported high-craft frontend design candidate from `pbakaus/impeccable`.
-- `klimkit-antigravity-security-auditor`: imported security-auditor candidate from `sickn33/antigravity-awesome-skills`.
+- `klimkit-agent-browser`: browser automation and screenshot-first UI proof adapted from `vercel-labs/agent-browser`.
+- `klimkit-web-design-guidelines`: generic web interface review adapted from `vercel-labs/agent-skills`.
+- `klimkit-ui-ux-pro-max`: UI/UX heuristic lookup adapted from `nextlevelbuilder/ui-ux-pro-max-skill`.
+- `klimkit-improve-codebase-architecture`: architecture review adapted from Matt Pocock's skills.
+- `klimkit-impeccable`: high-craft frontend design workflow adapted from `pbakaus/impeccable`.
+- `klimkit-antigravity-security-auditor`: broad security-audit lens adapted from `sickn33/antigravity-awesome-skills`.
 
-Imported candidate skills are attributed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). See `.klimkit/tasks/15-third-party-skill-imports/01-a-proposed-edits.md` for the safety review and proposed Klimkit-style edits before deeper polishing.
+Adapted third-party skills are attributed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). See `.klimkit/tasks/15-third-party-skill-imports/01-a-proposed-edits.md` for the safety review and original polish plan.
 
 Issue trackers, project boards, triage, and tracker control-plane skills are intentionally out of scope for this first skills-only version.
 

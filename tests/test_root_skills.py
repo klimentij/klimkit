@@ -78,6 +78,10 @@ class RootSkillTests(unittest.TestCase):
                 frontmatter = match.group(1)
                 self.assertIn(f"name: {skill_dir.name}", frontmatter)
                 self.assertRegex(frontmatter, r"(?m)^description:\s*.+Use .+")
+                self.assertEqual(
+                    {line.split(":", 1)[0] for line in frontmatter.splitlines() if ":" in line},
+                    {"name", "description"},
+                )
 
     def test_setup_owns_operator_and_personality_config(self) -> None:
         setup = (SKILLS / "klimkit-setup" / "SKILL.md").read_text(encoding="utf-8")

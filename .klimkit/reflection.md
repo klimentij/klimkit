@@ -208,3 +208,10 @@ Before the HN post goes out, inspect the GitHub README once more from a logged-o
 **Derived Pattern:** Mechanical import changes should stay limited to namespacing, metadata validity, self-contained resources, and upstream notes; workflow rewrites belong in a separate proposal so Klim can review the diff against originals.
 **Insight:** The blocked `roin-orca/simple` request is a useful precedent: Klimkit should prefer creating a clean original skill over redistributing unlicensed or adversarial skill text.
 **Next Probe:** Before making imported UI/design skills active defaults, audit bundled scripts and reconcile overlapping design guidance so `klimkit-impeccable`, `klimkit-ui-ux-pro-max`, `klimkit-web-design-guidelines`, and `klimkit-agent-browser` give a single coherent workflow.
+
+### 2026-05-29T09:36:42Z
+
+**Observations:** The second-pass imported skill edit reduced always-loaded context while preserving heavier references and scripts for progressive disclosure.
+**Derived Pattern:** Third-party skills fit Klimkit better when the SKILL.md becomes a small routing contract and the original material is treated as a resource, not the agent's primary voice.
+**Insight:** The useful integration point is not copying every upstream instruction; it is converting each imported skill into one clear role in the Klimkit workflow and linking it to proof, TDD, browser verification, or security gates where relevant.
+**Next Probe:** Audit the remaining bundled scripts before making any imported live automation command part of a default path.
