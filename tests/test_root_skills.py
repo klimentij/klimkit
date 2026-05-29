@@ -86,10 +86,13 @@ class RootSkillTests(unittest.TestCase):
         grill = (SKILLS / "klimkit-grill-me" / "SKILL.md").read_text(encoding="utf-8")
 
         self.assertIn("Ask exactly one question at a time", grill)
+        self.assertIn("private top-question list", grill)
+        self.assertIn("Rebuild and rerank", grill)
+        self.assertIn("Search the web", grill)
+        self.assertIn("contradictions", grill)
         self.assertIn("number-prefixed agent-authored Markdown note", grill)
         self.assertIn(".klimkit/<operator>/tasks/", grill)
         self.assertIn("Approved decision:", grill)
-        self.assertIn("If the answer can be discovered from the repository", grill)
 
     def test_readme_and_skills_exclude_deferred_issue_scope(self) -> None:
         public_text = [ROOT.joinpath("README.md").read_text(encoding="utf-8")]
