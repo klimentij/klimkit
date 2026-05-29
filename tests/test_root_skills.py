@@ -20,12 +20,6 @@ EXPECTED_SKILLS = {
     "klimkit-report-server",
     "klimkit-walkthrough",
     "klimkit-worktree-stack",
-    "klimkit-agent-browser",
-    "klimkit-web-design-guidelines",
-    "klimkit-ui-ux-pro-max",
-    "klimkit-improve-codebase-architecture",
-    "klimkit-impeccable",
-    "klimkit-antigravity-security-auditor",
 }
 
 REMOVED_SCOPE_TERMS = (
@@ -78,10 +72,6 @@ class RootSkillTests(unittest.TestCase):
                 frontmatter = match.group(1)
                 self.assertIn(f"name: {skill_dir.name}", frontmatter)
                 self.assertRegex(frontmatter, r"(?m)^description:\s*.+Use .+")
-                self.assertEqual(
-                    {line.split(":", 1)[0] for line in frontmatter.splitlines() if ":" in line},
-                    {"name", "description"},
-                )
 
     def test_setup_owns_operator_and_personality_config(self) -> None:
         setup = (SKILLS / "klimkit-setup" / "SKILL.md").read_text(encoding="utf-8")
@@ -127,15 +117,6 @@ class RootSkillTests(unittest.TestCase):
                 self.assertIn(skill_name, implement)
         self.assertIn("Do not use subagents for exploration, checklists, debugging, security, or reflection", implement)
         self.assertIn("final-review gate", implement)
-        self.assertIn("Treat TDD as the default required implementation style", implement)
-        self.assertIn("Prefer 1-2 independent final-review subagents", implement)
-
-    def test_setup_checks_agents_md_contradictions(self) -> None:
-        setup = (SKILLS / "klimkit-setup" / "SKILL.md").read_text(encoding="utf-8")
-
-        self.assertIn("home/global `AGENTS.md`", setup)
-        self.assertIn("contradictions", setup)
-        self.assertIn("propose focused `AGENTS.md` edits", setup)
 
     def test_extracted_role_skills_cover_legacy_roles(self) -> None:
         expected_phrases = {
@@ -150,23 +131,6 @@ class RootSkillTests(unittest.TestCase):
             with self.subTest(skill_name=skill_name):
                 content = (SKILLS / skill_name / "SKILL.md").read_text(encoding="utf-8")
                 self.assertIn(phrase, content)
-
-    def test_imported_candidate_skills_have_central_notices(self) -> None:
-        notice = ROOT.joinpath("THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
-        imported = {
-            "klimkit-agent-browser",
-            "klimkit-web-design-guidelines",
-            "klimkit-ui-ux-pro-max",
-            "klimkit-improve-codebase-architecture",
-            "klimkit-impeccable",
-            "klimkit-antigravity-security-auditor",
-        }
-
-        for skill_name in imported:
-            with self.subTest(skill_name=skill_name):
-                self.assertIn(skill_name, notice)
-                self.assertTrue((SKILLS / skill_name / "references" / "upstream-skill.md").exists())
-                self.assertFalse((SKILLS / skill_name / "references" / "upstream.md").exists())
 
     def test_readme_and_skills_exclude_deferred_issue_scope(self) -> None:
         public_text = [ROOT.joinpath("README.md").read_text(encoding="utf-8")]

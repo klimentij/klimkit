@@ -19,7 +19,7 @@ Use this when a repository needs the Klimkit evidence layout and skill routing m
    - `Steady Operator`: Direct, careful, evidence-first, and conservative with scope.
    - `Product Engineer`: Pragmatic, user-facing, and focused on shipping inspectable behavior.
    - `Research Scribe`: Methodical, source-backed, and explicit about assumptions and decisions.
-4. Read existing repo instructions: project `AGENTS.md`, home/global `AGENTS.md` files such as `~/AGENTS.md` and `~/.codex/AGENTS.md`, any other `AGENTS.md` files visible in the active context, `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/`, `README.md`, and any existing `.klimkit` files.
+4. Read existing repo instructions: `AGENTS.md`, `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/`, `README.md`, and any existing `.klimkit` files.
 5. Create missing operator-scoped evidence files only when meaningful work is starting:
    - `.klimkit/<operator>/config.toml`
    - `.klimkit/<operator>/memory.md`
@@ -30,11 +30,10 @@ Use this when a repository needs the Klimkit evidence layout and skill routing m
 6. If the user picked a new operator name and a home Klimkit repo exists, create the same `.klimkit/<operator>/` skeleton there too.
 7. Write the selected operator and agent personality to `${XDG_CONFIG_HOME:-~/.config}/klimkit/config.toml`; also write project-local operator config to `.klimkit/<operator>/config.toml`.
 8. Add a short repo instruction block only if the repo lacks one. Prefer updating existing `AGENTS.md` over inventing a second instruction file.
-9. Compare the active `AGENTS.md` instructions with installed Klimkit skills and identify contradictions, stale workflow gates, or duplicated rules. Give the user a very short contradiction summary and propose focused `AGENTS.md` edits before changing those files.
-10. Add or update lightweight context docs when useful:
+9. Add or update lightweight context docs when useful:
    - `docs/agents/domain.md` for project language and invariants.
-11. Recommend relevant Klimkit skills by name in the repo instructions: `klimkit-implement`, `klimkit-diagnose`, `klimkit-tdd`, `klimkit-walkthrough`, `klimkit-report-server`, and `klimkit-worktree-stack`.
-12. Verify that new docs do not expose secrets, machine-local paths, private repo names, or local runtime state.
+10. Recommend relevant Klimkit skills by name in the repo instructions: `klimkit-implement`, `klimkit-diagnose`, `klimkit-tdd`, `klimkit-walkthrough`, `klimkit-report-server`, and `klimkit-worktree-stack`.
+11. Verify that new docs do not expose secrets, machine-local paths, private repo names, or local runtime state.
 
 ## Boundaries
 

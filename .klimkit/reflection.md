@@ -201,24 +201,3 @@ Before the HN post goes out, inspect the GitHub README once more from a logged-o
 **Derived Pattern:** Klimkit is splitting portable agent behavior into skill-local instructions, references, scripts, and metadata, with long-running runtime machinery treated as deprecated compatibility unless it is reintroduced through a narrow skill-owned helper.
 **Insight:** The first report-server reference script is the right salvage model: useful runtime affordances can migrate forward when they become public-safe, progressively loaded, validated skill assets instead of root-level operational assumptions.
 **Next Probe:** Before release, make root `skills/` and plugin packaging agree on the canonical skill set, then migrate only the remaining useful helper patterns into skill-local references without reviving the deprecated control plane.
-
-### 2026-05-29T09:25:11Z
-
-**Observations:** Third-party skill imports need a stricter boundary than first-party Klimkit skills: source attribution, license clarity, and prompt-injection review are part of the import itself, not optional polish.
-**Derived Pattern:** Mechanical import changes should stay limited to namespacing, metadata validity, self-contained resources, and upstream notes; workflow rewrites belong in a separate proposal so Klim can review the diff against originals.
-**Insight:** The blocked `roin-orca/simple` request is a useful precedent: Klimkit should prefer creating a clean original skill over redistributing unlicensed or adversarial skill text.
-**Next Probe:** Before making imported UI/design skills active defaults, audit bundled scripts and reconcile overlapping design guidance so `klimkit-impeccable`, `klimkit-ui-ux-pro-max`, `klimkit-web-design-guidelines`, and `klimkit-agent-browser` give a single coherent workflow.
-
-### 2026-05-29T09:36:42Z
-
-**Observations:** The second-pass imported skill edit reduced always-loaded context while preserving heavier references and scripts for progressive disclosure.
-**Derived Pattern:** Third-party skills fit Klimkit better when the SKILL.md becomes a small routing contract and the original material is treated as a resource, not the agent's primary voice.
-**Insight:** The useful integration point is not copying every upstream instruction; it is converting each imported skill into one clear role in the Klimkit workflow and linking it to proof, TDD, browser verification, or security gates where relevant.
-**Next Probe:** Audit the remaining bundled scripts before making any imported live automation command part of a default path.
-
-### 2026-05-29T09:41:56Z
-
-**Observations:** The previous cleanup preserved many bundled references/scripts but lost several original upstream `SKILL.md` entrypoints as inspectable reference artifacts.
-**Derived Pattern:** Adapted skills need two layers: a concise active Klimkit entrypoint and the original upstream instruction surface preserved as a reference for audit, comparison, and fallback.
-**Insight:** Attribution metadata can live centrally, but upstream procedural content must remain local to the skill folder so agents and humans can inspect what was changed without hunting through release history.
-**Next Probe:** Add tests that every imported/adapted skill keeps `references/upstream-skill.md` while avoiding noisy per-skill metadata files.

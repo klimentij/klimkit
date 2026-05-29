@@ -1,13 +1,11 @@
 ---
 name: klimkit-final-reviewer
-description: Perform a fresh-context final acceptance review of the exact draft response against the original request, checklist, changed files, verification evidence, reflection, and proof artifacts. Use as the last gate before telling the human work is complete; use from one or two scoped fresh subagents when `klimkit-implement` requests final review, or inline when subagents are unavailable.
+description: Perform a fresh-context final acceptance review of the exact draft response against the original request, checklist, changed files, verification evidence, reflection, and proof artifacts. Use as the last gate before telling the human work is complete; especially use from fresh subagents when `klimkit-implement` requests final review.
 ---
 
 # Klimkit Final Reviewer
 
 Use this only after the main agent believes the work is complete and has drafted the exact final response. Review; do not implement fixes.
-
-When `klimkit-implement` can spawn final-review subagents, use one or two fresh reviewers, not broad fan-out. Give each reviewer a slightly different scope. If subagents are unavailable or forbidden, the main agent should read this skill and perform the review inline, then state that limitation.
 
 ## Required Inputs
 

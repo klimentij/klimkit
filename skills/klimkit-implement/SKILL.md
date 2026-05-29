@@ -1,6 +1,6 @@
 ---
 name: klimkit-implement
-description: Run Klimkit's full implementation workflow for code, docs, release, configuration, UI, backend, security-sensitive, or proof-producing changes with TDD as the default implementation contract. Use when the user asks Codex to implement, fix, refactor, release, migrate, wire up, or complete non-trivial repository work with checklist, TDD, verification, reflection, and final review.
+description: Run Klimkit's full implementation workflow for code, docs, release, configuration, UI, backend, security-sensitive, or proof-producing changes. Use when the user asks Codex to implement, fix, refactor, release, migrate, wire up, or complete non-trivial repository work with checklist, verification, reflection, and final review.
 ---
 
 # Klimkit Implement
@@ -27,10 +27,7 @@ Use this as the skills-first replacement for the old global `AGENTS.md` implemen
    - Use `klimkit-checklister` before code changes for implementation work.
    - Treat the checklist as blocking unless the user changes scope.
 4. **Implement**
-   - Treat TDD as the default required implementation style for behavior-changing work.
-   - Use `klimkit-tdd` to set up and run the actual red/green/refactor loop: one behavior slice, one failing test for the intended behavior, smallest robust change, focused green check, then broader checks.
-   - If TDD is not feasible, record the reason in the task note before editing and provide an equivalent manual proof plan.
-   - Choose other narrow method skills when helpful: `klimkit-diagnose`, `klimkit-walkthrough`, `klimkit-report-server`, or `klimkit-worktree-stack`.
+   - Choose the narrow method skill when helpful: `klimkit-diagnose`, `klimkit-tdd`, `klimkit-walkthrough`, `klimkit-report-server`, or `klimkit-worktree-stack`.
    - Keep edits surgical and aligned with existing repo style.
    - Do not route new work through deprecated runtime, Switchboard, sync scripts, or plugin machinery unless explicitly maintaining legacy code.
    - If a task asks to migrate old Klimkit runtime behavior into skills, make the target skill own any reference scripts, templates, and setup instructions it needs.
@@ -46,8 +43,7 @@ Use this as the skills-first replacement for the old global `AGENTS.md` implemen
 8. **Final Review**
    - Draft the exact final response.
    - Run fresh final-review passes with `klimkit-final-reviewer`.
-   - Prefer 1-2 independent final-review subagents when subagents are available and the user has not forbidden them. Give each only the original request, checklist, changed files, verification evidence, reflection note, proof artifacts, and exact draft response.
-   - When using two final reviewers, give them slightly different review scopes, for example one focused on user intent and evidence, the other on regressions, security, release state, or proof artifacts.
+   - Prefer 3 independent final-review subagents when subagents are available and the user has not forbidden them. Give each only the original request, checklist, changed files, verification evidence, reflection note, proof artifacts, and exact draft response.
    - If subagents are unavailable or forbidden, run `klimkit-final-reviewer` inline and state that limitation.
    - Do not claim completion until final review returns `READY FOR USER` or all remaining gaps are explicitly reported.
 9. **Report**
