@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Workflow"
+  short_description: "Run checklist-proof Codex workflow"
+  default_prompt: "Use $klimkit-workflow to plan, verify, and prove this implementation."

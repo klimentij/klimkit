@@ -1,0 +1,110 @@
+import re
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SKILLS = ROOT / "skills"
+
+EXPECTED_SKILLS = {
+    "klimkit-workflow",
+    "klimkit-setup",
+    "klimkit-diagnose",
+    "klimkit-tdd",
+    "klimkit-report-server",
+    "klimkit-walkthrough",
+    "klimkit-worktree-stack",
+}
+
+REMOVED_SCOPE_TERMS = (
+    "klimkit-to-issues",
+    "klimkit-triage",
+    "klimkit-github-control-plane",
+    "KK Status",
+    "GitHub control",
+    "GitHub Project",
+    "issue workpad",
+)
+
+LEGACY_ROOTS = (
+    "install.sh",
+    "kk",
+    "klimkit",
+    "pyproject.toml",
+    "uv.lock",
+    "src",
+    "packs",
+    "templates",
+    "examples",
+    "plugins",
+)
+
+
+class RootSkillTests(unittest.TestCase):
+    def test_root_contains_only_first_wave_skills(self) -> None:
+        self.assertEqual({path.name for path in SKILLS.iterdir() if path.is_dir()}, EXPECTED_SKILLS)
+        for legacy in LEGACY_ROOTS:
+            with self.subTest(legacy=legacy):
+                self.assertFalse((ROOT / legacy).exists())
+
+    def test_skills_are_vercel_package_compatible(self) -> None:
+        allowed_entries = {"SKILL.md", "agents", "references", "scripts", "assets"}
+        name_re = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+        for skill_dir in sorted(SKILLS.iterdir()):
+            if not skill_dir.is_dir():
+                continue
+            with self.subTest(skill=skill_dir.name):
+                self.assertRegex(skill_dir.name, name_re)
+                self.assertEqual({entry.name for entry in skill_dir.iterdir()} - allowed_entries, set())
+
+                skill_md = skill_dir / "SKILL.md"
+                content = skill_md.read_text(encoding="utf-8")
+                self.assertNotIn("[TODO:", content)
+                match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
+                self.assertIsNotNone(match)
+                frontmatter = match.group(1)
+                self.assertIn(f"name: {skill_dir.name}", frontmatter)
+                self.assertRegex(frontmatter, r"(?m)^description:\s*.+Use .+")
+
+    def test_setup_owns_operator_and_personality_config(self) -> None:
+        setup = (SKILLS / "klimkit-setup" / "SKILL.md").read_text(encoding="utf-8")
+        state = (SKILLS / "klimkit-setup" / "references" / "state-config.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("Resolve the operator name", setup)
+        self.assertIn("home Klimkit repo", setup)
+        self.assertIn("agent personality", setup)
+        self.assertIn("Steady Operator", setup)
+        self.assertIn("${XDG_CONFIG_HOME:-~/.config}/klimkit/config.toml", setup)
+        self.assertIn(".klimkit/<operator>/config.toml", state)
+        self.assertIn("personality_name", state)
+
+    def test_readme_and_skills_exclude_deferred_issue_scope(self) -> None:
+        public_text = [ROOT.joinpath("README.md").read_text(encoding="utf-8")]
+        public_text.extend(path.read_text(encoding="utf-8") for path in SKILLS.rglob("*.md"))
+        combined = "\n".join(public_text)
+
+        for term in REMOVED_SCOPE_TERMS:
+            with self.subTest(term=term):
+                self.assertNotIn(term, combined)
+        self.assertIn("intentionally out of scope", combined)
+
+    def test_readme_points_legacy_users_to_deprecated_paths(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        for path in (
+            "deprecated/runtime/install.sh",
+            "deprecated/runtime/kk",
+            "deprecated/runtime/klimkit",
+            "deprecated/runtime/src/klimkit/apps/switchboard/",
+            "deprecated/runtime/packs/codex/",
+            "deprecated/codex-plugin/plugins/klimkit/",
+        ):
+            with self.subTest(path=path):
+                self.assertIn(path, readme)
+
+
+if __name__ == "__main__":
+    unittest.main()

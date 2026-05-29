@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Diagnose"
+  short_description: "Reproduce-first debugging workflow"
+  default_prompt: "Use klimkit-diagnose to reproduce, isolate, fix, and prove this failure."

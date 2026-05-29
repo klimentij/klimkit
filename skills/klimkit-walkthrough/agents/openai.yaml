@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Walkthrough"
+  short_description: "Create inspectable proof reports"
+  default_prompt: "Use klimkit-walkthrough to create a static proof report with steps and screenshots."

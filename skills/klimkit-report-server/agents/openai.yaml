@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Report Server"
+  short_description: "Verify operator-scoped report serving"
+  default_prompt: "Use klimkit-report-server to check operator-scoped report files, local serving, and Tailscale report URLs."

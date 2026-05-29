@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Setup"
+  short_description: "Set up operator-scoped Klimkit context"
+  default_prompt: "Use klimkit-setup to ask for the operator name and prepare this repository for operator-scoped Klimkit task evidence and skill routing."

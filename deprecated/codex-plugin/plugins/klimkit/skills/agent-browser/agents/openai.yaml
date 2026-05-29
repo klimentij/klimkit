@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Browser"
+  short_description: "Automate browser QA and web tasks"
+  default_prompt: "Use $agent-browser to inspect this local web app and capture evidence."
