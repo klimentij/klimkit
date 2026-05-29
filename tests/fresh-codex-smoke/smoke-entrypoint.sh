@@ -43,7 +43,6 @@ import json
 from pathlib import Path
 
 expected = {
-    "klimkit-workflow",
     "klimkit-implement",
     "klimkit-setup",
     "klimkit-checklister",

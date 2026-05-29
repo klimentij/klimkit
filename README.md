@@ -24,10 +24,10 @@ List available skills:
 npx skills add klimentij/klimkit --list
 ```
 
-Install one skill:
+Install the main implementation workflow skill:
 
 ```bash
-npx skills add klimentij/klimkit --skill klimkit-workflow -g -a codex -y
+npx skills add klimentij/klimkit --skill klimkit-implement -g -a codex -y
 ```
 
 Update installed skills:
@@ -65,7 +65,6 @@ Installed skill folders are package content, not mutable state. Do not write ope
 
 The root `skills/` package is the product:
 
-- `klimkit-workflow`: evidence-first coordination for setup, proof, verification, reflection, and handoff.
 - `klimkit-implement`: skills-first implementation workflow replacing the old global `AGENTS.md` flow.
 - `klimkit-setup`: operator discovery, `.klimkit/<operator>/` setup, config state, and repo context pointers.
 - `klimkit-checklister`: blocking pass/fail acceptance checklists before implementation.
@@ -126,7 +125,7 @@ npx skills add ./ --list
 Validate a single skill with Codex's local skill creator tools when available:
 
 ```bash
-python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" skills/klimkit-workflow
+python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" skills/klimkit-implement
 ```
 
 Run the fresh-machine Codex smoke test from Docker:

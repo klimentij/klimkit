@@ -7,6 +7,13 @@ description: Run Klimkit's full implementation workflow for code, docs, release,
 
 Use this as the skills-first replacement for the old global `AGENTS.md` implementation workflow. Keep the work in the main agent by default. Do not use subagents for exploration, checklists, debugging, security, or reflection unless the user explicitly asks; the only built-in subagent use is the final-review gate.
 
+## Defaults
+
+- Treat Klimkit as a Vercel Skills CLI package first: install and update the root `skills/` library with `npx skills`.
+- Use normal Codex app or CLI sessions plus installed Klimkit skills for day-to-day work.
+- Keep task evidence in the project repository, not in generated home files.
+- Treat older Klimkit runtime machinery as deprecated legacy material. Do not route new workflows through it unless the user explicitly asks to maintain legacy code.
+
 ## Workflow
 
 1. **Intake**
@@ -23,6 +30,7 @@ Use this as the skills-first replacement for the old global `AGENTS.md` implemen
    - Choose the narrow method skill when helpful: `klimkit-diagnose`, `klimkit-tdd`, `klimkit-walkthrough`, `klimkit-report-server`, or `klimkit-worktree-stack`.
    - Keep edits surgical and aligned with existing repo style.
    - Do not route new work through deprecated runtime, Switchboard, sync scripts, or plugin machinery unless explicitly maintaining legacy code.
+   - If a task asks to migrate old Klimkit runtime behavior into skills, make the target skill own any reference scripts, templates, and setup instructions it needs.
 5. **Verify**
    - Run checks that match the checklist and blast radius.
    - Record exact commands, important outputs, skipped checks, and remaining risk.
@@ -49,3 +57,5 @@ Use this as the skills-first replacement for the old global `AGENTS.md` implemen
 - `klimkit-security-auditor`: security-sensitive review.
 - `klimkit-reflector`: cross-task synthesis after verification.
 - `klimkit-final-reviewer`: final gate, preferably from fresh subagents.
+
+Read [references/artifact-workflow.md](references/artifact-workflow.md) when concrete `.klimkit` paths, task-note naming, proof reports, memory/log/reflection, or team/solo layout details matter.

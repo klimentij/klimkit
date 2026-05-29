@@ -1,4 +1,0 @@
-interface:
-  display_name: "Klimkit Workflow"
-  short_description: "Evidence-first Klimkit workflow"
-  default_prompt: "Use klimkit-workflow to plan, verify, record proof, reflect, and hand off this task."

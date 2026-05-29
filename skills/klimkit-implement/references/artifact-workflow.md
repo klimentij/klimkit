@@ -13,7 +13,7 @@ Klimkit's skills-first default is operator-scoped:
 - `.klimkit/<operator>/tasks/<feature>/`: task checklists, plans, proof, screenshots, review notes, and handoff records.
 - `.klimkit/<operator>/reports/<task>/`: HTML proof reports and local media assets.
 
-When the operator folder is unknown, ask the user or run `klimkit-setup`. Legacy flat `.klimkit/tasks/` and `.klimkit/reports/` paths are readable historical context, not the default write target for new skill-based work.
+When the operator folder is unknown, ask the user or use `klimkit-setup`. Legacy flat `.klimkit/tasks/` and `.klimkit/reports/` paths are readable historical context, not the default write target for new skill-based work.
 
 ## Task Notes
 

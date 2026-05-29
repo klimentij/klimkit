@@ -27,4 +27,4 @@ Diagnose before fixing. The output should make the failure, root cause, fix, and
 - If the failure cannot be reproduced, document what was tried and switch to risk-reduction work only with the user's consent.
 - If the root cause is outside this repo or blocked by missing credentials, write a concise blocker note with exact missing access and the safest next action.
 
-Pair this skill with `klimkit-workflow` for checklist, reflection, and final review gates.
+Pair this skill with `klimkit-implement` for checklist, reflection, and final review gates.
