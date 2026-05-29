@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Skills: Vercel CLI](https://img.shields.io/badge/Skills-Vercel%20CLI-edfff5.svg)](https://github.com/vercel-labs/skills)
+[![skills.sh](https://skills.sh/b/klimentij/klimkit)](https://skills.sh/klimentij/klimkit)
 [![Agent Skills](https://img.shields.io/badge/Format-Agent%20Skills-7ef0af.svg)](https://agentskills.io/specification)
 
 ![Klimkit. Agentic engineering across machines, under control.](assets/brand/klimkit-readme-hero.jpg)

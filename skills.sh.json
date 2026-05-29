@@ -1,0 +1,48 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Workflow",
+      "description": "Core Klimkit workflow skills for setup, implementation, checklists, reflection, and final review.",
+      "skills": [
+        "klimkit-setup",
+        "klimkit-implement",
+        "klimkit-checklister",
+        "klimkit-reflector",
+        "klimkit-final-reviewer"
+      ]
+    },
+    {
+      "title": "Engineering",
+      "description": "Focused engineering methods for exploration, debugging, TDD, security, architecture, and isolated worktrees.",
+      "skills": [
+        "klimkit-code-explorer",
+        "klimkit-diagnose",
+        "klimkit-tdd",
+        "klimkit-security-auditor",
+        "klimkit-improve-codebase-architecture",
+        "klimkit-create-worktree"
+      ]
+    },
+    {
+      "title": "Proof",
+      "description": "Human-review and proof-report skills for walkthroughs, report serving, and plan interrogation.",
+      "skills": [
+        "klimkit-walkthrough",
+        "klimkit-report-server",
+        "klimkit-grill-me"
+      ]
+    },
+    {
+      "title": "Design",
+      "description": "Browser, frontend, and UI review skills for visual implementation and QA.",
+      "skills": [
+        "klimkit-agent-browser",
+        "klimkit-web-design-guidelines",
+        "klimkit-ui-ux-pro-max",
+        "klimkit-impeccable"
+      ]
+    }
+  ]
+}

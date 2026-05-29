@@ -1,3 +1,4 @@
+import json
 import re
 import unittest
 from pathlib import Path
@@ -193,6 +194,25 @@ class RootSkillTests(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 self.assertIn(path, readme)
+
+    def test_skills_sh_metadata_groups_root_skills(self) -> None:
+        metadata = json.loads((ROOT / "skills.sh.json").read_text(encoding="utf-8"))
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertEqual(metadata["$schema"], "https://skills.sh/schemas/skills.sh.schema.json")
+        self.assertEqual(metadata["notGrouped"], "bottom")
+        self.assertIn("https://skills.sh/b/klimentij/klimkit", readme)
+        self.assertIn("https://skills.sh/klimentij/klimkit", readme)
+
+        grouped = []
+        for grouping in metadata["groupings"]:
+            self.assertTrue(grouping["title"])
+            self.assertTrue(grouping["description"])
+            self.assertTrue(grouping["skills"])
+            grouped.extend(grouping["skills"])
+
+        self.assertEqual(set(grouped), EXPECTED_SKILLS)
+        self.assertEqual(len(grouped), len(set(grouped)))
 
 
 if __name__ == "__main__":
