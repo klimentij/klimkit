@@ -3,6 +3,7 @@
 Timestamped audit trail. Entries describe actions, not preferences.
 
 ## Log
+2026-05-29T05:22:00Z: Added the Klimkit-adapted grill-me skill to the root skills package with question-by-question decision tracking in operator-scoped task notes.
 2026-05-28T13:50:42Z: Added the Docker fresh-machine Codex smoke test approach to project memory after verifying it is useful for testing Klimkit skills through mounted auth, Vercel Skills CLI install, and `codex exec` setup proof.
 2026-05-28T10:27:00Z: Removed tracker, board, triage, and control-plane skills from the root package; moved legacy runtime/plugin sources under `deprecated/`; rewrote README and CI around the seven-skill first wave.
 2026-05-28T10:07:00Z: Updated the root Klimkit skills so skills-first setup asks for an operator name, defaults evidence to `.klimkit/<operator>/`, documents XDG/global config conventions, and passes skill, unit, CLI, smoke, privacy, and diff checks without subagents.

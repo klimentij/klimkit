@@ -9,6 +9,7 @@ SKILLS = ROOT / "skills"
 EXPECTED_SKILLS = {
     "klimkit-workflow",
     "klimkit-setup",
+    "klimkit-grill-me",
     "klimkit-diagnose",
     "klimkit-tdd",
     "klimkit-report-server",
@@ -41,7 +42,7 @@ LEGACY_ROOTS = (
 
 
 class RootSkillTests(unittest.TestCase):
-    def test_root_contains_only_first_wave_skills(self) -> None:
+    def test_root_contains_only_skills_first_package(self) -> None:
         self.assertEqual({path.name for path in SKILLS.iterdir() if path.is_dir()}, EXPECTED_SKILLS)
         for legacy in LEGACY_ROOTS:
             with self.subTest(legacy=legacy):
@@ -80,6 +81,15 @@ class RootSkillTests(unittest.TestCase):
         self.assertIn("${XDG_CONFIG_HOME:-~/.config}/klimkit/config.toml", setup)
         self.assertIn(".klimkit/<operator>/config.toml", state)
         self.assertIn("personality_name", state)
+
+    def test_grill_me_records_questions_and_decisions(self) -> None:
+        grill = (SKILLS / "klimkit-grill-me" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("Ask exactly one question at a time", grill)
+        self.assertIn("number-prefixed agent-authored Markdown note", grill)
+        self.assertIn(".klimkit/<operator>/tasks/", grill)
+        self.assertIn("Approved decision:", grill)
+        self.assertIn("If the answer can be discovered from the repository", grill)
 
     def test_readme_and_skills_exclude_deferred_issue_scope(self) -> None:
         public_text = [ROOT.joinpath("README.md").read_text(encoding="utf-8")]

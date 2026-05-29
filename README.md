@@ -6,7 +6,7 @@
 
 ![Klimkit. Agentic engineering across machines, under control.](assets/brand/klimkit-readme-hero.jpg)
 
-Klimkit is a skills library for agentic engineering work. Install it with the Vercel Skills CLI to give agents reusable workflows for operator-scoped project setup, proof-driven execution, diagnosis, TDD, walkthrough reports, local report serving, and isolated worktrees.
+Klimkit is a skills library for agentic engineering work. Install it with the Vercel Skills CLI to give agents reusable workflows for operator-scoped project setup, proof-driven execution, plan grilling, diagnosis, TDD, walkthrough reports, local report serving, and isolated worktrees.
 
 The old Klimkit runtime is deprecated. Switchboard, `kk`, `klimkit`, `install.sh`, the Python package, Codex pack projection, service templates, Bash helpers, autosync, Telegram notifications, and the Codex plugin prototype live under `deprecated/` for source reference and manual legacy use. New Klimkit behavior should live in root `skills/`.
 
@@ -67,6 +67,7 @@ The root `skills/` package is the product:
 
 - `klimkit-workflow`: evidence-first coordination for setup, proof, verification, reflection, and handoff.
 - `klimkit-setup`: operator discovery, `.klimkit/<operator>/` setup, config state, and repo context pointers.
+- `klimkit-grill-me`: one-question-at-a-time plan interrogation with short decision tracking in `.klimkit/<operator>/tasks/`.
 - `klimkit-diagnose`: reproduce-first debugging and regression proof.
 - `klimkit-tdd`: narrow red-green-refactor loops with proof.
 - `klimkit-report-server`: local/Tailscale serving checks for operator-scoped proof reports.

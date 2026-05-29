@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Grill Me"
+  short_description: "Grill plans into recorded decisions"
+  default_prompt: "Use klimkit-grill-me to interrogate this plan one question at a time and record each approved decision."

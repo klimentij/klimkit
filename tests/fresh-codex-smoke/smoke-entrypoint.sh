@@ -45,6 +45,7 @@ from pathlib import Path
 expected = {
     "klimkit-workflow",
     "klimkit-setup",
+    "klimkit-grill-me",
     "klimkit-diagnose",
     "klimkit-tdd",
     "klimkit-report-server",
