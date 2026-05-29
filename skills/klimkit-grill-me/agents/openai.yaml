@@ -1,4 +1,4 @@
 interface:
   display_name: "Klimkit Grill Me"
   short_description: "Priority-ranked plan grilling"
-  default_prompt: "Use klimkit-grill-me to research this plan, ask the highest-priority question one at a time, and record each approved decision."
+  default_prompt: "Use klimkit-grill-me to research this plan, record the considered question shortlist, ask the highest-priority question one at a time, and record each approved decision."

@@ -87,6 +87,10 @@ class RootSkillTests(unittest.TestCase):
 
         self.assertIn("Ask exactly one question at a time", grill)
         self.assertIn("private top-question list", grill)
+        self.assertIn("Question Triage", grill)
+        self.assertIn("up to 10 considered questions", grill)
+        self.assertIn("Candidate question TLDR", grill)
+        self.assertIn("why it is top priority", grill)
         self.assertIn("Rebuild and rerank", grill)
         self.assertIn("Search the web", grill)
         self.assertIn("contradictions", grill)

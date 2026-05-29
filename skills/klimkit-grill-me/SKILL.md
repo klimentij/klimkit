@@ -1,6 +1,6 @@
 ---
 name: klimkit-grill-me
-description: Interview the user relentlessly about a plan, design, architecture, product decision, workflow, or release choice until shared understanding is reached, using repo and web research to prioritize the most important unresolved questions while recording each question and approved decision in a Klimkit task note. Use when the user asks to be grilled, stress-test a plan, resolve design branches, clarify tradeoffs, or turn vague intent into explicit decisions.
+description: Interview the user relentlessly about a plan, design, architecture, product decision, workflow, or release choice until shared understanding is reached, using repo and web research to prioritize the most important unresolved questions while recording the considered question shortlist, each asked question, and each approved decision in a Klimkit task note. Use when the user asks to be grilled, stress-test a plan, resolve design branches, clarify tradeoffs, or turn vague intent into explicit decisions.
 ---
 
 # Klimkit Grill Me
@@ -19,15 +19,20 @@ Keep the session direct and human. This is a working conversation, not a form: a
    - Inspect the relevant codebase, docs, task notes, and existing decisions.
    - Search the web for current outside context when market, product, API, framework, legal, pricing, or best-practice facts could affect the answer.
    - Draft a private top-question list, estimate each question's importance, and rank contradictions or complete requirement gaps first.
-6. Ask exactly one question at a time: the current highest-importance question from the ranked list.
-7. For each question, include your recommended answer unless repo/web research or user context makes that premature.
-8. After the user answers, append a short tracking memo to the grilling-session note:
+6. Before asking, write a compact `Question Triage` grid into the grilling-session note with up to 10 considered questions:
+   - one-sentence TLDR of each candidate question.
+   - importance estimate such as `critical`, `high`, `medium`, or `low`.
+   - one-sentence reason for the ranking.
+   - mark the question chosen now and why it is top priority at this moment.
+7. Ask exactly one question at a time: the current highest-importance question from the ranked list.
+8. For each question, include your recommended answer unless repo/web research or user context makes that premature.
+9. After the user answers, append a short tracking memo to the grilling-session note:
    - `Q:` the question asked.
    - `Approved decision:` the user's decision, or your concise restatement if the user approved your recommendation.
    - `Open follow-up:` only when the answer leaves a real unresolved branch.
-9. Rebuild and rerank the private top-question list after every answer, using the new state and any new facts discovered from the repo or web.
-10. Continue until the remaining branches are low-risk, explicitly deferred, or converted into concrete tasks.
-11. End with a compact decision summary and the path to the grilling-session note.
+10. Rebuild and rerank the top-question list after every answer, using the new state and any new facts discovered from the repo or web; refresh the `Question Triage` grid before the next question so the user can audit what was considered and why.
+11. Continue until the remaining branches are low-risk, explicitly deferred, or converted into concrete tasks.
+12. End with a compact decision summary and the path to the grilling-session note.
 
 ## Question Style
 
@@ -49,6 +54,13 @@ Use this shape for the note:
 
 Source request: <one sentence>
 Decision target: <one sentence>
+
+## Question Triage
+
+| Rank | Candidate question TLDR | Importance | Why this rank |
+| --- | --- | --- | --- |
+| 1 | <chosen question in one sentence> | critical | <why this must be asked now> |
+| 2 | <next candidate> | high | <why it waits> |
 
 ## Decision Log
 
