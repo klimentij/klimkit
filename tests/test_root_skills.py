@@ -147,7 +147,8 @@ class RootSkillTests(unittest.TestCase):
                 content = (SKILLS / skill_name / "SKILL.md").read_text(encoding="utf-8")
                 self.assertIn(phrase, content)
 
-    def test_imported_candidate_skills_have_upstream_notes(self) -> None:
+    def test_imported_candidate_skills_have_central_notices(self) -> None:
+        notice = ROOT.joinpath("THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
         imported = {
             "klimkit-agent-browser",
             "klimkit-web-design-guidelines",
@@ -159,9 +160,8 @@ class RootSkillTests(unittest.TestCase):
 
         for skill_name in imported:
             with self.subTest(skill_name=skill_name):
-                upstream = SKILLS / skill_name / "references" / "upstream.md"
-                self.assertTrue(upstream.exists())
-                self.assertIn("Commit reviewed", upstream.read_text(encoding="utf-8"))
+                self.assertIn(skill_name, notice)
+                self.assertFalse((SKILLS / skill_name / "references" / "upstream.md").exists())
 
     def test_readme_and_skills_exclude_deferred_issue_scope(self) -> None:
         public_text = [ROOT.joinpath("README.md").read_text(encoding="utf-8")]

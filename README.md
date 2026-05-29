@@ -85,7 +85,7 @@ The root `skills/` package is the product:
 - `klimkit-impeccable`: imported high-craft frontend design candidate from `pbakaus/impeccable`.
 - `klimkit-antigravity-security-auditor`: imported security-auditor candidate from `sickn33/antigravity-awesome-skills`.
 
-Imported candidate skills include upstream metadata under each skill's `references/upstream.md`. See `.klimkit/tasks/15-third-party-skill-imports/01-a-proposed-edits.md` for the safety review and proposed Klimkit-style edits before deeper polishing.
+Imported candidate skills are attributed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). See `.klimkit/tasks/15-third-party-skill-imports/01-a-proposed-edits.md` for the safety review and proposed Klimkit-style edits before deeper polishing.
 
 Issue trackers, project boards, triage, and tracker control-plane skills are intentionally out of scope for this first skills-only version.
 
