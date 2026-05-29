@@ -7,6 +7,8 @@ description: Review web UI implementation quality. Use when Codex needs to audit
 
 Use this as a generic web UI review checklist. Keep it independent of Vercel-specific phrasing and do not fetch mutable external rules unless the user asks for current upstream guidance.
 
+The original imported upstream skill is preserved at [references/upstream-skill.md](references/upstream-skill.md). Read it when auditing what changed from upstream or when the user explicitly wants the original Vercel workflow.
+
 ## Review Flow
 
 1. Identify the UI surface: files, route, component, or screenshot.

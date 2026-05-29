@@ -7,6 +7,8 @@ description: UI/UX planning and heuristic lookup for web and mobile interfaces. 
 
 Use this as a searchable heuristic pack, not as a replacement for product judgment. It is most useful before UI implementation and during review when the agent needs concrete options for product type, style, color, typography, charts, accessibility, or platform behavior.
 
+The original imported upstream skill is preserved at [references/upstream-skill.md](references/upstream-skill.md). The upstream CSV data and helper scripts are preserved under `assets/data/` and `scripts/`.
+
 ## Workflow
 
 1. Start from the product context, existing design system, target audience, and the user-visible task.

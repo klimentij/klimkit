@@ -7,6 +7,8 @@ description: High-craft frontend design and product UI iteration. Use when Codex
 
 Use this when the quality bar is visual craft, not just correctness. It adapts Impeccable's design references into the Klimkit workflow.
 
+The original imported upstream skill is preserved at [references/upstream-skill.md](references/upstream-skill.md). Its supporting upstream references and scripts remain in `references/` and `scripts/`.
+
 ## Start
 
 1. Read the user's goal and the existing product context. Prefer local `PRODUCT.md`, `DESIGN.md`, design tokens, CSS, component libraries, and representative UI files.

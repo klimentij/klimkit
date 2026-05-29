@@ -3,6 +3,7 @@
 Timestamped audit trail. Entries describe actions, not preferences.
 
 ## Log
+- 2026-05-29T09:41:56Z: Restored original upstream `SKILL.md` entrypoints and agent-browser upstream specialization snapshots as imported skill references after correcting the over-aggressive cleanup.
 - 2026-05-29T09:36:42Z: Consolidated third-party attribution out of imported skill folders and rewrote imported skill entrypoints into concise Klimkit-aligned workflows.
 2026-05-29T09:21:59Z: Added TDD/default final-review/setup contradiction requirements to core skills, imported six redistributable third-party candidate skills with `klimkit-` prefixes, and recorded a safety/proposed-edits review note while blocking the unlicensed hostile `roin-orca/simple` skill.
 2026-05-29T09:07:28Z: Folded the old `klimkit-workflow` skill into `klimkit-implement`, moved its artifact workflow reference, and removed the separate workflow skill from the root package.

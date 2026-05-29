@@ -7,6 +7,8 @@ description: Find codebase architecture improvement candidates. Use when Codex n
 
 Use this for architecture review and candidate selection. It adapts Matt Pocock's deep-module language to the Klimkit workflow.
 
+The original imported upstream skill is preserved at [references/upstream-skill.md](references/upstream-skill.md). Its supporting upstream references remain in `references/`.
+
 ## Vocabulary
 
 Read [references/LANGUAGE.md](references/LANGUAGE.md) when the distinction matters. Use these terms consistently:

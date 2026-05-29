@@ -7,6 +7,8 @@ description: Broad security audit candidate for application, DevSecOps, cloud, d
 
 Use this as an expanded security lens. Prefer `klimkit-security-auditor` for normal completion gates; use this skill when the task needs broader threat modeling or the user explicitly asks for a deeper security audit.
 
+The original imported upstream skill is preserved at [references/upstream-skill.md](references/upstream-skill.md). Read it when auditing what changed from upstream or when a broad vendor/framework capability list is useful.
+
 ## Workflow
 
 1. Confirm authorization, scope, environment, and any no-go tests before scanning or probing.

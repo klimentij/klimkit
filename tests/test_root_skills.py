@@ -165,6 +165,7 @@ class RootSkillTests(unittest.TestCase):
         for skill_name in imported:
             with self.subTest(skill_name=skill_name):
                 self.assertIn(skill_name, notice)
+                self.assertTrue((SKILLS / skill_name / "references" / "upstream-skill.md").exists())
                 self.assertFalse((SKILLS / skill_name / "references" / "upstream.md").exists())
 
     def test_readme_and_skills_exclude_deferred_issue_scope(self) -> None:

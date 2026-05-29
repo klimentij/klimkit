@@ -3,6 +3,7 @@
 Durable preferences, corrections, and process rules. Add dated one-sentence memories.
 
 ## Memories
+- 2026-05-29: When adapting third-party skills, preserve the original upstream `SKILL.md` and bundled resources inside the skill folder as references/assets/scripts even if the active Klimkit `SKILL.md` is rewritten.
 
 - 2026-05-29: TDD should be the default required implementation style in `klimkit-implement`; final-review subagent use should be limited to one or two scoped fresh reviewers.
 - 2026-05-29: Klimkit should move old global `AGENTS.md` implementation workflow into root skills, with intermediate roles as inline skills and only final review preferring fresh subagents.

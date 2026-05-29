@@ -85,7 +85,7 @@ The root `skills/` package is the product:
 - `klimkit-impeccable`: high-craft frontend design workflow adapted from `pbakaus/impeccable`.
 - `klimkit-antigravity-security-auditor`: broad security-audit lens adapted from `sickn33/antigravity-awesome-skills`.
 
-Adapted third-party skills are attributed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). See `.klimkit/tasks/15-third-party-skill-imports/01-a-proposed-edits.md` for the safety review and original polish plan.
+Adapted third-party skills are attributed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Their original upstream `SKILL.md` entrypoints are preserved under each imported skill's `references/upstream-skill.md`, with bundled upstream references/scripts/assets kept in the skill folders for progressive disclosure. See `.klimkit/tasks/15-third-party-skill-imports/01-a-proposed-edits.md` for the safety review and original polish plan.
 
 Issue trackers, project boards, triage, and tracker control-plane skills are intentionally out of scope for this first skills-only version.
 

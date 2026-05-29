@@ -7,6 +7,8 @@ description: Browser automation for Klimkit UI work. Use when Codex needs to ope
 
 Use this skill for browser-facing proof inside Klimkit workflows. It wraps the upstream `agent-browser` tool with Klimkit evidence rules.
 
+The original imported upstream entrypoint is preserved at [references/upstream-skill.md](references/upstream-skill.md). Offline snapshots of upstream CLI skill guidance are preserved as `references/upstream-*.md`; use them only when the installed CLI cannot provide current `agent-browser skills get ...` output.
+
 ## Workflow
 
 1. Define the browser goal and the evidence needed before starting.
