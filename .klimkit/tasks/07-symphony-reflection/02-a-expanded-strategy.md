@@ -24,39 +24,39 @@ External sources checked on 2026-05-22:
 
 Klimkit sources read:
 
-- `/home/ubuntu/klimkit/.klimkit/tasks/07-symphony-reflection/01-a-research-reflection.md`
-- `/home/ubuntu/klimkit/.klimkit/memory.md`
-- `/home/ubuntu/klimkit/.klimkit/log.md`
-- `/home/ubuntu/klimkit/.klimkit/reflection.md`
-- `/home/ubuntu/klimkit/README.md`
-- `/home/ubuntu/klimkit/src/README.md`
-- `/home/ubuntu/klimkit/src/klimkit/tools/supervisor/README.md`
-- `/home/ubuntu/klimkit/src/klimkit/apps/switchboard/README.md`
-- `/home/ubuntu/klimkit/src/klimkit/apps/switchboard/spec.md`
+- `<repo-root>/.klimkit/tasks/07-symphony-reflection/01-a-research-reflection.md`
+- `<repo-root>/.klimkit/memory.md`
+- `<repo-root>/.klimkit/log.md`
+- `<repo-root>/.klimkit/reflection.md`
+- `<repo-root>/README.md`
+- `<repo-root>/src/README.md`
+- `<repo-root>/src/klimkit/tools/supervisor/README.md`
+- `<repo-root>/src/klimkit/apps/switchboard/README.md`
+- `<repo-root>/src/klimkit/apps/switchboard/spec.md`
 
-Klimkipedia and Klimki sources read:
+operator knowledge base and knowledge-base sources read:
 
-- `/home/ubuntu/klimkipedia/raw/README.md`
-- `/home/ubuntu/klimkipedia/wiki/index.md`
-- `/home/ubuntu/klimkipedia/wiki/log.md`
-- `/home/ubuntu/klimkipedia/wiki/agentic-engineering/index.md`
-- `/home/ubuntu/klimkipedia/wiki/agentic-engineering/journey.md`
-- `/home/ubuntu/klimkipedia/wiki/agentic-engineering/concepts/agent-control-plane.md`
-- `/home/ubuntu/klimkipedia/wiki/agentic-engineering/concepts/worktree-oriented-supervision.md`
-- `/home/ubuntu/klimkipedia/wiki/agentic-engineering/concepts/hybrid-code-retrieval.md`
-- `/home/ubuntu/klimkipedia/wiki/agentic-engineering/summaries/solo-agentic-product-stack-2026.md`
-- `/home/ubuntu/klimkipedia/wiki/agentic-engineering/syntheses/control-plane-beside-the-ide.md`
-- `/home/ubuntu/klimkipedia/wiki/agentic-engineering/questions/same-feature-parallel-agents.md`
-- `/home/ubuntu/klimkipedia/wiki/knowledge-bases/summaries/klimkipedia-operating-model.md`
-- `/home/ubuntu/klimkipedia/raw/other/2026/04/08/2026-04-08-2026-04-08-agentic-engineering-tooling-journey-memo-2ee25b58.md`
-- `/home/ubuntu/klimkipedia/raw/other/2026/04/08/2026-04-08-2026-04-08t23-37-09z-kp-ingest-input-f8333090.md`
-- `/home/ubuntu/klimkipedia/raw/other/2026/04/08/2026-04-08-output-7-e91539bf.md`
-- `/home/ubuntu/klimkipedia/raw/other/2026/04/08/2026-04-08-output-8500e58d.md`
-- `/home/ubuntu/klimki/src/experiments/sqlite_fts/README.md`
-- `/home/ubuntu/klimki/src/experiments/qmd/README.md`
-- `/home/ubuntu/klimki/src/backend/qmd_service.py`
-- `/home/ubuntu/klimki/src/backend/qmd_worker.mjs`
-- `/home/ubuntu/klimki/src/site/README.md`
+- `<knowledge-base-repo>/raw/README.md`
+- `<knowledge-base-repo>/wiki/index.md`
+- `<knowledge-base-repo>/wiki/log.md`
+- `<knowledge-base-repo>/wiki/agentic-engineering/index.md`
+- `<knowledge-base-repo>/wiki/agentic-engineering/journey.md`
+- `<knowledge-base-repo>/wiki/agentic-engineering/concepts/agent-control-plane.md`
+- `<knowledge-base-repo>/wiki/agentic-engineering/concepts/worktree-oriented-supervision.md`
+- `<knowledge-base-repo>/wiki/agentic-engineering/concepts/hybrid-code-retrieval.md`
+- `<knowledge-base-repo>/wiki/agentic-engineering/summaries/solo-agentic-product-stack-2026.md`
+- `<knowledge-base-repo>/wiki/agentic-engineering/syntheses/control-plane-beside-the-ide.md`
+- `<knowledge-base-repo>/wiki/agentic-engineering/questions/same-feature-parallel-agents.md`
+- `<knowledge-base-repo>/wiki/knowledge-bases/summaries/operator knowledge base-operating-model.md`
+- `<knowledge-base-repo>/raw/other/2026/04/08/2026-04-08-2026-04-08-agentic-engineering-tooling-journey-memo-2ee25b58.md`
+- `<knowledge-base-repo>/raw/other/2026/04/08/2026-04-08-2026-04-08t23-37-09z-kp-ingest-input-f8333090.md`
+- `<knowledge-base-repo>/raw/other/2026/04/08/2026-04-08-output-7-e91539bf.md`
+- `<knowledge-base-repo>/raw/other/2026/04/08/2026-04-08-output-8500e58d.md`
+- `<knowledge-base-repo>/src/experiments/sqlite_fts/README.md`
+- `<knowledge-base-repo>/src/experiments/qmd/README.md`
+- `<knowledge-base-repo>/src/backend/qmd_service.py`
+- `<knowledge-base-repo>/src/backend/qmd_worker.mjs`
+- `<knowledge-base-repo>/src/site/README.md`
 
 ## What Symphony Changes
 
@@ -74,7 +74,7 @@ The missing layer is not "more tabs." It is eligibility, claiming, dependency or
 
 ## Klim's Trajectory Across The Years
 
-The Klimkipedia journey map shows that this direction did not start with Symphony:
+The operator knowledge base journey map shows that this direction did not start with Symphony:
 
 | Period | Operating mode | Main constraint discovered |
 | --- | --- | --- |
@@ -92,7 +92,7 @@ This also reframes the same-feature parallel-agents question. In April, the open
 
 ## Raw Folder And Index Findings
 
-Klimkipedia's `raw/` is large enough that "just grep it" remains useful but is no longer enough as the only long-term interface.
+operator knowledge base's `raw/` is large enough that "just grep it" remains useful but is no longer enough as the only long-term interface.
 
 Observed local corpus state:
 
@@ -122,7 +122,7 @@ The best next search layer is not a pure vector database. It should be a staged 
 4. **Transcript-noise controls.** Index assistant/user/tool/thought sections separately. Default user-facing search should demote thoughts, raw tool dumps, and repetitive web captures; forensic search can opt into them.
 5. **Telegram extraction.** Do not index Telegram HTML dumps or `__MACOSX` files as raw text. Parse `result.json` into message-level records with chat, date, sender, reply/media metadata, and privacy filters. Media OCR/transcription can be a later opt-in layer.
 6. **Hybrid recall, not vector mysticism.** Add QMD/sqlite-vec embeddings for wiki pages and selected raw chunks after lexical candidate generation. Use semantic retrieval for paraphrase recall and rerank the top candidates, not as the only source of truth.
-7. **Agent context packs.** For Symphony-like work items, the orchestrator should query Klimkipedia before dispatch and attach a small context pack to the `.klimkit/tasks/<item>/` folder: canonical pages, relevant raw snippets, prior related tasks, and known preferences.
+7. **Agent context packs.** For Symphony-like work items, the orchestrator should query operator knowledge base before dispatch and attach a small context pack to the `.klimkit/tasks/<item>/` folder: canonical pages, relevant raw snippets, prior related tasks, and known preferences.
 8. **Search observability.** Record queries, selected hits, opened files, and misses into a local search log. The current wiki log already shows that misses are valuable: they reveal when canonical pages, indexes, or search ranking need maintenance.
 
 Concrete implementation path:
@@ -176,7 +176,7 @@ The better shape is repo-local canonical issues plus aggregated views:
 
 For Klim personally, split aggregate boards by trust boundary:
 
-- one personal/Klim operator board for Klimkit, Klimkipedia, personal systems, and experiments;
+- one personal/Klim operator board for Klimkit, operator knowledge base, personal systems, and experiments;
 - one board per company/product group where access and confidentiality differ;
 - no cross-company board unless it stores only links or intentionally public/meta tasks.
 
@@ -195,7 +195,7 @@ Core components:
 - `Workspace manager`: creates one worktree per work item, maps item ID to path, branch, code-server URL, app ports, and proof/report paths.
 - `Agent runner`: launches Codex app-server or terminal/IDE-mode sessions with the repo harness and a generated work-item prompt.
 - `Evidence writer`: creates/updates `.klimkit/tasks/<item>/` with prompt, checklist, status, run log, proof links, PR links, and final handoff packet.
-- `Context packer`: queries Klimkipedia/repo docs/GitHub history and writes a bounded context bundle before agent dispatch.
+- `Context packer`: queries operator knowledge base/repo docs/GitHub history and writes a bounded context bundle before agent dispatch.
 - `Switchboard integration`: adds an orchestration view beside current workspace tabs: queued, running, blocked, human-review, rework, merging, done.
 - `Safety boundary`: starts with Human Review as the terminal success state. Merge automation comes later, after the dispatch/retry/proof loop is boring.
 
@@ -223,7 +223,7 @@ Milestones:
 
 ## Executive Vision Paragraph
 
-Klimkit should become the operator-owned Symphony for a solo builder and small trusted teams: a local-first orchestration layer where GitHub issues, repo-local `.klimkit` tasks, and eventually Linear tickets become runnable work items; Klimkit claims eligible work, creates isolated worktrees and app surfaces, launches Codex with repo-specific harnesses and Klimkipedia context packs, tracks blocker DAGs and run state in Switchboard, and returns proof-rich human-review packets instead of asking Klim to babysit sessions. The implementation should start with GitHub Issues plus optional GitHub Projects because that keeps work beside code, PRs, CI, permissions, and fork-first open-source adoption, while preserving an adapter boundary for Linear where its project-management ergonomics are genuinely useful. The structural bet is not one giant issue repo or dozens of isolated Kanban boards, but repo-local canonical issues aggregated into company/product-level orchestration views, with `.klimkit/tasks` remaining the durable evidence spine and Human Review as the first autonomy ceiling.
+Klimkit should become the operator-owned Symphony for a solo builder and small trusted teams: a local-first orchestration layer where GitHub issues, repo-local `.klimkit` tasks, and eventually Linear tickets become runnable work items; Klimkit claims eligible work, creates isolated worktrees and app surfaces, launches Codex with repo-specific harnesses and operator knowledge base context packs, tracks blocker DAGs and run state in Switchboard, and returns proof-rich human-review packets instead of asking Klim to babysit sessions. The implementation should start with GitHub Issues plus optional GitHub Projects because that keeps work beside code, PRs, CI, permissions, and fork-first open-source adoption, while preserving an adapter boundary for Linear where its project-management ergonomics are genuinely useful. The structural bet is not one giant issue repo or dozens of isolated Kanban boards, but repo-local canonical issues aggregated into company/product-level orchestration views, with `.klimkit/tasks` remaining the durable evidence spine and Human Review as the first autonomy ceiling.
 
 ## Decision Recommendation
 

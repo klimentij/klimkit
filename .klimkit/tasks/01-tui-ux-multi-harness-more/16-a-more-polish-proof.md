@@ -49,10 +49,10 @@ Second follow-up paragraph added to `15-h-more-polish.md`:
   - Added `kk code-server capture` so the source VM can tune code-server once, capture the profile into the repo, commit, and let other VMs sync it with `kk pull`.
 
 - `templates/code-server/User/settings.json`
-  - Captured ODev's current code-server settings, including `workbench.colorTheme = "Dark 2026"`, `editor.minimap.enabled = false`, and `security.workspace.trust.enabled = false`.
+  - Captured dev VM's current code-server settings, including `workbench.colorTheme = "Dark 2026"`, `editor.minimap.enabled = false`, and `security.workspace.trust.enabled = false`.
 
 - `templates/code-server/extensions.txt`
-  - Captured the four installed ODev extension IDs: `doonfrs.terminal-paste-image-vscode`, `humanrace-ai.claude-paste-ssh`, `openai.chatgpt`, and `tamasfe.even-better-toml`.
+  - Captured the four installed dev VM extension IDs: `doonfrs.terminal-paste-image-vscode`, `humanrace-ai.claude-paste-ssh`, `openai.chatgpt`, and `tamasfe.even-better-toml`.
 
 - `src/klimkit/apps/switchboard/static/app.js`
   - Filters archived tabs out of the main tab bar.
@@ -128,7 +128,7 @@ Local plan applied.
   actions    29
   changed    1
 ...
-  live       Codex projection: /home/ubuntu/.codex
+  live       Codex projection: <codex-home>
 ```
 
 Confirmed `packs/codex/hooks/stop-notify.sh` matches `~/.codex/hooks/stop-notify.sh` after projection.
@@ -201,7 +201,7 @@ OK (skipped=1)
 $ uv run kk code-server capture
 Klimkit / code-server
 Managed profile captured.
-  repo       /home/ubuntu/klimkit
+  repo       <repo-root>
   user       settings.json, keybindings.json
   extensions 4
 ```
@@ -244,7 +244,7 @@ Local plan applied.
   changed    2
 ...
   ran        install code-server managed profile extensions (4)
-  live       code-server settings: /home/ubuntu/.local/share/code-server/User/settings.json
+  live       code-server settings: <code-server-data>/User/settings.json
 ```
 
 Browser QA:
@@ -260,7 +260,7 @@ Archived-hidden tab-bar QA:
 
 - Started a temporary Switchboard server at `http://127.0.0.1:4878/switchboard/`.
 - Seeded one active local tab and one archived local tab in browser `localStorage`.
-- Confirmed the tab bar rendered only `active @ odev` with `tabCount = 1` and `archivedTabVisible = false`.
+- Confirmed the tab bar rendered only `active @ dev-vm` with `tabCount = 1` and `archivedTabVisible = false`.
 - Opened the catalog with `showArchived = true` and confirmed both active and archived rows were present in the dialog.
 - Screenshot: `16-a-switchboard-archived-hidden-tabbar-proof.png`.
 

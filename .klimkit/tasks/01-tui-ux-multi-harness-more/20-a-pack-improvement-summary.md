@@ -127,11 +127,11 @@ Klimkit / apply
 Local plan applied.
   actions    31
   changed    5
-  live       Codex projection: /home/ubuntu/.codex
+  live       Codex projection: <codex-home>
 ```
 
 ```text
-$ ls -1 /home/ubuntu/.codex/agents | sort
+$ ls -1 <codex-home>/agents | sort
 checklister.toml
 code-explorer.toml
 code-reviewer.toml

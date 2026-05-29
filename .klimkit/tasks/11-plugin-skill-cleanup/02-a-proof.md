@@ -27,7 +27,7 @@
 ## Validation
 
 ```text
-for skill in plugins/klimkit/skills/*; do python3 /home/ubuntu/.codex/skills/.system/skill-creator/scripts/quick_validate.py "$skill"; done
+for skill in plugins/klimkit/skills/*; do python3 <codex-home>/skills/.system/skill-creator/scripts/quick_validate.py "$skill"; done
 Skill is valid!
 Skill is valid!
 Skill is valid!
@@ -36,8 +36,8 @@ Skill is valid!
 ```
 
 ```text
-python3 /home/ubuntu/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py /home/ubuntu/klimkit/plugins/klimkit
-Plugin validation passed: /home/ubuntu/klimkit/plugins/klimkit
+python3 <codex-home>/skills/.system/plugin-creator/scripts/validate_plugin.py <repo-root>/plugins/klimkit
+Plugin validation passed: <repo-root>/plugins/klimkit
 ```
 
 ```text

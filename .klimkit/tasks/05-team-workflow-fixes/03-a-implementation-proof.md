@@ -186,21 +186,21 @@ http://127.0.0.1:4879/reports/
 http://127.0.0.1:4880/reports/
 ```
 
-Tailscale DNS is available as `odev.tail11c448.ts.net`; the stable report handoff URL is expected under:
+Tailscale DNS is available as `dev-vm.example-tailnet.ts.net`; the stable report handoff URL is expected under:
 
 ```text
-https://odev.tail11c448.ts.net/reports/
-https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/05-team-workflow-fixes/report.html
+https://dev-vm.example-tailnet.ts.net/reports/
+https://dev-vm.example-tailnet.ts.net/reports/r/klimkit-dc70a74e9a/05-team-workflow-fixes/report.html
 ```
 
 The flattened report URL was verified after removing operator-scoped committed evidence:
 
 ```text
-curl -I -sS https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/05-team-workflow-fixes/report.html
+curl -I -sS https://dev-vm.example-tailnet.ts.net/reports/r/klimkit-dc70a74e9a/05-team-workflow-fixes/report.html
 HTTP/2 200
 content-type: text/html; charset=utf-8
 
-curl -I -sS https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/@Klim/05-team-workflow-fixes/report.html
+curl -I -sS https://dev-vm.example-tailnet.ts.net/reports/r/klimkit-dc70a74e9a/@Klim/05-team-workflow-fixes/report.html
 HTTP/2 404
 ```
 

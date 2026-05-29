@@ -1177,7 +1177,7 @@ class KlimkitInstallTests(unittest.TestCase):
         checked_roots = [ROOT / "packs", ROOT / "templates"]
         private_tokens = [
             "/home/" + "ubuntu",
-            "tail11" + "c448",
+            "private-tailnet" + "c448",
             "od" + "ev",
             "op" + "rod",
             "klimki" + "pedia",

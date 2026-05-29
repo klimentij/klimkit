@@ -1,14 +1,14 @@
 # Reflection Workflow Acceptance Checklist
 
 Human request: implement Klim's requested reflection workflow standard into the shared Codex harness pack.
-Context source: `/home/ubuntu/klimkipedia/.klimkit/reflection.md`.
+Context source: `<knowledge-base-repo>/.klimkit/reflection.md`.
 Created by: checklister.
 
 ## Acceptance Checklist
 
 ### Scope And Source Control
 
-- [ ] The implementation reads `/home/ubuntu/klimkipedia/.klimkit/reflection.md` and records the relevant source boundary in the task proof or implementation notes.
+- [ ] The implementation reads `<knowledge-base-repo>/.klimkit/reflection.md` and records the relevant source boundary in the task proof or implementation notes.
 - [ ] Shared Codex behavior is edited only through source pack files under `packs/codex/`; no generated files under `~/.codex/` are edited directly.
 - [ ] The final implementation keeps the existing memory/log/task responsibilities distinct: log records actions, memory records durable rules, and reflection records non-obvious synthesis.
 

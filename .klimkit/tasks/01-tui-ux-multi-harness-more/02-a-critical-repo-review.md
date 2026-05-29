@@ -320,7 +320,7 @@ Plan implication:
 Evidence:
 
 - `.klimkit/memory.md` and `.klimkit/log.md` exist in the working tree and are currently empty
-- `~/klimkipedia/projects/AGENTS.md` provides a clear convention for memory and log files
+- `<knowledge-base-repo>/projects/AGENTS.md` provides a clear convention for memory and log files
 - The current Codex pack guidance does not yet teach the local `.klimkit/` convention
 
 Ambiguity:

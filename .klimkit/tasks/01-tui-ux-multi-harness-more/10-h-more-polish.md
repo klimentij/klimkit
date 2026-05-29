@@ -19,7 +19,7 @@ when i send msg to codex, for some reason status becomes plannign - incorrect, i
 
   switchboard.agent is for satellite/client VMs. A second VM would
   set switchboard.agent.enabled = true and backend_url =
-  "https://odev.../switchboard" so it reports its sessions into th
+  "https://dev-vm.../switchboard" so it reports its sessions into th
   is central Switchboard. This central VM does not need to report
   to itself.
 

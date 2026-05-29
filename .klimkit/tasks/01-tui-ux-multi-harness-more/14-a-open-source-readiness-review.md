@@ -14,7 +14,7 @@ Klimkit has a coherent product direction, strong operational docs for the intend
 
 The latest work improved production behavior in areas that mattered for the current task:
 
-- Switchboard now preserves `new`, `working`, `ask`, `done`, and `seen` state across server/client machine identity differences such as `MacBook-Air-8.local` vs `MacBook-Air-8`.
+- Switchboard now preserves `new`, `working`, `ask`, `done`, and `seen` state across server/client machine identity differences such as `Workstation-8.local` vs `Workstation-8`.
 - Client attention events now trigger server-side Telegram fanout for completed and input-needed sessions, with deduplication.
 - Browser notifications were manually QA-tested through an injected notification capture harness.
 - `packs/codex/` no longer hardcodes the human operator's name. Harness files can use `__HUMAN_NAME__`, projected from `[operator].human_name`, defaulting to `Human`.
@@ -168,7 +168,7 @@ Recommendation:
 
 Evidence:
 
-- Tests include fixture values such as `tail11c448`, `odev`, `MacBook-Air-8`, and `/Users/klim`.
+- Tests include fixture values such as `example-tailnet`, `dev-vm`, `Workstation-8`, and `/Users/operator`.
 
 Assessment:
 
@@ -234,8 +234,8 @@ The repo's core risk is intentional agency: Codex can be configured for broad fi
 
 Manual browser QA was completed against the live Switchboard at `http://127.0.0.1:4721/switchboard/` with two machines:
 
-- `odev`
-- `MacBook-Air-8.local`, merged with server events from `MacBook-Air-8`
+- `dev-vm`
+- `Workstation-8.local`, merged with server events from `Workstation-8`
 
 The later status QA used synthetic sessions under `/tmp/klimkit-qa/20260504124758/` and captured browser notification calls in-page because headless Chrome cannot show OS notification toasts in a screenshot. The `NEW` proof screenshot was recaptured with fresh manual tabs under `/tmp/klimkit-qa/new-proof/` after final-review feedback found that the original first screenshot was taken before tabs rendered.
 

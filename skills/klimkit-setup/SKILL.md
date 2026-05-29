@@ -32,7 +32,7 @@ Use this when a repository needs the Klimkit evidence layout and skill routing m
 8. Add a short repo instruction block only if the repo lacks one. Prefer updating existing `AGENTS.md` over inventing a second instruction file.
 9. Add or update lightweight context docs when useful:
    - `docs/agents/domain.md` for project language and invariants.
-10. Recommend relevant Klimkit skills by name in the repo instructions: `klimkit-implement`, `klimkit-diagnose`, `klimkit-tdd`, `klimkit-walkthrough`, `klimkit-report-server`, and `klimkit-worktree-stack`.
+10. Recommend relevant Klimkit skills by name in the repo instructions: `klimkit-implement`, `klimkit-diagnose`, `klimkit-tdd`, `klimkit-walkthrough`, `klimkit-report-server`, and `klimkit-create-worktree`.
 11. Verify that new docs do not expose secrets, machine-local paths, private repo names, or local runtime state.
 
 ## Boundaries

@@ -19,13 +19,12 @@ EXPECTED_SKILLS = {
     "klimkit-tdd",
     "klimkit-report-server",
     "klimkit-walkthrough",
-    "klimkit-worktree-stack",
+    "klimkit-create-worktree",
     "klimkit-agent-browser",
     "klimkit-web-design-guidelines",
     "klimkit-ui-ux-pro-max",
     "klimkit-improve-codebase-architecture",
     "klimkit-impeccable",
-    "klimkit-antigravity-security-auditor",
 }
 
 REMOVED_SCOPE_TERMS = (
@@ -59,7 +58,6 @@ class RootSkillTests(unittest.TestCase):
         "klimkit-ui-ux-pro-max",
         "klimkit-improve-codebase-architecture",
         "klimkit-impeccable",
-        "klimkit-antigravity-security-auditor",
     }
 
     def test_root_contains_only_skills_first_package(self) -> None:
@@ -120,6 +118,29 @@ class RootSkillTests(unittest.TestCase):
         self.assertIn(".klimkit/<operator>/tasks/", grill)
         self.assertIn("Approved decision:", grill)
 
+    def test_create_worktree_includes_deterministic_script_contract(self) -> None:
+        skill_dir = SKILLS / "klimkit-create-worktree"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        reference = (skill_dir / "references" / "create-worktree.md").read_text(
+            encoding="utf-8"
+        )
+
+        for script_name in ("create_worktree.sh", "worktree_lib.sh"):
+            with self.subTest(script_name=script_name):
+                script = skill_dir / "scripts" / script_name
+                self.assertTrue(script.exists())
+                self.assertTrue(script.stat().st_mode & 0o111)
+
+        for phrase in (
+            "If The Request Is Ambiguous",
+            "--sync-from main",
+            "--push-base",
+            "--dry-run",
+            "${KLIMKIT_WORKTREE_ROOT:-$HOME/wt}",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, skill + "\n" + reference)
+
     def test_implement_routes_old_subagent_roles_to_skills(self) -> None:
         implement = (SKILLS / "klimkit-implement" / "SKILL.md").read_text(encoding="utf-8")
 
@@ -139,7 +160,7 @@ class RootSkillTests(unittest.TestCase):
         expected_phrases = {
             "klimkit-checklister": "Acceptance Checklist",
             "klimkit-code-explorer": "Trace the execution path",
-            "klimkit-security-auditor": "plausible abuse path",
+            "klimkit-security-auditor": "SSRF and network access",
             "klimkit-reflector": "### YYYY-MM-DDTHH:MM:SSZ",
             "klimkit-final-reviewer": "READY FOR USER",
         }

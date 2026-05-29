@@ -21,7 +21,7 @@
   test could start codex cli and check if codex shows any yellow
   warnings (websearch its docs, maybe it can do it in non-
   interactive mode). i saw it shows warning when skills /subagents
-  were not correctly formatted etc. also pull ~/klimkipedia - see
+  were not correctly formatted etc. also pull <knowledge-base-repo> - see
   in projects section there's log and memory files and agent md
   explaining how to use them. add the section to agents md in our
   pack. i want agent to create log and memory.md in repo root, mb

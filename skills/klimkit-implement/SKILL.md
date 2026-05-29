@@ -27,7 +27,7 @@ Use this as the skills-first replacement for the old global `AGENTS.md` implemen
    - Use `klimkit-checklister` before code changes for implementation work.
    - Treat the checklist as blocking unless the user changes scope.
 4. **Implement**
-   - Choose the narrow method skill when helpful: `klimkit-diagnose`, `klimkit-tdd`, `klimkit-walkthrough`, `klimkit-report-server`, or `klimkit-worktree-stack`.
+   - Choose the narrow method skill when helpful: `klimkit-diagnose`, `klimkit-tdd`, `klimkit-walkthrough`, `klimkit-report-server`, or `klimkit-create-worktree`.
    - Keep edits surgical and aligned with existing repo style.
    - Do not route new work through deprecated runtime, Switchboard, sync scripts, or plugin machinery unless explicitly maintaining legacy code.
    - If a task asks to migrate old Klimkit runtime behavior into skills, make the target skill own any reference scripts, templates, and setup instructions it needs.

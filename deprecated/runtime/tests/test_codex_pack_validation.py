@@ -447,7 +447,7 @@ class CodexPluginValidationTests(unittest.TestCase):
             "Local developer",
             "PRIVATE_REPO_NAME",
             "PRIVATE_BRANCH_NAME",
-            "tail11",
+            "private-tailnet",
         )
         for path in sorted(PLUGIN_ROOT.rglob("*")):
             if not path.is_file():

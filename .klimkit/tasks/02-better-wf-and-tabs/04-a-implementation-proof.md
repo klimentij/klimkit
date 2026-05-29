@@ -15,8 +15,8 @@ Timestamp: 2026-05-08T09:58:05Z
 
 ## Proof URLs
 
-- Tailnet proof report: `https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/02-better-wf-and-tabs/report.html`
-- Tailnet reports index: `https://odev.tail11c448.ts.net/reports/`
+- Tailnet proof report: `https://dev-vm.example-tailnet.ts.net/reports/r/klimkit-dc70a74e9a/02-better-wf-and-tabs/report.html`
+- Tailnet reports index: `https://dev-vm.example-tailnet.ts.net/reports/`
 - Local report path: `.klimkit/reports/02-better-wf-and-tabs/report.html`
 
 ## Verification
@@ -25,8 +25,8 @@ Timestamp: 2026-05-08T09:58:05Z
 - `uv run python -m unittest tests.test_codex_pack_validation tests.test_docs_static tests.test_switchboard -q` -> `Ran 53 tests in 8.194s`, `OK`.
 - `node --check src/klimkit/apps/switchboard/static/app.js` -> passed.
 - `git diff --check` -> passed.
-- `uv run kk apply` with user DBus environment -> projected updated Codex workflow files, configured Tailscale Serve for code-server, Switchboard, and Klimkit reports; restarted `klimkit.service`; printed `Proof reports: https://odev.tail11c448.ts.net/reports/`.
-- `curl -k -I https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/02-better-wf-and-tabs/report.html` -> `HTTP/2 200`, `content-type: text/html; charset=utf-8`.
+- `uv run kk apply` with user DBus environment -> projected updated Codex workflow files, configured Tailscale Serve for code-server, Switchboard, and Klimkit reports; restarted `klimkit.service`; printed `Proof reports: https://dev-vm.example-tailnet.ts.net/reports/`.
+- `curl -k -I https://dev-vm.example-tailnet.ts.net/reports/r/klimkit-dc70a74e9a/02-better-wf-and-tabs/report.html` -> `HTTP/2 200`, `content-type: text/html; charset=utf-8`.
 - Browser-opened tailnet proof report -> 15 full-width image sections, 2 playable MP4 videos, durations 129s and 6s, with all video sources under the tailnet report route.
 - Browser layout check -> single-column screenshot/video grid, first media figures 1183px wide in a 1265px main viewport.
 - Browser seek check -> both report MP4s expose full seekable ranges (`0..129` and `0..6`) and successfully seek to `currentTime = 3`.

@@ -55,7 +55,7 @@ expected = {
     "klimkit-tdd",
     "klimkit-report-server",
     "klimkit-walkthrough",
-    "klimkit-worktree-stack",
+    "klimkit-create-worktree",
 }
 data = json.loads(Path("/tmp/skills.json").read_text())
 installed = {item["name"] for item in data}

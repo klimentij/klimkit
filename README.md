@@ -69,7 +69,7 @@ The root `skills/` package is the product:
 - `klimkit-setup`: operator discovery, `.klimkit/<operator>/` setup, config state, and repo context pointers.
 - `klimkit-checklister`: blocking pass/fail acceptance checklists before implementation.
 - `klimkit-code-explorer`: read-only execution-path tracing before edits.
-- `klimkit-security-auditor`: focused auth, secrets, data exposure, sandbox, and infra review.
+- `klimkit-security-auditor`: focused auth, secrets, data exposure, sandbox, infra, DevSecOps, data-flow, and compliance review.
 - `klimkit-reflector`: concise cross-task reflection after verification.
 - `klimkit-final-reviewer`: fresh-context final acceptance review, designed for the final subagent gate.
 - `klimkit-grill-me`: one-question-at-a-time plan interrogation with short decision tracking in `.klimkit/<operator>/tasks/`.
@@ -77,13 +77,12 @@ The root `skills/` package is the product:
 - `klimkit-tdd`: narrow red-green-refactor loops with proof.
 - `klimkit-report-server`: local/Tailscale serving checks for operator-scoped proof reports.
 - `klimkit-walkthrough`: static HTML walkthrough reports with media and redaction checks.
-- `klimkit-worktree-stack`: isolated branch worktrees for parallel agent work.
+- `klimkit-create-worktree`: deterministic isolated Git worktrees for parallel agent work, including dev-from-main sync flows.
 - `klimkit-agent-browser`: imported via Vercel Skills CLI from `vercel-labs/agent-browser`.
 - `klimkit-web-design-guidelines`: imported via Vercel Skills CLI from `vercel-labs/agent-skills`.
 - `klimkit-ui-ux-pro-max`: imported via Vercel Skills CLI from `nextlevelbuilder/ui-ux-pro-max-skill`.
 - `klimkit-improve-codebase-architecture`: imported via Vercel Skills CLI from `mattpocock/skills`.
 - `klimkit-impeccable`: imported via Vercel Skills CLI from `pbakaus/impeccable`.
-- `klimkit-antigravity-security-auditor`: imported via Vercel Skills CLI from `sickn33/antigravity-awesome-skills`; named with the source qualifier to avoid replacing Klimkit's existing `klimkit-security-auditor`.
 
 Issue trackers, project boards, triage, and tracker control-plane skills are intentionally out of scope for this first skills-only version.
 

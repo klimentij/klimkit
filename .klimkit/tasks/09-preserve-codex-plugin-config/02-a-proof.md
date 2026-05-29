@@ -24,11 +24,11 @@ Implemented Codex config projection preservation for VM-local TOML tables that s
 - `git diff --check`
   - Passed.
 - `./kk apply --skip-services`
-  - Passed on the current VM. It updated `/home/ubuntu/.codex/config.toml` on the first run, then reran cleanly after the security fix with no content changes and skipped service restarts.
+  - Passed on the current VM. It updated `<codex-home>/config.toml` on the first run, then reran cleanly after the security fix with no content changes and skipped service restarts.
 
 ## Live VM Boundary
 
-After `./kk apply --skip-services`, parsed `/home/ubuntu/.codex/config.toml` still contained both `github@openai-curated` and `slack@openai-curated`, with `slack@openai-curated` enabled. The file mode was `0600` after the security fix. The verification printed plugin names and boolean enablement only; no connector credentials or tokens were read into task proof.
+After `./kk apply --skip-services`, parsed `<codex-home>/config.toml` still contained both `github@openai-curated` and `slack@openai-curated`, with `slack@openai-curated` enabled. The file mode was `0600` after the security fix. The verification printed plugin names and boolean enablement only; no connector credentials or tokens were read into task proof.
 
 ## Notes
 

@@ -3,6 +3,7 @@
 Timestamped audit trail. Entries describe actions, not preferences.
 
 ## Log
+- 2026-05-29T10:04:51Z: Merged the imported Antigravity security-auditor checks into `klimkit-security-auditor` and removed the separate source-qualified skill copy.
 - 2026-05-29T09:49:20Z: Reverted the prior imported-skill sequence and re-imported the requested non-poisonous third-party skills through Vercel Skills CLI with only Klimkit name prefixes.
 2026-05-29T09:07:28Z: Folded the old `klimkit-workflow` skill into `klimkit-implement`, moved its artifact workflow reference, and removed the separate workflow skill from the root package.
 2026-05-29T09:06:04Z: Extracted the deprecated checklister, code explorer, security auditor, reflector, and final reviewer subagent roles into root skills and added `klimkit-implement` as the skills-first implementation workflow.
@@ -27,7 +28,7 @@ Timestamped audit trail. Entries describe actions, not preferences.
 2026-05-22T04:08:45Z: Pushed Klimkit marketing asset commit `f1eb323` to `origin/main`, created latest GitHub release `v0.1.9`, and verified the live GitHub README and Tailscale proof report.
 2026-05-22T04:03:14Z: Reworked README image optimization to higher-quality JPEGs, restored rejected noisy PNG edits, verified local README rendering, and prepared the marketing hygiene changes for GitHub main publication.
 2026-05-22T03:04:00Z: Added Klimkit README marketing hygiene, optimized README images, GitHub topics, a public-safe 7.5 hour run proof moment, a draft Show HN post, and browser proof evidence.
-2026-05-22T02:59:45Z: Expanded the Symphony reflection with Klimkipedia raw/index/search analysis, Klim's agentic-engineering trajectory, and a GitHub-first orchestration strategy for Klimkit.
+2026-05-22T02:59:45Z: Expanded the Symphony reflection with operator knowledge base raw/index/search analysis, Klim's agentic-engineering trajectory, and a GitHub-first orchestration strategy for Klimkit.
 2026-05-21T10:12:05Z: Created the `07-symphony-reflection` research task comparing OpenAI Symphony with Klimkit and evaluating GitHub Issues versus Linear for future orchestration.
 2026-05-08T09:58:05Z: Implemented the 02-better-wf-and-tabs workflow, reports daemon, Tab Browser drag ordering, browser QA proof report, and live Tailscale reports URL verification.
 2026-05-08T10:31:48Z: Updated the 02-better-wf-and-tabs proof report and shared workflow guidance to use full-width media and MP4 report videos for easier browser inspection.
@@ -45,12 +46,12 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-04T12:27:30Z: Fixed the Codex stop notification hook to be macOS Bash 3 compatible and fail open when optional hook dependencies are unavailable.
 - 2026-05-04T12:56:00Z: Implemented Switchboard client attention Telegram fanout, fixed local/server machine identity merging for status updates, added harness human-name templating, and verified multi-machine status transitions with browser screenshots.
 - 2026-05-04T12:57:00Z: Wrote the open-source readiness review for `01-tui-ux-multi-harness-more` with launch blockers, preparedness level, and QA evidence.
-- 2026-05-04T13:08:00Z: Recaptured the `NEW` status QA screenshot so both `odev` and `MacBook-Air-8.local` tabs are visibly in `NEW` state after final-review feedback.
+- 2026-05-04T13:08:00Z: Recaptured the `NEW` status QA screenshot so both `dev-vm` and `Workstation-8.local` tabs are visibly in `NEW` state after final-review feedback.
 - 2026-05-05T00:00:00Z: Added the v1 fork-first operator repo decision to the open-source readiness review.
 - 2026-05-06T00:41:20Z: Implemented Switchboard tmux-wrapped copy commands, manual tab archiving, clickable archive catalog checkboxes, and task proof for `15-h-more-polish`.
 - 2026-05-06T00:54:33Z: Formatted Switchboard Telegram attention messages, suppressed subagent completion Telegram notifications, and projected the updated Codex Stop hook with `kk apply --skip-services`.
 - 2026-05-06T03:41:35Z: Changed code-server user settings projection to seed defaults without overwriting local preferences during `kk pull` or autosync.
-- 2026-05-06T03:59:40Z: Added the managed code-server profile capture/sync flow, captured ODev code-server settings and extensions, hid archived Switchboard tabs from the tab bar, and updated the README install path to fork-first local install.
+- 2026-05-06T03:59:40Z: Added the managed code-server profile capture/sync flow, captured dev VM code-server settings and extensions, hid archived Switchboard tabs from the tab bar, and updated the README install path to fork-first local install.
 - 2026-05-06T04:22:37Z: Fixed Switchboard completion summaries that start with `What changed:`, explicit Tailscale Serve permission skips, and full done-message Telegram notification coverage.
 - 2026-05-06T04:32:26Z: Strengthened the done-message Telegram path from rollout parsing to notification delivery and documented Switchboard Chrome/PWA usage plus keyboard shortcuts.
 - 2026-05-06T04:42:33Z: Added configurable Switchboard loaded-tab retention with a default of five most-recently-used code-server tabs and documented the per-tab RAM tradeoff.
@@ -79,3 +80,5 @@ Timestamped audit trail. Entries describe actions, not preferences.
 - 2026-05-20T04:08:00Z: Added runtime stop-hook Telegram payload tests after final review found the broken embedded Python quoting path, fixed the projected hook, and reran the full suite.
 - 2026-05-26T04:14:27Z: Implemented Codex config projection preservation for VM-local plugin/connector tables, verified Slack stayed enabled after `kk apply --skip-services`, and ran focused plus full unit suites.
 - 2026-05-26T04:23:02Z: Fixed the Codex config preservation security review finding by projecting `~/.codex/config.toml` and its update backups with `0600`, then reran focused, supervisor, full unit, diff, and live apply checks.
+- 2026-05-29T10:17:05Z: Replaced the old worktree-stack skill with `klimkit-create-worktree`, including a deterministic bundled worktree creation script and dev-from-main sync guidance.
+- 2026-05-29T10:25:03Z: Scrubbed private project names, private tailnet suffixes, local home paths, and machine-specific worktree examples from the public skill/package surface.

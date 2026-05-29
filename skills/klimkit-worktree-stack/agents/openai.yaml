@@ -1,4 +1,0 @@
-interface:
-  display_name: "Klimkit Worktree Stack"
-  short_description: "Manage isolated worktree stacks"
-  default_prompt: "Use klimkit-worktree-stack to create or inspect an isolated branch worktree."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Create Worktree"
+  short_description: "Create isolated Git worktrees"
+  default_prompt: "Use klimkit-create-worktree to create a new isolated branch worktree."

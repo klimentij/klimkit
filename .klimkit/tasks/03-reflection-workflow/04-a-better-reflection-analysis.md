@@ -373,7 +373,7 @@ Ultra-compact variant for small tasks:
 
 **Signal:** Reflection is becoming the missing layer between task proof and final review: it captures cross-task learning that memory, log, and proof notes do not.
 
-**Sources:** Current reflection-workflow task, memory/log, Klimkipedia reflection pattern, representative tasks from `01-tui-ux-multi-harness-more` and `02-better-wf-and-tabs`, and the pack changes. Binary screenshots were noted as evidence, not read as text.
+**Sources:** Current reflection-workflow task, memory/log, operator knowledge base reflection pattern, representative tasks from `01-tui-ux-multi-harness-more` and `02-better-wf-and-tabs`, and the pack changes. Binary screenshots were noted as evidence, not read as text.
 
 **Connections:** Klimkit has been converging on a proof-contract pipeline: task notes -> checklists -> proof reports -> final reviewers -> synthesis. Memory stores durable rules; log records actions; reflection stores patterns and contradictions. A fresh-context reflector is useful because synthesis quality depends on context shape, not just more parent-agent attention.
 
@@ -390,7 +390,7 @@ Ultra-compact variant for small tasks:
 ### 2026-05-11 - 03-reflection-workflow
 
 **Facts**
-- Klimkipedia already uses a reflection file to capture synthesis separate from memory and log.
+- operator knowledge base already uses a reflection file to capture synthesis separate from memory and log.
 - Klimkit already uses task notes, acceptance checklists, proof artifacts, browser QA, and final reviewers.
 - The proposed harness change places reflection after verification and before final reviewers.
 - The new `reflector` agent is intended to read current task context plus wider `.klimkit/tasks/` history.
@@ -490,7 +490,7 @@ Use a concise Synthesis Ledger entry by default, with optional task-local deep n
 ```markdown
 ### 2026-05-11T10:32:51Z
 
-**Observations:** Across Klimkit tasks, memory/log, proof reports, final reviewers, and the Klimkipedia source pattern, the repo is repeatedly converting vague agent completion claims into reviewable artifacts.
+**Observations:** Across Klimkit tasks, memory/log, proof reports, final reviewers, and the operator knowledge base source pattern, the repo is repeatedly converting vague agent completion claims into reviewable artifacts.
 **Derived Pattern:** The emerging system is a proof-contract pipeline: checklist -> implementation -> verification -> proof -> synthesis -> final review -> user report.
 **Insight:** Reflection should not be a task recap; it should be the task-independent step that notices when multiple artifacts imply a reusable pattern, contradiction, or missing gate.
 **Next Probe:** Keep the global ledger to four timestamped lines per session, and move detailed source inventories or evidence into task-local notes.

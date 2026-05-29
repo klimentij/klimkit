@@ -92,9 +92,9 @@ XDG_RUNTIME_DIR=/run/user/$(id -u) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/
   enabled and restarted `klimkit.service`, sent Telegram apply summary, and
   reported live projections.
 - Tailscale reports URL from apply:
-  `https://odev.tail11c448.ts.net/reports/`.
+  `https://dev-vm.example-tailnet.ts.net/reports/`.
 - Projection check:
-  `rg -n "timestamped cross-task Reflection Log|Observations|Derived Pattern|up to ten named sections|new-format migrated" /home/ubuntu/.codex/...`
+  `rg -n "timestamped cross-task Reflection Log|Observations|Derived Pattern|up to ten named sections|new-format migrated" <codex-home>/...`
   found the new rules in projected `AGENTS.md`, `reflector`, `checklister`,
   `final-reviewer`, and `harness-tuning`.
 

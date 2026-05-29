@@ -37,9 +37,9 @@ Klimkit release.
 - `kk preview` -> 39 planned actions.
 - `XDG_RUNTIME_DIR=/run/user/$(id -u) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus kk apply` -> succeeded.
 - `kk apply` updated 9 live projected Codex files, reloaded the systemd user manager, enabled and restarted `klimkit.service`, sent a Telegram apply summary, and printed:
-  - Switchboard serve: `https://odev.tail11c448.ts.net/switchboard/`
-  - Proof reports: `https://odev.tail11c448.ts.net/reports/`
-- Projection check found the new best-practice rules in `/home/ubuntu/.codex/AGENTS.md`, role subagents, and `harness-tuning`.
+  - Switchboard serve: `https://dev-vm.example-tailnet.ts.net/switchboard/`
+  - Proof reports: `https://dev-vm.example-tailnet.ts.net/reports/`
+- Projection check found the new best-practice rules in `<codex-home>/AGENTS.md`, role subagents, and `harness-tuning`.
 - Service check with the same DBus environment -> `klimkit.service` is enabled and active.
 
 ## Reflection

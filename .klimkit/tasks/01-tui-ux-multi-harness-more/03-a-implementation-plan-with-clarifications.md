@@ -19,7 +19,7 @@ The requested work is not one feature. It is a cleanup of Klimkit's operator mod
 - move Klimkit state and config under `~/klimkit/.klimkit`
 - prepare pack installation for multiple agent harnesses while still supporting only Codex now
 - add strong tests, including optional live Codex startup smoke tests that catch malformed skills, agents, hooks, and config warnings without sending prompts
-- teach the Codex AGENTS pack about repo-local memory, logs, and task folders using the `~/klimkipedia/projects` convention as the model
+- teach the Codex AGENTS pack about repo-local memory, logs, and task folders using the `<knowledge-base-repo>/projects` convention as the model
 
 ## Current State
 
@@ -110,9 +110,9 @@ Example shape:
 
 [paths]
 # Repo checkout Klimkit should apply from.
-repo_root = "/home/ubuntu/klimkit"
+repo_root = "<repo-root>"
 # Runtime state directory for manifests, backups, DBs, and logs.
-state_dir = "/home/ubuntu/klimkit/.klimkit/state"
+state_dir = "<repo-root>/.klimkit/state"
 
 [components]
 # Client installs local agent harness assets and code-server support.
@@ -341,7 +341,7 @@ The generated file should contain plain comments beside the knobs users actually
 
 ## AGENTS Pack Plan
 
-Use `~/klimkipedia/projects/AGENTS.md` as the model, not as a verbatim copy.
+Use `<knowledge-base-repo>/projects/AGENTS.md` as the model, not as a verbatim copy.
 
 Add a section to `packs/codex/AGENTS.md` that says:
 

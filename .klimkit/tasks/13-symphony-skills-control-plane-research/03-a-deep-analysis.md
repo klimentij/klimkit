@@ -6,7 +6,7 @@ This is planning and research only. No adapted skills or production code were im
 
 Public sources inspected:
 
-- OpenAI Symphony local checkout: `/home/ubuntu/symphony`, branch `main`, commit `2c1851830477434100fdb8980fcc1fce1a8af81d`, clean at inspection time.
+- OpenAI Symphony local checkout: `<symphony-repo>`, branch `main`, commit `2c1851830477434100fdb8980fcc1fce1a8af81d`, clean at inspection time.
 - Symphony files read: `README.md`, `SPEC.md`, `elixir/README.md`, `elixir/WORKFLOW.md`, `elixir/AGENTS.md`, and `.codex/skills/{commit,debug,land,linear,pull,push}/SKILL.md`.
 - Prior Klimkit Symphony research: `.klimkit/tasks/07-symphony-reflection/01-a-research-reflection.md` and `.klimkit/tasks/07-symphony-reflection/02-a-expanded-strategy.md`.
 - Prior Matt Pocock skills analysis: `.klimkit/tasks/12-matt-skills-merge-plan/01-a-analysis-and-plan.md`.
@@ -26,7 +26,7 @@ What exists now:
 - GitHub Projects are the board/state surface.
 - Labels provide repo-visible fallback state.
 - `KK Status` provides richer orchestration state in the Project.
-- The first real Klimkipedia work item is on the board and has moved to human review.
+- The first real operator knowledge base work item is on the board and has moved to human review.
 
 What does not exist yet:
 

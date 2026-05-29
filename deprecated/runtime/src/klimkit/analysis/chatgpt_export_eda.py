@@ -147,7 +147,7 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
     (
         "deterministic_automation",
         [
-            "pantera",
+            "sample-project",
             "veridian",
             "alpha",
             "manhattan",

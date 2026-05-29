@@ -168,8 +168,8 @@
       <div class="status"><strong>Branch</strong><code>review/pr-1-dominik</code></div>
       <div class="status"><strong>Checklist</strong><code>.klimkit/tasks/05-team-workflow-fixes/01-a-acceptance-checklist.md</code></div>
       <div class="status"><strong>Proof Note</strong><code>.klimkit/tasks/05-team-workflow-fixes/03-a-implementation-proof.md</code></div>
-      <div class="status"><strong>Report Index</strong><code>https://odev.tail11c448.ts.net/reports/</code></div>
-      <div class="status"><strong>Direct Report</strong><code>https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/05-team-workflow-fixes/report.html</code></div>
+      <div class="status"><strong>Report Index</strong><code>https://dev-vm.example-tailnet.ts.net/reports/</code></div>
+      <div class="status"><strong>Direct Report</strong><code>https://dev-vm.example-tailnet.ts.net/reports/r/klimkit-dc70a74e9a/05-team-workflow-fixes/report.html</code></div>
     </div>
   </header>
 
@@ -177,7 +177,7 @@
     <h2>Why This Fix Exists</h2>
     <div class="story risk">
       <h3>The original PR got the direction right</h3>
-      <p>Dominik's PR turned `.klimkit` into a shared project evidence layer with per-operator write boundaries. That matches the Klimkipedia team-Klimkit discussion: useful task notes, logs, memories, reflections, and proof reports should compound across a team instead of dying on a single VM.</p>
+      <p>Dominik's PR turned `.klimkit` into a shared project evidence layer with per-operator write boundaries. That matches the operator knowledge base team-Klimkit discussion: useful task notes, logs, memories, reflections, and proof reports should compound across a team instead of dying on a single VM.</p>
       <p>The issue was not the idea. The issue was hardening the boundary so light team support does not make solo mode fragile or expose unintended files.</p>
     </div>
     <div class="story fix">
@@ -324,11 +324,11 @@ status traversal: 404
 status media range: 206 4
 2345</code></pre>
     <h3>Flattened proof URL</h3>
-    <pre><code>curl -I -sS https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/05-team-workflow-fixes/report.html
+    <pre><code>curl -I -sS https://dev-vm.example-tailnet.ts.net/reports/r/klimkit-dc70a74e9a/05-team-workflow-fixes/report.html
 HTTP/2 200
 content-type: text/html; charset=utf-8
 
-curl -I -sS https://odev.tail11c448.ts.net/reports/r/klimkit-dc70a74e9a/@Klim/05-team-workflow-fixes/report.html
+curl -I -sS https://dev-vm.example-tailnet.ts.net/reports/r/klimkit-dc70a74e9a/@Klim/05-team-workflow-fixes/report.html
 HTTP/2 404</code></pre>
   </section>
 

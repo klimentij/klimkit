@@ -71,14 +71,14 @@ class SwitchboardAgentTests(unittest.TestCase):
 
     def test_detect_machine_identity_infers_dns_when_tailscale_omits_self_dns(self):
         with (
-            mock.patch.object(MODULE.socket, "gethostname", return_value="MacBook-Air-8.local"),
+            mock.patch.object(MODULE.socket, "gethostname", return_value="Workstation-8.local"),
             mock.patch.object(
                 MODULE,
                 "load_tailscale_status_payload",
                 return_value={
-                    "MagicDNSSuffix": "tail11c448.ts.net",
+                    "MagicDNSSuffix": "example-tailnet.ts.net",
                     "Self": {
-                        "HostName": "MacBook-Air-8.local",
+                        "HostName": "Workstation-8.local",
                         "DNSName": "",
                     },
                 },
@@ -86,8 +86,8 @@ class SwitchboardAgentTests(unittest.TestCase):
         ):
             identity = MODULE.detect_machine_identity()
 
-        self.assertEqual(identity.machine, "MacBook-Air-8")
-        self.assertEqual(identity.dns_name, "macbook-air-8.tail11c448.ts.net")
+        self.assertEqual(identity.machine, "Workstation-8")
+        self.assertEqual(identity.dns_name, "workstation-8.example-tailnet.ts.net")
 
     def test_load_config_keeps_standalone_agent_paths_exact(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -325,7 +325,7 @@ class SwitchboardAgentTests(unittest.TestCase):
                                 "type": "session_meta",
                                 "payload": {
                                     "id": "thread-4",
-                                    "cwd": "/Users/klim",
+                                    "cwd": "/Users/operator",
                                     "git": {"branch": "main"},
                                 },
                             }
@@ -349,7 +349,7 @@ class SwitchboardAgentTests(unittest.TestCase):
 
             summary = MODULE.parse_rollout(rollout, {})
             payload = MODULE.summarize_session(
-                MODULE.MachineIdentity(machine="MacBook-Air-8", dns_name="macbook-air-8.tail11c448.ts.net"),
+                MODULE.MachineIdentity(machine="Workstation-8", dns_name="workstation-8.example-tailnet.ts.net"),
                 summary,
                 4632,
             )

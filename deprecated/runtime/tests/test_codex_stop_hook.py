@@ -63,7 +63,7 @@ class CodexStopHookTests(unittest.TestCase):
                 "session_id": "019e551a-3b8b-7e72-9a91-e48b23f1681c",
                 "turn_id": "turn-1",
                 "last_assistant_message": "Implemented and verified the notification change.",
-                "cwd": "/home/ubuntu/klimkit",
+                "cwd": "/workspace/klimkit",
             }
             if payload_updates:
                 payload.update(payload_updates)
@@ -99,7 +99,7 @@ class CodexStopHookTests(unittest.TestCase):
             tailscale_script="""
             #!/bin/sh
             if [ "$1" = "status" ] && [ "$2" = "--json" ]; then
-              printf '%s\n' '{"Self":{"HostName":"odev","DNSName":"odev.tail11c448.ts.net."}}'
+              printf '%s\n' '{"Self":{"HostName":"dev-vm","DNSName":"dev-vm.example-tailnet.ts.net."}}'
               exit 0
             fi
             exit 1
@@ -115,10 +115,10 @@ class CodexStopHookTests(unittest.TestCase):
         self.assertLess(text.index("Open in Codex app"), text.index("Open code-server directly"))
         self.assertIn("codex://threads/019e551a-3b8b-7e72-9a91-e48b23f1681c", text)
         self.assertIn(
-            "https://odev.tail11c448.ts.net/proxy/4721/#session=019e551a-3b8b-7e72-9a91-e48b23f1681c&machine=odev&folder=%2Fhome%2Fubuntu%2Fklimkit",
+            "https://dev-vm.example-tailnet.ts.net/proxy/4721/#session=019e551a-3b8b-7e72-9a91-e48b23f1681c&machine=dev-vm&folder=%2Fworkspace%2Fklimkit",
             text,
         )
-        self.assertIn("https://odev.tail11c448.ts.net/?folder=/home/ubuntu/klimkit", text)
+        self.assertIn("https://dev-vm.example-tailnet.ts.net/?folder=/workspace/klimkit", text)
         self.assertIn("parse_mode=HTML", args)
 
     def test_notification_omits_direct_code_server_url_without_tailscale_dns(self) -> None:
@@ -142,7 +142,7 @@ class CodexStopHookTests(unittest.TestCase):
             tailscale_script="""
             #!/bin/sh
             if [ "$1" = "status" ] && [ "$2" = "--json" ]; then
-              printf '%s\n' '{"Self":{"HostName":"odev","DNSName":"odev.tail11c448.ts.net."}}'
+              printf '%s\n' '{"Self":{"HostName":"dev-vm","DNSName":"dev-vm.example-tailnet.ts.net."}}'
               exit 0
             fi
             exit 1

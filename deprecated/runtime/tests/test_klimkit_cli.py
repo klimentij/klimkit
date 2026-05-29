@@ -560,7 +560,7 @@ class KlimkitCliTests(unittest.TestCase):
             with (
                 redirect_stdout(stdout),
                 mock.patch.object(cli, "build_plan", return_value=[]),
-                mock.patch.object(cli, "_tailscale_dns_name", return_value="odev.tail11c448.ts.net"),
+                mock.patch.object(cli, "_tailscale_dns_name", return_value="dev-vm.example-tailnet.ts.net"),
                 mock.patch.object(
                     cli,
                     "apply_plan",
@@ -593,9 +593,9 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn("restarted", output)
             self.assertIn("restart Klimkit user service", output)
             self.assertIn("Switchboard: http://127.0.0.1:4721/switchboard/", output)
-            self.assertIn("Switchboard proxy: https://odev.tail11c448.ts.net/proxy/4721/", output)
-            self.assertIn("Switchboard serve: https://odev.tail11c448.ts.net/switchboard/", output)
-            self.assertIn("Proof reports: https://odev.tail11c448.ts.net/reports/", output)
+            self.assertIn("Switchboard proxy: https://dev-vm.example-tailnet.ts.net/proxy/4721/", output)
+            self.assertIn("Switchboard serve: https://dev-vm.example-tailnet.ts.net/switchboard/", output)
+            self.assertIn("Proof reports: https://dev-vm.example-tailnet.ts.net/reports/", output)
             self.assertIn("Codex projection:", output)
             self.assertIn("code-server settings:", output)
             expected_check = (
@@ -630,7 +630,7 @@ class KlimkitCliTests(unittest.TestCase):
             with (
                 redirect_stdout(stdout),
                 mock.patch.object(cli, "build_plan", return_value=[]),
-                mock.patch.object(cli, "_tailscale_dns_name", return_value="odev.tail11c448.ts.net"),
+                mock.patch.object(cli, "_tailscale_dns_name", return_value="dev-vm.example-tailnet.ts.net"),
                 mock.patch.object(
                     cli,
                     "apply_plan",
@@ -692,7 +692,7 @@ class KlimkitCliTests(unittest.TestCase):
             with (
                 redirect_stdout(stdout),
                 mock.patch.object(cli.socket, "gethostname", return_value="vm-1"),
-                mock.patch.object(cli, "_tailscale_dns_name", return_value="odev.tail11c448.ts.net"),
+                mock.patch.object(cli, "_tailscale_dns_name", return_value="dev-vm.example-tailnet.ts.net"),
                 mock.patch.object(cli, "build_plan", return_value=[]),
                 mock.patch.object(
                     cli,
@@ -721,9 +721,9 @@ class KlimkitCliTests(unittest.TestCase):
             self.assertIn("📦 Actions: 1", notification)
             self.assertIn("📝 Changes: 1 files changed", notification)
             self.assertIn("restart Klimkit user service", notification)
-            self.assertIn("https://odev.tail11c448.ts.net/proxy/4721/", notification)
-            self.assertIn(f"↗ Code-server direct: https://odev.tail11c448.ts.net/?folder={cli.OPS_REPO_ROOT}", notification)
-            self.assertIn("📄 Reports: https://odev.tail11c448.ts.net/reports/", notification)
+            self.assertIn("https://dev-vm.example-tailnet.ts.net/proxy/4721/", notification)
+            self.assertIn(f"↗ Code-server direct: https://dev-vm.example-tailnet.ts.net/?folder={cli.OPS_REPO_ROOT}", notification)
+            self.assertIn("📄 Reports: https://dev-vm.example-tailnet.ts.net/reports/", notification)
             self.assertIn("telegram", stdout.getvalue())
             self.assertIn("sent apply summary to Telegram", stdout.getvalue())
 
@@ -801,7 +801,7 @@ class KlimkitCliTests(unittest.TestCase):
 
             with (
                 redirect_stdout(stdout),
-                mock.patch.object(cli, "_tailscale_dns_name", return_value="odev.tail11c448.ts.net"),
+                mock.patch.object(cli, "_tailscale_dns_name", return_value="dev-vm.example-tailnet.ts.net"),
             ):
                 result = cli.main(["--config", str(config_path), "doctor"])
 
@@ -809,9 +809,9 @@ class KlimkitCliTests(unittest.TestCase):
             output = stdout.getvalue()
             self.assertIn("URLs", output)
             self.assertIn("Switchboard: http://127.0.0.1:4721/switchboard/", output)
-            self.assertIn("Switchboard proxy: https://odev.tail11c448.ts.net/proxy/4721/", output)
-            self.assertIn("Switchboard serve: https://odev.tail11c448.ts.net/switchboard/", output)
-            self.assertIn("Proof reports: https://odev.tail11c448.ts.net/reports/", output)
+            self.assertIn("Switchboard proxy: https://dev-vm.example-tailnet.ts.net/proxy/4721/", output)
+            self.assertIn("Switchboard serve: https://dev-vm.example-tailnet.ts.net/switchboard/", output)
+            self.assertIn("Proof reports: https://dev-vm.example-tailnet.ts.net/reports/", output)
 
     def test_setup_role_flag_previews_existing_config_conversion(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -838,7 +838,7 @@ class KlimkitCliTests(unittest.TestCase):
         self.assertIn(".klimkit/state", rendered)
         self.assertIn("External Installers", rendered)
         self.assertNotIn("switchboard.toml", rendered)
-        self.assertNotIn("tail11" + "c448", rendered)
+        self.assertNotIn("private-tailnet" + "c448", rendered)
         self.assertNotIn("od" + "ev", rendered)
 
 

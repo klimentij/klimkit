@@ -36,9 +36,9 @@ Status meanings:
 
 - [x] Root `AGENTS.md`
 - [x] User-provided AGENTS instructions in the conversation
-- [x] `~/klimkipedia/projects/AGENTS.md` memory/log convention
-- [x] Example Klimkipedia memory file
-- [x] Example Klimkipedia log file
+- [x] `<knowledge-base-repo>/projects/AGENTS.md` memory/log convention
+- [x] Example operator knowledge base memory file
+- [x] Example operator knowledge base log file
 - [x] `.klimkit/memory.md`
 - [x] `.klimkit/log.md`
 - [x] Top-level `README.md`

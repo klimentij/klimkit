@@ -53,7 +53,7 @@ All implementation, proof, validation, and reflection items are complete. The pl
 
 - [ ] `tests/test_codex_pack_validation.py` is updated to assert the new plugin structure, including skill-owned workflow content, absence or justified retention of root reference packaging, public-safe plugin content, and required `agents/openai.yaml` metadata for every plugin skill.
 - [ ] Any docs/static tests that mention plugin surfaces or root references are updated to match the new public plugin contract.
-- [ ] Skill validation is run for every plugin skill with `/home/ubuntu/.codex/skills/.system/skill-creator/scripts/quick_validate.py plugins/klimkit/skills/<skill-name>` or an equivalent validator, and all results pass.
+- [ ] Skill validation is run for every plugin skill with `<codex-home>/skills/.system/skill-creator/scripts/quick_validate.py plugins/klimkit/skills/<skill-name>` or an equivalent validator, and all results pass.
 - [ ] `uv run python -m unittest tests.test_codex_pack_validation -q` passes.
 - [ ] `uv run python -m unittest tests.test_docs_static -q` passes.
 - [ ] `uv run python -m unittest tests.test_klimkit_install -q` passes unless the implementer records a concrete reason it is unaffected and unavailable or intentionally skipped.

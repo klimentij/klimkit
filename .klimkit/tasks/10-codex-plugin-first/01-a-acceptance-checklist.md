@@ -34,7 +34,7 @@ On branch `codex-plugin-first`, extract Klimkit's Codex harness pack into a publ
 - [ ] Focused tests cover documentation command accuracy enough to fail if README reintroduces obsolete commands such as `codex plugin install` for this workflow.
 - [ ] Focused tests or static checks confirm autosync and Telegram defaults remain disabled in generated/default config examples.
 - [ ] Existing projection preservation guarantees from task `09-preserve-codex-plugin-config` remain intact: `kk apply` still preserves VM-local plugin/connector tables and writes secret-bearing projected Codex config with restrictive permissions.
-- [ ] Verification includes `python3 /home/ubuntu/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py <plugin-path>` or an equivalent repo-local validator against the implemented plugin root.
+- [ ] Verification includes `python3 <codex-home>/skills/.system/plugin-creator/scripts/validate_plugin.py <plugin-path>` or an equivalent repo-local validator against the implemented plugin root.
 - [ ] Verification includes `codex plugin marketplace add --help`, `codex plugin marketplace upgrade --help`, and `codex plugin add --help` or official Codex docs evidence showing the README commands match the current CLI.
 - [ ] Verification includes the focused plugin/pack/docs tests added or changed for this task.
 - [ ] Verification includes `uv run python -m unittest tests.test_codex_pack_validation tests.test_docs_static -q` unless those suites are deliberately renamed or replaced, in which case the replacement suites are named in proof.

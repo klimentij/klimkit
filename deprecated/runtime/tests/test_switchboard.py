@@ -877,24 +877,24 @@ class SwitchboardTests(unittest.TestCase):
                     MODULE,
                     "load_tailscale_status_payload",
                     return_value={
-                        "MagicDNSSuffix": "tail11c448.ts.net",
+                        "MagicDNSSuffix": "example-tailnet.ts.net",
                         "Peer": {
                             "peer-1": {
                                 "HostName": "MacBook Air (23)",
-                                "DNSName": "macbook-air-23.tail11c448.ts.net.",
+                                "DNSName": "workstation-23.example-tailnet.ts.net.",
                             }
                         },
                     },
                 ):
                     store.apply_snapshot(
                         {
-                            "machine": "MacBook-Air-8.local",
+                            "machine": "Workstation-8.local",
                             "machine_dns": "",
                             "generated_at": "2026-04-17T10:00:00Z",
                             "sessions": [
                                 {
                                     "session_id": "thread-mac",
-                                    "cwd": "/Users/klim/coding-ops",
+                                    "cwd": "/Users/operator/coding-ops",
                                     "folder_name": "coding-ops",
                                     "branch": "main",
                                     "title": "Mac session",
@@ -915,10 +915,10 @@ class SwitchboardTests(unittest.TestCase):
                     )
 
                 state = store.build_state("workstation", stale_after_seconds=180, retention_days=3650)
-                self.assertEqual(state["machines"][0]["machine_dns"], "macbook-air-23.tail11c448.ts.net")
+                self.assertEqual(state["machines"][0]["machine_dns"], "workstation-23.example-tailnet.ts.net")
                 self.assertEqual(
                     state["workspaces"][0]["code_server_url"],
-                    "https://macbook-air-23.tail11c448.ts.net/?folder=/Users/klim/coding-ops",
+                    "https://workstation-23.example-tailnet.ts.net/?folder=/Users/operator/coding-ops",
                 )
             finally:
                 store.close()
@@ -1169,10 +1169,10 @@ class SwitchboardTests(unittest.TestCase):
                         "event_id": "pws:thread-hook:turn-1",
                         "session_id": "thread-hook",
                         "machine": "pws",
-                        "cwd": "/home/user/pantera",
-                        "workspace": "pantera",
+                        "cwd": "/home/user/sample-project",
+                        "workspace": "sample-project",
                         "status": "needs_input",
-                        "title": "pantera",
+                        "title": "sample-project",
                         "branch": "main",
                         "message": "Which deploy target should I use?",
                         "created_at": now,
@@ -1216,10 +1216,10 @@ class SwitchboardTests(unittest.TestCase):
                         "event_id": "pws:thread-hook:turn-2",
                         "session_id": "thread-hook",
                         "machine": "pws",
-                        "cwd": "/home/user/pantera",
-                        "workspace": "pantera",
+                        "cwd": "/home/user/sample-project",
+                        "workspace": "sample-project",
                         "status": "needs_input",
-                        "title": "pantera",
+                        "title": "sample-project",
                         "branch": "main",
                         "message": "Pick a deployment target.",
                         "created_at": now,
@@ -1262,10 +1262,10 @@ class SwitchboardTests(unittest.TestCase):
                             "generated_at": working_at,
                             "session": {
                                 "session_id": "thread-hook",
-                                "cwd": "/home/user/pantera",
-                                "folder_name": "pantera",
+                                "cwd": "/home/user/sample-project",
+                                "folder_name": "sample-project",
                                 "branch": "main",
-                                "title": "pantera",
+                                "title": "sample-project",
                                 "detail": "Still working.",
                                 "activity_state": "working",
                                 "created_at": created,
@@ -1277,7 +1277,7 @@ class SwitchboardTests(unittest.TestCase):
                                 "needs_attention": False,
                                 "attention_kind": "",
                                 "approval_policy": "never",
-                                "code_server_url": "https://pws.example.ts.net/?folder=/home/user/pantera",
+                                "code_server_url": "https://pws.example.ts.net/?folder=/home/user/sample-project",
                                 "same_origin_helper_url": "",
                             },
                         },
@@ -1287,9 +1287,9 @@ class SwitchboardTests(unittest.TestCase):
                             "machine": "pws",
                             "machine_dns": "pws.example.ts.net",
                             "session_id": "thread-hook",
-                            "cwd": "/home/user/pantera",
-                            "workspace": "pantera",
-                            "title": "pantera",
+                            "cwd": "/home/user/sample-project",
+                            "workspace": "sample-project",
+                            "title": "sample-project",
                             "branch": "main",
                             "status": "needs_input",
                             "message": "Choose the deploy target.",
@@ -1325,10 +1325,10 @@ class SwitchboardTests(unittest.TestCase):
                             "generated_at": working_at,
                             "session": {
                                 "session_id": "thread-hook",
-                                "cwd": "/home/user/pantera",
-                                "folder_name": "pantera",
+                                "cwd": "/home/user/sample-project",
+                                "folder_name": "sample-project",
                                 "branch": "main",
-                                "title": "pantera",
+                                "title": "sample-project",
                                 "detail": "Still working.",
                                 "activity_state": "working",
                                 "created_at": created,
@@ -1340,7 +1340,7 @@ class SwitchboardTests(unittest.TestCase):
                                 "needs_attention": False,
                                 "attention_kind": "",
                                 "approval_policy": "never",
-                                "code_server_url": "https://pws.example.ts.net/?folder=/home/user/pantera",
+                                "code_server_url": "https://pws.example.ts.net/?folder=/home/user/sample-project",
                                 "same_origin_helper_url": "",
                             },
                         },
@@ -1350,9 +1350,9 @@ class SwitchboardTests(unittest.TestCase):
                             "machine": "pws",
                             "machine_dns": "pws.example.ts.net",
                             "session_id": "thread-hook",
-                            "cwd": "/home/user/pantera",
-                            "workspace": "pantera",
-                            "title": "pantera",
+                            "cwd": "/home/user/sample-project",
+                            "workspace": "sample-project",
+                            "title": "sample-project",
                             "branch": "main",
                             "status": "needs_input",
                             "message": "Choose the deploy target.",
@@ -1854,13 +1854,13 @@ class SwitchboardTests(unittest.TestCase):
                 "- The full completion body reached Telegram, including this tail sentinel."
             )
             payload = {
-                "machine": "MacBook-Air-8",
-                "machine_dns": "macbook-air-8.tail11c448.ts.net",
+                "machine": "Workstation-8",
+                "machine_dns": "workstation-8.example-tailnet.ts.net",
                 "generated_at": "2026-05-04T12:34:50Z",
                 "sessions": [
                     {
                         "session_id": "thread-mac",
-                        "cwd": "/Users/klim",
+                        "cwd": "/Users/operator",
                         "folder_name": "klim",
                         "branch": "klim",
                         "title": "hi43",
@@ -1887,11 +1887,11 @@ class SwitchboardTests(unittest.TestCase):
                 text = telegram.call_args.args[1]
                 self.assertEqual(telegram.call_args.kwargs["parse_mode"], "HTML")
                 self.assertIn("<b>Codex finished</b>", text)
-                self.assertIn("<code>MacBook-Air-8</code>", text)
-                self.assertIn("/Users/klim", text)
+                self.assertIn("<code>Workstation-8</code>", text)
+                self.assertIn("/Users/operator", text)
                 self.assertIn(full_completion_message, text)
                 self.assertIn("https://workstation.example.ts.net/switchboard/#", text)
-                self.assertIn("https://macbook-air-8.tail11c448.ts.net/?folder=/Users/klim", text)
+                self.assertIn("https://workstation-8.example-tailnet.ts.net/?folder=/Users/operator", text)
                 self.assertLess(
                     text.index("Open in Klimkit Switchboard"),
                     text.index("Open code-server directly"),
@@ -2010,13 +2010,13 @@ class SwitchboardTests(unittest.TestCase):
             base = build_config(Path(tmpdir))
             app = MODULE.SwitchboardApp(base)
             payload = {
-                "machine": "MacBook-Air-8",
-                "machine_dns": "macbook-air-8.tail11c448.ts.net",
+                "machine": "Workstation-8",
+                "machine_dns": "workstation-8.example-tailnet.ts.net",
                 "generated_at": "2026-05-04T12:34:50Z",
                 "sessions": [
                     {
                         "session_id": "thread-mac",
-                        "cwd": "/Users/klim",
+                        "cwd": "/Users/operator",
                         "folder_name": "klim",
                         "activity_state": "done",
                         "latest_event_id": "turn-done",

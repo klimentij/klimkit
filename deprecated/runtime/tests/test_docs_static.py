@@ -77,7 +77,7 @@ class DocsStaticTests(unittest.TestCase):
         self.assertIn("BASE_BRANCH", script)
         self.assertIn("SYNC_BRANCH", script)
         self.assertIn("switchboard_folder=", script)
-        for private_token in ("PANTERA", "pantera", "tail11", "klimkit-dev-workstation"):
+        for private_token in ("SAMPLE_PROJECT", "sample-project", "private-tailnet", "example-dev-workstation"):
             self.assertNotIn(private_token, script)
 
     def test_security_and_contributing_docs_exist(self) -> None:

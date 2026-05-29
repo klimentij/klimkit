@@ -4,8 +4,8 @@ Timestamp: 2026-05-11T10:22:09Z
 
 ## Source Boundary
 
-- Required external source pattern read: `/home/ubuntu/klimkipedia/.klimkit/reflection.md`.
-- Related external workflow rules read: `/home/ubuntu/klimkipedia/.klimkit/AGENTS.md`.
+- Required external source pattern read: `<knowledge-base-repo>/.klimkit/reflection.md`.
+- Related external workflow rules read: `<knowledge-base-repo>/.klimkit/AGENTS.md`.
 - Local context read: `.klimkit/memory.md`, `.klimkit/log.md`, `.klimkit/tasks/03-reflection-workflow/01-a-acceptance-checklist.md`, current pack files, and the local `.klimkit/tasks/` archive by filenames and relevant text notes.
 - Binary task artifacts in older task folders were treated as evidence inventory, not text sources.
 
@@ -25,8 +25,8 @@ Timestamp: 2026-05-11T10:22:09Z
 - `uv run python -m unittest tests.test_codex_pack_validation -q` -> `Ran 9 tests in 0.014s`, `OK`.
 - `uv run python -m unittest discover -s tests -q` -> `Ran 144 tests in 8.580s`, `OK (skipped=1)`.
 - `git diff --check` -> passed.
-- `kk apply` with user DBus environment -> completed; projected `/home/ubuntu/.codex/AGENTS.md`, updated checklister/final-reviewer/harness-tuning files, and created `/home/ubuntu/.codex/agents/reflector.toml`.
-- Projection check -> `/home/ubuntu/.codex/agents/reflector.toml` exists and projected `AGENTS.md`, checklister, and final-reviewer mention the Reflection Gate and `.klimkit/reflection.md`.
+- `kk apply` with user DBus environment -> completed; projected `<codex-home>/AGENTS.md`, updated checklister/final-reviewer/harness-tuning files, and created `<codex-home>/agents/reflector.toml`.
+- Projection check -> `<codex-home>/agents/reflector.toml` exists and projected `AGENTS.md`, checklister, and final-reviewer mention the Reflection Gate and `.klimkit/reflection.md`.
 
 ## Reflection Reconciliation
 
