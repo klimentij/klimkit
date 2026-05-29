@@ -78,6 +78,12 @@ The root `skills/` package is the product:
 - `klimkit-report-server`: local/Tailscale serving checks for operator-scoped proof reports.
 - `klimkit-walkthrough`: static HTML walkthrough reports with media and redaction checks.
 - `klimkit-worktree-stack`: isolated branch worktrees for parallel agent work.
+- `klimkit-agent-browser`: imported via Vercel Skills CLI from `vercel-labs/agent-browser`.
+- `klimkit-web-design-guidelines`: imported via Vercel Skills CLI from `vercel-labs/agent-skills`.
+- `klimkit-ui-ux-pro-max`: imported via Vercel Skills CLI from `nextlevelbuilder/ui-ux-pro-max-skill`.
+- `klimkit-improve-codebase-architecture`: imported via Vercel Skills CLI from `mattpocock/skills`.
+- `klimkit-impeccable`: imported via Vercel Skills CLI from `pbakaus/impeccable`.
+- `klimkit-antigravity-security-auditor`: imported via Vercel Skills CLI from `sickn33/antigravity-awesome-skills`; named with the source qualifier to avoid replacing Klimkit's existing `klimkit-security-auditor`.
 
 Issue trackers, project boards, triage, and tracker control-plane skills are intentionally out of scope for this first skills-only version.
 

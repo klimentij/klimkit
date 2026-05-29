@@ -20,6 +20,12 @@ EXPECTED_SKILLS = {
     "klimkit-report-server",
     "klimkit-walkthrough",
     "klimkit-worktree-stack",
+    "klimkit-agent-browser",
+    "klimkit-web-design-guidelines",
+    "klimkit-ui-ux-pro-max",
+    "klimkit-improve-codebase-architecture",
+    "klimkit-impeccable",
+    "klimkit-antigravity-security-auditor",
 }
 
 REMOVED_SCOPE_TERMS = (
@@ -47,6 +53,15 @@ LEGACY_ROOTS = (
 
 
 class RootSkillTests(unittest.TestCase):
+    IMPORTED_SKILLS = {
+        "klimkit-agent-browser",
+        "klimkit-web-design-guidelines",
+        "klimkit-ui-ux-pro-max",
+        "klimkit-improve-codebase-architecture",
+        "klimkit-impeccable",
+        "klimkit-antigravity-security-auditor",
+    }
+
     def test_root_contains_only_skills_first_package(self) -> None:
         self.assertEqual({path.name for path in SKILLS.iterdir() if path.is_dir()}, EXPECTED_SKILLS)
         for legacy in LEGACY_ROOTS:
@@ -62,7 +77,8 @@ class RootSkillTests(unittest.TestCase):
                 continue
             with self.subTest(skill=skill_dir.name):
                 self.assertRegex(skill_dir.name, name_re)
-                self.assertEqual({entry.name for entry in skill_dir.iterdir()} - allowed_entries, set())
+                if skill_dir.name not in self.IMPORTED_SKILLS:
+                    self.assertEqual({entry.name for entry in skill_dir.iterdir()} - allowed_entries, set())
 
                 skill_md = skill_dir / "SKILL.md"
                 content = skill_md.read_text(encoding="utf-8")
@@ -71,7 +87,8 @@ class RootSkillTests(unittest.TestCase):
                 self.assertIsNotNone(match)
                 frontmatter = match.group(1)
                 self.assertIn(f"name: {skill_dir.name}", frontmatter)
-                self.assertRegex(frontmatter, r"(?m)^description:\s*.+Use .+")
+                if skill_dir.name not in self.IMPORTED_SKILLS:
+                    self.assertRegex(frontmatter, r"(?m)^description:\s*.+Use .+")
 
     def test_setup_owns_operator_and_personality_config(self) -> None:
         setup = (SKILLS / "klimkit-setup" / "SKILL.md").read_text(encoding="utf-8")

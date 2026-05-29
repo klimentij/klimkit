@@ -3,6 +3,7 @@
 Timestamped audit trail. Entries describe actions, not preferences.
 
 ## Log
+- 2026-05-29T09:49:20Z: Reverted the prior imported-skill sequence and re-imported the requested non-poisonous third-party skills through Vercel Skills CLI with only Klimkit name prefixes.
 2026-05-29T09:07:28Z: Folded the old `klimkit-workflow` skill into `klimkit-implement`, moved its artifact workflow reference, and removed the separate workflow skill from the root package.
 2026-05-29T09:06:04Z: Extracted the deprecated checklister, code explorer, security auditor, reflector, and final reviewer subagent roles into root skills and added `klimkit-implement` as the skills-first implementation workflow.
 2026-05-29T05:28:29Z: Updated the Klimkit grill-me skill to write an auditable Question Triage grid with up to 10 considered questions, importance estimates, and the reason the current question was chosen.
