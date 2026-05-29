@@ -5,7 +5,7 @@ description: Implement behavior changes with narrow red-green-refactor loops and
 
 # Klimkit TDD
 
-Use TDD to protect intent, not to create mechanical coverage. Keep each loop small enough that a failing test names the behavior being changed.
+Use TDD to protect intent, not to create mechanical coverage. `klimkit-implement` treats this as the default implementation contract for behavior-changing work. Keep each loop small enough that a failing test names the behavior being changed.
 
 ## Workflow
 

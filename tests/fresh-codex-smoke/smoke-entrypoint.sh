@@ -56,6 +56,12 @@ expected = {
     "klimkit-report-server",
     "klimkit-walkthrough",
     "klimkit-worktree-stack",
+    "klimkit-agent-browser",
+    "klimkit-web-design-guidelines",
+    "klimkit-ui-ux-pro-max",
+    "klimkit-improve-codebase-architecture",
+    "klimkit-impeccable",
+    "klimkit-antigravity-security-auditor",
 }
 data = json.loads(Path("/tmp/skills.json").read_text())
 installed = {item["name"] for item in data}
