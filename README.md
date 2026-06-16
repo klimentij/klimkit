@@ -79,6 +79,7 @@ The root `skills/` package is the product:
 - `klimkit-report-server`: local/Tailscale serving checks for operator-scoped proof reports.
 - `klimkit-walkthrough`: static HTML walkthrough reports with media and redaction checks.
 - `klimkit-create-worktree`: deterministic isolated Git worktrees for parallel agent work, including dev-from-main sync flows.
+- `klimkit-codex-control`: agent-neutral control of OpenAI Codex sessions through the CLI or live desktop app-server.
 - `klimkit-agent-browser`: imported via Vercel Skills CLI from `vercel-labs/agent-browser`.
 - `klimkit-web-design-guidelines`: imported via Vercel Skills CLI from `vercel-labs/agent-skills`.
 - `klimkit-ui-ux-pro-max`: imported via Vercel Skills CLI from `nextlevelbuilder/ui-ux-pro-max-skill`.

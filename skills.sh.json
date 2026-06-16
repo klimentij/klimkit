@@ -22,7 +22,8 @@
         "klimkit-tdd",
         "klimkit-security-auditor",
         "klimkit-improve-codebase-architecture",
-        "klimkit-create-worktree"
+        "klimkit-create-worktree",
+        "klimkit-codex-control"
       ]
     },
     {

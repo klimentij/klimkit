@@ -21,6 +21,7 @@ EXPECTED_SKILLS = {
     "klimkit-report-server",
     "klimkit-walkthrough",
     "klimkit-create-worktree",
+    "klimkit-codex-control",
     "klimkit-agent-browser",
     "klimkit-web-design-guidelines",
     "klimkit-ui-ux-pro-max",

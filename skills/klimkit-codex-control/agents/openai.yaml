@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Codex Control"
+  short_description: "Control live and headless Codex sessions"
+  default_prompt: "Use $klimkit-codex-control to send messages to Codex sessions, inspect history, or orchestrate Codex agents."
