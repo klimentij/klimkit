@@ -22,6 +22,7 @@ EXPECTED_SKILLS = {
     "klimkit-walkthrough",
     "klimkit-create-worktree",
     "klimkit-codex-control",
+    "klimkit-harness-cleanup",
     "klimkit-agent-browser",
     "klimkit-web-design-guidelines",
     "klimkit-ui-ux-pro-max",
@@ -142,6 +143,25 @@ class RootSkillTests(unittest.TestCase):
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, skill + "\n" + reference)
+
+    def test_harness_cleanup_has_a_two_phase_approval_gate(self) -> None:
+        skill_dir = SKILLS / "klimkit-harness-cleanup"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        report_contract = (skill_dir / "references" / "report-contract.md").read_text(encoding="utf-8")
+        inventory = skill_dir / "scripts" / "inventory.py"
+
+        self.assertTrue(inventory.exists())
+        for phrase in (
+            "Phase 1 — Discover, Research, Report",
+            "Report and stop",
+            "Phase 2 — Execute Approved Actions",
+            "explicitly approves action or batch IDs",
+            "Preserve credentials, authentication, sessions, history, memories",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, skill)
+        self.assertIn("Stable action IDs", report_contract)
+        self.assertIn("Never reuse an ID", report_contract)
 
     def test_implement_routes_old_subagent_roles_to_skills(self) -> None:
         implement = (SKILLS / "klimkit-implement" / "SKILL.md").read_text(encoding="utf-8")

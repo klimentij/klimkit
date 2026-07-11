@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Cleanup"
+  short_description: "Audit and safely clean Codex and Claude"
+  default_prompt: "Use $klimkit-harness-cleanup to inventory my Codex and Claude configuration across machines, report recommendations, and wait for approval before cleanup."

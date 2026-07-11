@@ -7,7 +7,7 @@
 
 ![Klimkit. Agentic engineering across machines, under control.](assets/brand/klimkit-readme-hero.jpg)
 
-Klimkit is a skills library for agentic engineering work. Install it with the Vercel Skills CLI to give agents reusable workflows for operator-scoped project setup, implementation workflow, acceptance checklists, code exploration, security review, reflection, final review, plan grilling, diagnosis, TDD, walkthrough reports, local report serving, and isolated worktrees.
+Klimkit is a skills library for agentic engineering work. Install it with the Vercel Skills CLI to give agents reusable workflows for operator-scoped project setup, implementation workflow, acceptance checklists, code exploration, security review, reflection, final review, plan grilling, diagnosis, TDD, walkthrough reports, local report serving, isolated worktrees, and multi-machine harness cleanup.
 
 The old Klimkit runtime is deprecated. Switchboard, `kk`, `klimkit`, `install.sh`, the Python package, Codex pack projection, service templates, Bash helpers, autosync, Telegram notifications, and the Codex plugin prototype live under `deprecated/` for source reference and manual legacy use. New Klimkit behavior should live in root `skills/`.
 
@@ -80,6 +80,7 @@ The root `skills/` package is the product:
 - `klimkit-walkthrough`: static HTML walkthrough reports with media and redaction checks.
 - `klimkit-create-worktree`: deterministic isolated Git worktrees for parallel agent work, including dev-from-main sync flows.
 - `klimkit-codex-control`: agent-neutral control of OpenAI Codex sessions through the CLI or live desktop app-server.
+- `klimkit-harness-cleanup`: two-phase inventory, recommendation, explicit approval, quarantine, cleanup, and verification for Codex and Claude Code across local and remote machines.
 - `klimkit-agent-browser`: imported via Vercel Skills CLI from `vercel-labs/agent-browser`.
 - `klimkit-web-design-guidelines`: imported via Vercel Skills CLI from `vercel-labs/agent-skills`.
 - `klimkit-ui-ux-pro-max`: imported via Vercel Skills CLI from `nextlevelbuilder/ui-ux-pro-max-skill`.

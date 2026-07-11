@@ -23,7 +23,8 @@
         "klimkit-security-auditor",
         "klimkit-improve-codebase-architecture",
         "klimkit-create-worktree",
-        "klimkit-codex-control"
+        "klimkit-codex-control",
+        "klimkit-harness-cleanup"
       ]
     },
     {
