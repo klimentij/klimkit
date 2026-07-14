@@ -3,6 +3,7 @@
 Timestamped audit trail. Entries describe actions, not preferences.
 
 ## Log
+- 2026-07-15T01:45:00Z: Made harness-native, auth-protected hosting (Claude Code Artifacts / Codex Sites) the default deployment path for all human-facing HTML in `docs/work/`, demoting `klimkit-report-server` to fallback; updated AGENTS.md, the docs/work README, and the walkthrough/report-server/setup/implement skills.
 - 2026-07-15T01:20:00Z: Adopted the docs/work work-journal convention as Klimkit's default evidence layout, migrated the entire `.klimkit/` tree into `docs/work/` + `docs/agents/`, and rewrote skills, docs, tests, and the smoke test around it (`docs/work/021-150726-docs-work-adoption/`).
 - 2026-05-29T10:04:51Z: Merged the imported Antigravity security-auditor checks into `klimkit-security-auditor` and removed the separate source-qualified skill copy.
 - 2026-05-29T09:49:20Z: Reverted the prior imported-skill sequence and re-imported the requested non-poisonous third-party skills through Vercel Skills CLI with only Klimkit name prefixes.

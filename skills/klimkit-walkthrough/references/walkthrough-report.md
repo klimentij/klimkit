@@ -23,4 +23,4 @@ Use this structure for first-pass static walkthrough reports.
 
 ## Handoff
 
-Include both the local `docs/work/<work>/<phase>/NNN-walkthrough.html` path and any verified served URL. If Tailscale serving is unavailable, say what was checked and what is missing.
+Include both the local `docs/work/<work>/<phase>/NNN-walkthrough.html` path and the deployed URL from the harness's native hosted surface (Claude Code Artifact or Codex Site — authenticated, private/workspace-only by default). If native hosting is unavailable and the report-server fallback was used, say what was checked and what is missing. Never claim a URL works until it has been opened or fetched in this session.

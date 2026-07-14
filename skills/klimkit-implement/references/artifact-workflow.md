@@ -38,3 +38,9 @@ For UI or workflow proof, write self-contained single-file HTML reports as numbe
 artifacts inside the phase folder. Keep large screenshots and videos in the gitignored
 `.local/` folder unless they are irreproducible evidence. Render media full-width so it
 can be inspected without opening thumbnails.
+
+Deploy human-facing HTML through the harness's native hosted surface by default —
+Claude Code's Artifact tool or Codex Sites, both authentication-protected and private
+by default. Never enable public link sharing unless the user explicitly asks. Record
+the deployed URL in the phase `LOG.md` next to the file link; use
+`klimkit-report-server` only as the fallback when native hosting is unavailable.

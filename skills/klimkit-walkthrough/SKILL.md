@@ -23,8 +23,12 @@ Create a small static HTML report that lets a human inspect what happened withou
    - redactions and privacy notes;
    - validation summary and residual risk.
 6. Validate that image/video links resolve from the report path.
-7. Use `klimkit-report-server` to verify local or Tailscale serving when a shareable report URL is needed.
-8. Add the report path and verified URL to the task proof or final handoff.
+7. Deploy the report for the human driver through the harness's native hosted surface by default:
+   - Claude Code: publish the HTML with the built-in Artifact tool (authenticated claude.ai page, private to the author by default; republish to the same URL on revisions).
+   - Codex: deploy with Codex Sites (workspace-authenticated, private by default; save a version, then deploy).
+   - Always keep the default authenticated visibility (private or workspace-only); never enable public link sharing unless the user explicitly asks.
+8. If no native hosted surface is available in the session, fall back to `klimkit-report-server` for local or Tailscale serving.
+9. Add the report path and the deployed (or served) URL to the phase `LOG.md` and the final handoff.
 
 ## Redaction Rules
 

@@ -33,6 +33,11 @@ but new skills-first setup should not create them; offer to migrate them into
   irreproducible evidence.
 - Heavy, moment-useful material goes in a gitignored `.local/` folder inside the work
   folder (add `**/.local/` to `docs/work/.gitignore`).
+- Deploy human-facing HTML (explainers, reports, dashboards) through the harness's
+  native hosted surface by default — Claude Code's Artifact tool or Codex Sites, both
+  authentication-protected and private/workspace-only by default. Never enable public
+  link sharing unless the user explicitly asks; record the deployed URL in the phase
+  `LOG.md` next to the file link.
 - Never bulk-load `docs/work/` into context — read a `LOG.md`, descend selectively.
 
 ## Templates

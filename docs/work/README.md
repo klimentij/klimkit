@@ -51,6 +51,13 @@ machine-local, allowed to vanish. Notes may point into `.local/`, but must stay
 comprehensible without it; if something heavy matters beyond the moment, link where it
 lives externally instead of committing it.
 
+**Viewing for the human driver.** HTML artifacts are not just files: by default the agent
+also deploys them through its harness's native hosted surface — the Claude Code Artifact
+tool or Codex Sites — which are authentication-protected (private to the author or
+workspace-only). Never enable public link sharing unless the human explicitly asks. The
+deployed URL goes in the phase `LOG.md` next to the file link; the git-tracked HTML stays
+the source of truth.
+
 **Where things graduate.** Decisions become ADRs, durable research goes to
 `docs/research/`, final reports to `docs/reports/` — the work folder is the workshop and
 stays behind as history. If you're reading to learn: open the work `LOG.md`, pick a phase,

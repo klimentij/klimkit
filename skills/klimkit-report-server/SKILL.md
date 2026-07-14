@@ -1,11 +1,11 @@
 ---
 name: klimkit-report-server
-description: Check, explain, or set up Klimkit static proof-report serving for `docs/work` HTML reports and Tailscale URLs. Use when a task needs report-server readiness, `/reports/` links, Tailscale Serve verification, or troubleshooting report visibility.
+description: Check, explain, or set up Klimkit static proof-report serving for `docs/work` HTML reports and Tailscale URLs. Use as the fallback when native hosted publishing (Claude Code Artifacts, Codex Sites) is unavailable and a task needs report-server readiness, `/reports/` links, Tailscale Serve verification, or troubleshooting report visibility.
 ---
 
 # Klimkit Report Server
 
-Use this skill to make proof reports reachable and inspectable. The skill owns a small reference server script so report hosting can live with the skills package instead of depending on deprecated Klimkit runtime code.
+Use this skill to make proof reports reachable and inspectable. This is the fallback serving path: the default for human-facing HTML is the harness's native hosted surface — the Claude Code Artifact tool or Codex Sites, both authentication-protected and private by default. Reach for this skill when no native hosted surface is available in the session, when the report must be served from the repo tree, or when troubleshooting existing report serving. The skill owns a small reference server script so report hosting can live with the skills package instead of depending on deprecated Klimkit runtime code.
 
 ## Workflow
 

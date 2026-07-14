@@ -3,7 +3,10 @@
 Klimkit reports are self-contained static HTML files inside `docs/work/` work and phase
 folders, numbered like any other artifact. Legacy `.klimkit/reports/` and
 `.klimkit/<operator>/reports/` folders may be served as historical context, but new
-skills-first proof reports live in `docs/work/`. Serving is optional unless the task
+skills-first proof reports live in `docs/work/`. The default viewing surface for the
+human driver is the harness's native hosted publishing — Claude Code Artifacts or Codex
+Sites, both authenticated and private by default; this local/Tailscale server is the
+fallback when native hosting is unavailable. Serving is optional unless the task
 requires a shareable report URL.
 
 ## Verification Order
