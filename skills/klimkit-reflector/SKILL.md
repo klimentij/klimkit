@@ -9,8 +9,8 @@ Use this after verification and before final review. Reflection is synthesis for
 
 ## Workflow
 
-1. Read the current request, task notes, changed-file summary, verification evidence, intended final result, `.klimkit/<operator>/memory.md`, `.klimkit/<operator>/log.md`, and relevant `.klimkit/<operator>/tasks/` history.
-2. If `.klimkit/<operator>/reflection.md` is missing, create it with:
+1. Read the current request, work notes, changed-file summary, verification evidence, intended final result, `docs/agents/memory.md`, `docs/agents/log.md`, and relevant `docs/work/` LOGs (descend selectively — never bulk-load the tree).
+2. If `docs/agents/reflection.md` is missing, create it with:
    - `# Project Reflection`
    - a one-line append-only description.
    - `## Reflections`

@@ -17,8 +17,8 @@ Use this as the skills-first replacement for the old global `AGENTS.md` implemen
 ## Workflow
 
 1. **Intake**
-   - Read the latest user request, repo instructions, relevant memory/log/task notes, docs, and nearby code.
-   - If `.klimkit/<operator>/` is missing or ambiguous, use `klimkit-setup`.
+   - Read the latest user request, repo instructions, relevant `docs/agents/` memory/log, `docs/work/` LOGs, docs, and nearby code.
+   - If the repo lacks the `docs/work/` layout, use `klimkit-setup`.
    - Decide whether the work is implementation, debugging, release, review, research, UI/proof, or security-sensitive.
 2. **Explore**
    - Use `klimkit-code-explorer` inline when the code path is unfamiliar, broad, or risky.
@@ -58,4 +58,4 @@ Use this as the skills-first replacement for the old global `AGENTS.md` implemen
 - `klimkit-reflector`: cross-task synthesis after verification.
 - `klimkit-final-reviewer`: final gate, preferably from fresh subagents.
 
-Read [references/artifact-workflow.md](references/artifact-workflow.md) when concrete `.klimkit` paths, task-note naming, proof reports, memory/log/reflection, or team/solo layout details matter.
+Read [references/artifact-workflow.md](references/artifact-workflow.md) when concrete `docs/work/` paths, work-note naming, proof reports, or memory/log/reflection details matter.

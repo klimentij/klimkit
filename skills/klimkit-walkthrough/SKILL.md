@@ -9,9 +9,9 @@ Create a small static HTML report that lets a human inspect what happened withou
 
 ## Workflow
 
-1. Ensure operator-scoped Klimkit context exists. If `.klimkit/<operator>/` is missing or ambiguous, use `klimkit-setup` first.
+1. Ensure Klimkit's docs-first context exists. If the repo lacks the `docs/work/` layout, use `klimkit-setup` first.
 2. Define the walkthrough purpose: feature proof, bug reproduction, QA pass, setup proof, or decision brief.
-3. Create a task-local report directory under `.klimkit/<operator>/reports/<slug>/`.
+3. Write the report as a self-contained single-file HTML, numbered like any other artifact in the current `docs/work/` phase folder (e.g. `003-walkthrough.html`). Keep heavy media in the phase folder's gitignored `.local/` subfolder unless it is irreproducible evidence.
 4. Capture fresh evidence. Use screenshots for UI states; add video only when interaction timing or motion matters.
 5. Write a concise report with:
    - title and timestamp;

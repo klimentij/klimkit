@@ -23,4 +23,4 @@ Use this structure for first-pass static walkthrough reports.
 
 ## Handoff
 
-Include both the local `.klimkit/<operator>/reports/<slug>/report.html` path and any verified served URL. If Tailscale serving is unavailable, say what was checked and what is missing.
+Include both the local `docs/work/<work>/<phase>/NNN-walkthrough.html` path and any verified served URL. If Tailscale serving is unavailable, say what was checked and what is missing.

@@ -1,11 +1,15 @@
 # Report Server Notes
 
-Klimkit reports are static HTML files under `.klimkit/<operator>/reports/`. Legacy flat `.klimkit/reports/` folders may be served as historical context, but new skills-first proof reports should be operator-scoped. Serving is optional unless the task requires a shareable report URL.
+Klimkit reports are self-contained static HTML files inside `docs/work/` work and phase
+folders, numbered like any other artifact. Legacy `.klimkit/reports/` and
+`.klimkit/<operator>/reports/` folders may be served as historical context, but new
+skills-first proof reports live in `docs/work/`. Serving is optional unless the task
+requires a shareable report URL.
 
 ## Verification Order
 
 1. Confirm the report HTML exists.
-2. Confirm linked media exists and stays inside the report directory.
+2. Confirm the report is self-contained, or that any linked media exists and stays inside the phase folder (or its gitignored `.local/`).
 3. Check the local server URL if a Klimkit server is running.
 4. Check Tailscale status if a tailnet URL is needed.
 5. Fetch the final `/reports/` URL before claiming it works.
@@ -15,7 +19,7 @@ Klimkit reports are static HTML files under `.klimkit/<operator>/reports/`. Lega
 Use commands that are available in the target environment:
 
 ```bash
-find .klimkit -path '.klimkit/*/reports/*.html' -print -o -path '.klimkit/*/reports/*/*.html' -print
+find docs/work -name '*.html' -not -path '*/.local/*' -print
 tailscale status
 tailscale serve status
 ```

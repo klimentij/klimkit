@@ -1,0 +1,2 @@
+# Anything under a .local/ folder is machine-local scratch: never tracked, never synced.
+**/.local/

@@ -79,13 +79,12 @@ This is a noninteractive fresh-machine smoke test. Do not ask follow-up question
 Use operator name "${OPERATOR_NAME}".
 Use agent personality "${PERSONALITY_NAME}": ${PERSONALITY_DESCRIPTION}
 
-Create the minimal operator-scoped Klimkit setup in the current repository:
-- .klimkit/${OPERATOR_NAME}/config.toml
-- .klimkit/${OPERATOR_NAME}/memory.md
-- .klimkit/${OPERATOR_NAME}/log.md
-- .klimkit/${OPERATOR_NAME}/reflection.md
-- .klimkit/${OPERATOR_NAME}/tasks/
-- .klimkit/${OPERATOR_NAME}/reports/
+Create the minimal docs-first Klimkit setup in the current repository:
+- docs/work/README.md
+- docs/work/.gitignore
+- docs/agents/memory.md
+- docs/agents/log.md
+- docs/agents/reflection.md
 
 Keep the files minimal and public-safe. After creating them, summarize what was created.
 EOF
@@ -98,14 +97,13 @@ codex exec \
   "$(cat /tmp/klimkit-setup-prompt.txt)" \
   | tee /tmp/codex-exec.log
 
-root="/workspace/fresh-repo/.klimkit/${OPERATOR_NAME}"
-test -f "$root/config.toml"
-test -f "$root/memory.md"
-test -f "$root/log.md"
-test -f "$root/reflection.md"
-test -d "$root/tasks"
-test -d "$root/reports"
-rg -n "$OPERATOR_NAME|$PERSONALITY_NAME" "$root/config.toml"
+root="/workspace/fresh-repo/docs"
+test -f "$root/work/README.md"
+test -f "$root/work/.gitignore"
+test -f "$root/agents/memory.md"
+test -f "$root/agents/log.md"
+test -f "$root/agents/reflection.md"
+rg -n "\.local/" "$root/work/.gitignore"
 
 printf '\nFresh Codex smoke passed. Created files:\n'
-find /workspace/fresh-repo/.klimkit -maxdepth 3 -print | sort
+find /workspace/fresh-repo/docs -maxdepth 3 -print | sort

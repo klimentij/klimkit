@@ -9,7 +9,7 @@ Use TDD to protect intent, not to create mechanical coverage. Keep each loop sma
 
 ## Workflow
 
-1. Ensure operator-scoped Klimkit context exists. If `.klimkit/<operator>/` is missing or ambiguous, use `klimkit-setup` first.
+1. Ensure Klimkit's docs-first context exists. If the repo lacks the `docs/work/` layout, use `klimkit-setup` first.
 2. Read the request, acceptance checklist, existing tests, and nearby implementation before writing a test.
 3. Choose one vertical behavior slice. Avoid broad refactors before the first red test.
 4. Write or update the smallest test that should fail for the requested behavior.
@@ -19,7 +19,7 @@ Use TDD to protect intent, not to create mechanical coverage. Keep each loop sma
 8. Refactor only the code touched by this slice, preserving green tests.
 9. Repeat for the next slice until the checklist is complete.
 10. Run broader checks that match the blast radius.
-11. Record the red/green evidence, final checks, skipped checks, and residual risk in `.klimkit/<operator>/tasks/<feature>/`.
+11. Record the red/green evidence, final checks, skipped checks, and residual risk as a numbered note in the current `docs/work/` phase folder.
 
 ## Test Quality
 

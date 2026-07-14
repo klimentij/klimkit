@@ -9,9 +9,9 @@ Use this before implementation work. The output is an agent-authored task note w
 
 ## Workflow
 
-1. Read the user request, repo instructions, existing `.klimkit` memory/log/task notes, relevant docs, and enough nearby code to understand the real acceptance surface.
-2. Resolve the active operator folder. If there is no clear `.klimkit/<operator>/` context, use `klimkit-setup` first.
-3. Create or update `.klimkit/<operator>/tasks/<feature>/<nn-a-acceptance-checklist>.md`.
+1. Read the user request, repo instructions, existing `docs/agents/` memory/log, relevant `docs/work/` LOGs, relevant docs, and enough nearby code to understand the real acceptance surface.
+2. Resolve the active work folder. If the repo has no `docs/work/` layout, use `klimkit-setup` first.
+3. Create or update `docs/work/<NNN-DDMMYY-slug>/<phase>/NNN-acceptance-checklist.md` inside the current work folder's active phase.
 4. Add an `Acceptance Checklist` section using checkbox bullets.
 5. Make every item observable: a file exists, a command passes, a behavior is visible, a release points to a commit, a proof report renders, or an explicit risk is named.
 6. Include scope boundaries and skipped work. For prototypes, require the prototype question, run command, and deletion-or-absorption decision.

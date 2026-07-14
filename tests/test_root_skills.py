@@ -96,14 +96,21 @@ class RootSkillTests(unittest.TestCase):
         state = (SKILLS / "klimkit-setup" / "references" / "state-config.md").read_text(
             encoding="utf-8"
         )
+        workflow = (
+            SKILLS / "klimkit-setup" / "references" / "artifact-workflow.md"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("Resolve the operator name", setup)
-        self.assertIn("home Klimkit repo", setup)
         self.assertIn("agent personality", setup)
         self.assertIn("Steady Operator", setup)
         self.assertIn("${XDG_CONFIG_HOME:-~/.config}/klimkit/config.toml", setup)
-        self.assertIn(".klimkit/<operator>/config.toml", state)
+        self.assertIn("docs/work/README.md", setup)
+        self.assertIn("docs/agents/memory.md", setup)
+        self.assertIn("${XDG_CONFIG_HOME:-~/.config}/klimkit/config.toml", state)
         self.assertIn("personality_name", state)
+        self.assertIn("docs/work/<NNN-DDMMYY-slug>/", workflow)
+        self.assertIn("LOG.md", workflow)
+        self.assertNotIn(".klimkit/<operator>", workflow)
 
     def test_grill_me_records_questions_and_decisions(self) -> None:
         grill = (SKILLS / "klimkit-grill-me" / "SKILL.md").read_text(encoding="utf-8")
@@ -118,7 +125,7 @@ class RootSkillTests(unittest.TestCase):
         self.assertIn("Search the web", grill)
         self.assertIn("contradictions", grill)
         self.assertIn("number-prefixed agent-authored Markdown note", grill)
-        self.assertIn(".klimkit/<operator>/tasks/", grill)
+        self.assertIn("docs/work/", grill)
         self.assertIn("Approved decision:", grill)
 
     def test_create_worktree_includes_deterministic_script_contract(self) -> None:
