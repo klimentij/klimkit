@@ -7,5 +7,4 @@ the Codex app plus plugin as the default README path over Switchboard/fork-and-a
 > convention — artifacts are flat numbered files. Authorship below is recovered from the
 > old `-h-`(human) / `-a-`(agent) file names.
 
-- **2026-05-27** (agent) [001-acceptance-checklist.md](001-acceptance-checklist.md) — blocking checklist for extracting the harness into a public plugin: manifest validity, no VM-local state leakage, marketplace policy, README repositioning, and publish/release/final-review gates.
-- **2026-05-27** (agent) [002-proof.md](002-proof.md) — built `plugins/klimkit` plus the repo marketplace, reworked README to plugin-first with Switchboard/`kk apply` as secondary, published via PR #2 merged to `main`, released `v0.1.15`, and verified live install/upgrade on the VM.
+- **05-27** [001-270526-checklist-and-implementation](001-270526-checklist-and-implementation/) — checklist plus `plugins/klimkit` build, README rework, PR #2 merged, and `v0.1.15` release (agent).

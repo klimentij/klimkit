@@ -63,6 +63,9 @@ the source of truth.
 stays behind as history. If you're reading to learn: open the work `LOG.md`, pick a phase,
 and only then open files. Don't bulk-read the tree; it's built so you never have to.
 
-**Legacy folders.** Work folders migrated from an earlier layout may be flat (numbered
-files directly in the work folder, no phase subfolders); their `LOG.md` says so and
-carries the authorship the old file names used to encode.
+**Always two layers.** Artifacts never sit directly in a work folder: a work folder
+contains only its `LOG.md` and phase folders, and files live inside phases. Even a
+single-sitting piece of work gets one phase folder — a flat work folder goes wide and
+unreadable as artifacts accumulate. (Folders migrated from an earlier layout carry a
+migration note in their `LOG.md`; authorship recovered from the old file names lives in
+the phase LOGs.)

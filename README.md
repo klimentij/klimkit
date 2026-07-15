@@ -47,19 +47,17 @@ npx skills add ./ --list
 
 Ask your agent to use `klimkit-setup` when a repo has no Klimkit context. The setup skill resolves an operator name (used for attribution in work logs) by checking the current request, `${XDG_CONFIG_HOME:-~/.config}/klimkit/config.toml`, and git identity. If discovery is ambiguous, it asks you to choose or provide a name.
 
-New skills-first evidence is docs-first — a git-tracked work journal plus project agent state:
+New skills-first evidence is docs-first — a git-tracked work journal:
 
 ```text
 docs/work/<NNN-DDMMYY-slug>/           # one folder per piece of work, journaled live
 docs/work/<work>/<NNN-DDMMYY-slug>/    # phase folders: one logical human+agent iteration
 docs/work/<work>/<phase>/LOG.md        # timestamped beats: one-liner, who drove, file links
+docs/work/<work>/<phase>/001-*.md      # numbered artifacts — always inside a phase
 docs/work/README.md                    # the one-page convention
-docs/agents/memory.md                  # durable preferences, corrections, process rules
-docs/agents/log.md                     # timestamped action history
-docs/agents/reflection.md              # append-only cross-task synthesis
 ```
 
-Each work folder reads like a story: what the human asked (preserved verbatim), what the agent did, what they decided together, and why. Self-contained HTML reports are numbered artifacts inside phases; heavy media stays in gitignored `.local/` folders. See [docs/work/README.md](docs/work/README.md) for the full convention — this repo's own history under [docs/work/](docs/work/) is the first instance of it.
+Each work folder reads like a story: what the human asked (preserved verbatim), what the agent did, what they decided together, and why. Artifacts always live two folder layers under `docs/work/` — inside a phase, never directly in a work folder. There are no separate memory/log/reflection state files: history lives in the `LOG.md` files, reflections and decisions are numbered notes in the fitting phase, and session-binding rules graduate into `AGENTS.md`. Self-contained HTML reports are numbered artifacts inside phases; heavy media stays in gitignored `.local/` folders. See [docs/work/README.md](docs/work/README.md) for the full convention — this repo's own history under [docs/work/](docs/work/) is the first instance of it.
 
 Setup also asks for an agent personality. It offers built-in options such as `Steady Operator`, `Product Engineer`, and `Research Scribe`, and lets you provide a custom name plus one-sentence description. User-global defaults go in `${XDG_CONFIG_HOME:-~/.config}/klimkit/config.toml`.
 
@@ -70,7 +68,7 @@ Installed skill folders are package content, not mutable state. Do not write ope
 The root `skills/` package is the product:
 
 - `klimkit-implement`: skills-first implementation workflow replacing the old global `AGENTS.md` flow.
-- `klimkit-setup`: docs-first `docs/work/` + `docs/agents/` setup, operator discovery, config state, and repo context pointers.
+- `klimkit-setup`: docs-first `docs/work/` journal setup, operator discovery, config state, and repo context pointers.
 - `klimkit-checklister`: blocking pass/fail acceptance checklists before implementation.
 - `klimkit-code-explorer`: read-only execution-path tracing before edits.
 - `klimkit-security-auditor`: focused auth, secrets, data exposure, sandbox, infra, DevSecOps, data-flow, and compliance review.
@@ -145,7 +143,7 @@ Run the fresh-machine Codex smoke test from Docker:
 tests/fresh-codex-smoke/run.sh
 ```
 
-The smoke test builds a small Linux container, copies only `auth.json` and `installation_id` from your Codex home into a temporary read-only mount, clones this branch, installs the root skills with the Vercel Skills CLI, runs `codex exec`, and verifies that `klimkit-setup` creates the docs-first `docs/work/` + `docs/agents/` skeleton.
+The smoke test builds a small Linux container, copies only `auth.json` and `installation_id` from your Codex home into a temporary read-only mount, clones this branch, installs the root skills with the Vercel Skills CLI, runs `codex exec`, and verifies that `klimkit-setup` creates the docs-first `docs/work/` skeleton.
 
 ## Security
 

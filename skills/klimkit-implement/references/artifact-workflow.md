@@ -4,14 +4,19 @@ Use these paths unless the repository has more specific instructions.
 
 ## Evidence Files
 
-Klimkit's skills-first default is a docs-first layout:
+Klimkit's skills-first default is a docs-first work journal:
 
 - `docs/work/<NNN-DDMMYY-slug>/`: one folder per piece of work, journaled live per
-  `docs/work/README.md` — phases inside as `<NNN-DDMMYY-slug>/` subfolders, `LOG.md` at
-  both levels, plain numbered artifacts (`001-…`) with no authorship prefixes.
-- `docs/agents/memory.md`: durable preferences, corrections, and process rules.
-- `docs/agents/log.md`: timestamped action history.
-- `docs/agents/reflection.md`: append-only cross-task synthesis.
+  `docs/work/README.md` — phase subfolders `<NNN-DDMMYY-slug>/` per logical human+agent
+  iteration, `LOG.md` at both levels, plain numbered artifacts (`001-…`) with no
+  authorship prefixes.
+- **Always two layers**: artifacts live inside phase folders, never directly in a work
+  folder. A work folder holds only its `LOG.md` and phases.
+
+There are no separate memory/log/reflection state files: action history lives in the
+`LOG.md` files, reflections and durable decisions are numbered notes inside the fitting
+work phase, and rules that must bind every future session graduate into the repo's
+`AGENTS.md`.
 
 When `docs/work/README.md` is missing, use `klimkit-setup` to create the layout. Legacy
 `.klimkit/` paths are readable historical context, not the default write target for new

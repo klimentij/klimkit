@@ -1,8 +1,8 @@
 # Contributing
 
-Keep changes small, previewable, and easy to verify. For non-trivial work, journal it in the docs-first work layout: one `docs/work/<NNN-DDMMYY-slug>/` folder per piece of work, phase subfolders per logical human+agent iteration, `LOG.md` at both levels, and plain numbered artifacts (`001-…`) with no authorship prefixes — the LOG carries who drove each beat. See [docs/work/README.md](docs/work/README.md) for the one-page convention and [AGENTS.md](AGENTS.md) for the live-journaling rules.
+Keep changes small, previewable, and easy to verify. For non-trivial work, journal it in the docs-first work layout: one `docs/work/<NNN-DDMMYY-slug>/` folder per piece of work, phase subfolders per logical human+agent iteration (artifacts always inside a phase — two folder layers under `docs/work/`, never flat), `LOG.md` at both levels, and plain numbered artifacts (`001-…`) with no authorship prefixes — the LOG carries who drove each beat. See [docs/work/README.md](docs/work/README.md) for the one-page convention and [AGENTS.md](AGENTS.md) for the live-journaling rules.
 
-Keep durable preferences, action history, and cross-task synthesis in `docs/agents/memory.md`, `docs/agents/log.md`, and `docs/agents/reflection.md`.
+There are no separate memory/log/reflection state files: action history lives in the `LOG.md` files, reflections and durable decisions are numbered notes inside the fitting work phase, and rules that must bind every future session graduate into [AGENTS.md](AGENTS.md).
 
 Use the repo's existing stdlib test harness:
 

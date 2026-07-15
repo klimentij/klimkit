@@ -8,4 +8,4 @@ workflow, packaged for `skills.sh` install.
 > convention — artifacts are flat numbered files. Authorship below is recovered from the
 > old `-h-`(human) / `-a-`(agent) file names.
 
-- **2026-05-28** (agent) [001-analysis-and-plan.md](001-analysis-and-plan.md) — answered "where is the workflow?" (Matt's repo has no `AGENTS.md`, relies on compositional slash-command skills), copied an upstream snapshot into `third_party/mattpocock-skills/`, and proposed merging its patterns with Klimkit's workflow gates via a `skills.sh`-installable package.
+- **05-28** [001-280526-analysis-and-plan](001-280526-analysis-and-plan/) — analyzed Matt's repo, snapshotted it into `third_party/mattpocock-skills/`, and proposed a `skills.sh`-installable merge plan (agent).

@@ -17,7 +17,7 @@ Use this as the skills-first replacement for the old global `AGENTS.md` implemen
 ## Workflow
 
 1. **Intake**
-   - Read the latest user request, repo instructions, relevant `docs/agents/` memory/log, `docs/work/` LOGs, docs, and nearby code.
+   - Read the latest user request, repo instructions (`AGENTS.md`), relevant `docs/work/` LOGs (descend selectively), docs, and nearby code.
    - If the repo lacks the `docs/work/` layout, use `klimkit-setup`.
    - Decide whether the work is implementation, debugging, release, review, research, UI/proof, or security-sensitive.
 2. **Explore**

@@ -9,7 +9,7 @@ Use this before implementation work. The output is an agent-authored task note w
 
 ## Workflow
 
-1. Read the user request, repo instructions, existing `docs/agents/` memory/log, relevant `docs/work/` LOGs, relevant docs, and enough nearby code to understand the real acceptance surface.
+1. Read the user request, repo instructions (`AGENTS.md`), relevant `docs/work/` LOGs, relevant docs, and enough nearby code to understand the real acceptance surface.
 2. Resolve the active work folder. If the repo has no `docs/work/` layout, use `klimkit-setup` first.
 3. Create or update `docs/work/<NNN-DDMMYY-slug>/<phase>/NNN-acceptance-checklist.md` inside the current work folder's active phase.
 4. Add an `Acceptance Checklist` section using checkbox bullets.

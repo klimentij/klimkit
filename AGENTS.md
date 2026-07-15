@@ -9,8 +9,14 @@ Substantial human+agent work is journaled live in `docs/work/<NNN-DDMMYY-slug>/`
 current phase folder's `LOG.md` updated as beats happen (timestamp, one-liner, who drove,
 file links), preserve **every human message verbatim in exactly one** fitting markdown of
 the work folder, and open a new `NNN-DDMMYY-slug/` phase folder when the work enters a new
-logical iteration. Never bulk-load `docs/work/` into context — read a `LOG.md`, descend
-selectively.
+logical iteration. Artifacts always live inside a phase folder — never directly in a work
+folder (two folder layers under `docs/work/`, always). Never bulk-load `docs/work/` into
+context — read a `LOG.md`, descend selectively.
+
+There are no separate memory/log/reflection state files: action history lives in the
+`LOG.md` files, reflections and durable decisions are numbered notes inside the fitting
+work phase, and preferences or process rules that must bind every future session graduate
+into this `AGENTS.md`.
 
 ## HTML reports and explainers — hosted, auth-protected
 
@@ -27,14 +33,6 @@ Always keep the default authenticated visibility — private or workspace-only. 
 enable public link sharing unless Klim explicitly asks. Record the deployed URL in the
 phase `LOG.md` next to the file link. The git-tracked HTML in `docs/work/` remains the
 source of truth; the hosted page is the viewing surface.
-
-## Agent state (docs/agents)
-
-Project-level agent state lives in `docs/agents/`:
-
-- `docs/agents/memory.md` — durable preferences, corrections, and process rules.
-- `docs/agents/log.md` — timestamped action history.
-- `docs/agents/reflection.md` — append-only cross-task synthesis.
 
 ## Main Release Reminder
 

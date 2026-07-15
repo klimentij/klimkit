@@ -14,3 +14,9 @@ folder is the first Klimkit instance journaled under the new convention.
   harness's native, auth-protected hosting (Claude Code Artifacts / Codex Sites);
   researched both features, updated `AGENTS.md`, the convention README, walkthrough and
   report-server skills, and both artifact-workflow references.
+- **07-15** [003-150726-two-layer-fix-and-agents-dissolution](003-150726-two-layer-fix-and-agents-dissolution/) —
+  Klim's corrections: restructured all 17 migrated work folders to the original
+  two-layer shape (work → phase → artifacts) and dissolved `docs/agents/` — action log
+  merged into the LOGs, memories and reflections transformed into durable-rulings and
+  reflection-archive notes under their originating phases; instructions updated
+  everywhere.

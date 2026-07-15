@@ -4,21 +4,26 @@ Use these paths unless the repository has more specific instructions.
 
 ## Evidence Files
 
-Klimkit's skills-first default is a docs-first layout that any human or agent can browse:
+Klimkit's skills-first default is a docs-first work journal that any human or agent can browse:
 
 - `docs/work/<NNN-DDMMYY-slug>/`: one folder per piece of work, journaled live — the
   original ask, decisions, proof, and reports. Governed by `docs/work/README.md`
   (create it from the template in this skill when missing).
 - `docs/work/<work>/<NNN-DDMMYY-slug>/`: phase folders — one per logical human+agent
   iteration (design, grilling, build, review…), each with its own `LOG.md`.
-- `LOG.md` at both levels: timestamped entries with a one-liner, who drove
-  (human / joint / agent-only), and links to the exact files.
+- **Always two layers**: a work folder contains only its `LOG.md` and phase folders;
+  artifacts never sit directly in a work folder. Even single-sitting work gets one phase.
+- `LOG.md` at both levels: the work LOG has one entry per phase; the phase LOG has
+  timestamped entries with a one-liner, who drove (human / joint / agent-only), and
+  links to the exact files.
 - Numbered artifacts (`001-…`, `002-…`) inside phases: distilled prose, verbatim human
   prompts, and self-contained HTML reports. No authorship prefixes in file names — the
   LOG carries who did what.
-- `docs/agents/memory.md`: durable preferences, corrections, and process rules.
-- `docs/agents/log.md`: timestamped action history.
-- `docs/agents/reflection.md`: append-only cross-task synthesis.
+
+There are no separate memory/log/reflection state files. Action history lives in the
+`LOG.md` files; reflections and durable decisions are numbered notes inside the fitting
+work phase; preferences or process rules that must bind every future session graduate
+into the repo's `AGENTS.md`.
 
 Legacy `.klimkit/` layouts (flat or operator-scoped) may be read as historical context,
 but new skills-first setup should not create them; offer to migrate them into
@@ -42,44 +47,22 @@ but new skills-first setup should not create them; offer to migrate them into
 
 ## Templates
 
-Memory:
-
-```markdown
-# Project Memory
-
-Durable preferences, corrections, and process rules.
-
-## Memories
-```
-
-Log:
-
-```markdown
-# Project Log
-
-Timestamped audit trail. Entries describe actions, not preferences.
-
-## Log
-```
-
-Reflection:
-
-```markdown
-# Project Reflection
-
-Append-only timestamped cross-task reflection log.
-
-## Reflections
-```
-
-Work LOG.md:
+Work-level LOG.md:
 
 ```markdown
 # LOG — <NNN-DDMMYY-slug>
 
 <one-paragraph summary of the piece of work>
 
-- **YYYY-MM-DD** [<phase folder>](<phase folder>/) — one-liner of what happened, who drove.
+- **MM-DD** [<NNN-DDMMYY-phase-slug>](<NNN-DDMMYY-phase-slug>/) — one-liner of the phase.
+```
+
+Phase-level LOG.md:
+
+```markdown
+# LOG — <NNN-DDMMYY-phase-slug>
+
+- **YYYY-MM-DD HH:MM** (human|joint|agent) [001-note.md](001-note.md) — one-liner of the beat.
 ```
 
 ## Local State

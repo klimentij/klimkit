@@ -11,7 +11,7 @@ Use this precedence when a Klimkit skill needs configuration:
 3. User-global defaults: `${XDG_CONFIG_HOME:-~/.config}/klimkit/config.toml`.
 4. Ask the user.
 
-Project evidence belongs under `docs/work/` and `docs/agents/` (see
+Project evidence belongs under `docs/work/` (see
 [artifact-workflow.md](artifact-workflow.md)). User-global defaults are for machine/user
 preferences that should apply across projects. Runtime logs, sockets, and non-portable
 state belong under `${XDG_STATE_HOME:-~/.local/state}/klimkit/` when they are not part of

@@ -254,7 +254,7 @@ Browser QA:
 - Confirmed the tab hover action is `Archive repo`, not `Close`.
 - Confirmed the copy button command title begins with `tmux new-session -A -s 'local-qa-repo'`.
 - Opened the catalog, checked the manual-tab row checkbox, confirmed the `ARCHIVE` batch button became enabled, clicked it, and confirmed local storage persisted `"archived": true`.
-- Screenshot: `016-switchboard-archive-dialog-proof.png`.
+- Screenshot: `004-switchboard-archive-dialog-proof.png`.
 
 Archived-hidden tab-bar QA:
 
@@ -262,7 +262,7 @@ Archived-hidden tab-bar QA:
 - Seeded one active local tab and one archived local tab in browser `localStorage`.
 - Confirmed the tab bar rendered only `active @ dev-vm` with `tabCount = 1` and `archivedTabVisible = false`.
 - Opened the catalog with `showArchived = true` and confirmed both active and archived rows were present in the dialog.
-- Screenshot: `016-switchboard-archived-hidden-tabbar-proof.png`.
+- Screenshot: `005-switchboard-archived-hidden-tabbar-proof.png`.
 
 ## Follow-up: done/unseen status, Tailscale Serve skip, and full Telegram message
 

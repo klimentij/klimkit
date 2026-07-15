@@ -82,9 +82,6 @@ Use agent personality "${PERSONALITY_NAME}": ${PERSONALITY_DESCRIPTION}
 Create the minimal docs-first Klimkit setup in the current repository:
 - docs/work/README.md
 - docs/work/.gitignore
-- docs/agents/memory.md
-- docs/agents/log.md
-- docs/agents/reflection.md
 
 Keep the files minimal and public-safe. After creating them, summarize what was created.
 EOF
@@ -100,9 +97,6 @@ codex exec \
 root="/workspace/fresh-repo/docs"
 test -f "$root/work/README.md"
 test -f "$root/work/.gitignore"
-test -f "$root/agents/memory.md"
-test -f "$root/agents/log.md"
-test -f "$root/agents/reflection.md"
 rg -n "\.local/" "$root/work/.gitignore"
 
 printf '\nFresh Codex smoke passed. Created files:\n'

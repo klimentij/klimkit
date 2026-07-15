@@ -1,0 +1,9 @@
+# LOG — 001-160526-team-workflow-fixes
+
+- **2026-05-16** (agent) [001-acceptance-checklist.md](001-acceptance-checklist.md) — checklist for hardening PR #1's team workflow: migration preflight/collision safety, Switchboard report discovery/serving, dry-run command quoting, Codex pack `__HUMAN_NAME__` fix.
+- **2026-05-16** (agent) [002-implementation-plan.md](002-implementation-plan.md) — five-step plan: migration preflight hardening, Switchboard hardening, CLI follow-up command repair, Codex pack wording fix, then verification/proof.
+- **2026-05-16** (agent) [003-implementation-proof.md](003-implementation-proof.md) — implemented all four fixes, ran the full suite (169 tests) plus adversarial CLI/HTTP QA and browser screenshots, flattened this repo's evidence back to the solo `.klimkit/` layout; two final-review rounds.
+- **2026-05-16** (agent) [004-proof-report.html](004-proof-report.html) — self-contained story-style HTML proof report of the reports UI and reserved-name rejection; its `assets/*.png` and `assets/reports-flow.mp4` references were never committed (heavy-artifact policy) and no longer resolve.
+- **2026-05-16T11:49:55Z** (agent) — recorded only in the retired `docs/agents/log.md` (no dedicated artifact note): added the repository-local `AGENTS.md` reminder to create and mark a latest GitHub release after every commit to `main` (the rule now carried forward in this repo's root `CLAUDE.md`/`AGENTS.md`).
+- **2026-07-15** (agent) [005-durable-rulings.md](005-durable-rulings.md) — migrated 1 durable ruling from the retired `docs/agents/memory.md` during `docs/agents` dissolution.
+- **2026-07-15** (agent) [006-reflection-archive.md](006-reflection-archive.md) — migrated the two 2026-05-16 reflection sessions verbatim from the retired `docs/agents/reflection.md` during `docs/agents` dissolution.

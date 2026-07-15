@@ -1,6 +1,6 @@
 ---
 name: klimkit-setup
-description: Set up Klimkit's docs-first repo context for agent work. Use when adding the `docs/work/` journal layout, `docs/agents/` state files, repo skill pointers, config state, or onboarding instructions to a project that should use Klimkit workflows.
+description: Set up Klimkit's docs-first repo context for agent work. Use when adding the `docs/work/` journal layout, repo skill pointers, config state, or onboarding instructions to a project that should use Klimkit workflows.
 ---
 
 # Klimkit Setup
@@ -22,7 +22,7 @@ Use this when a repository needs the Klimkit evidence layout and skill routing m
 4. Create the docs-first evidence layout only when meaningful work is starting:
    - `docs/work/README.md` — the one-page work-journal convention described in [references/artifact-workflow.md](references/artifact-workflow.md).
    - `docs/work/.gitignore` — ignoring `**/.local/`.
-   - `docs/agents/memory.md`, `docs/agents/log.md`, `docs/agents/reflection.md`.
+   - No separate memory/log/reflection state files: history lives in the `LOG.md` files, reflections and decisions are numbered notes in the fitting work phase, and session-binding rules graduate into `AGENTS.md`.
 5. If the repo has a legacy `.klimkit/` evidence tree, offer to migrate it into `docs/work/` (one work folder per legacy task, authorship recovered into `LOG.md` files) instead of leaving two layouts side by side.
 6. Write the selected operator and agent personality to `${XDG_CONFIG_HOME:-~/.config}/klimkit/config.toml`.
 7. Add a short repo instruction block only if the repo lacks one. Prefer updating existing `AGENTS.md` over inventing a second instruction file; add a `CLAUDE.md → AGENTS.md` symlink so Claude Code loads the same instructions. The block should cover the work-log rules: journal live, keep phase `LOG.md` updated, preserve every human message verbatim in exactly one note, never bulk-load `docs/work/`.
