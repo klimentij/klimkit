@@ -1,25 +1,7 @@
 .switchboard/
 .switchboard-agent/
-.klimkit/local/
-.klimkit/state/
-.klimkit/backups/
-.klimkit/logs/
-.klimkit/reports/**/*.png
-.klimkit/reports/**/*.jpg
-.klimkit/reports/**/*.jpeg
-.klimkit/reports/**/*.gif
-.klimkit/reports/**/*.webp
-.klimkit/reports/**/*.mp4
-.klimkit/reports/**/*.webm
-.klimkit/reports/**/*.mov
-.klimkit/*/reports/**/*.png
-.klimkit/*/reports/**/*.jpg
-.klimkit/*/reports/**/*.jpeg
-.klimkit/*/reports/**/*.gif
-.klimkit/*/reports/**/*.webp
-.klimkit/*/reports/**/*.mp4
-.klimkit/*/reports/**/*.webm
-.klimkit/*/reports/**/*.mov
+# Legacy .klimkit evidence layout (migrated to docs/work/); keep local leftovers out of git.
+.klimkit/
 tmp/
 __pycache__/
 .venv/

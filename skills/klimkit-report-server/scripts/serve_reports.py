@@ -16,14 +16,20 @@ from urllib.parse import quote, unquote
 
 
 def find_reports(root: Path) -> list[Path]:
+    reports: list[Path] = []
+    work = root / "docs" / "work"
+    if work.exists():
+        reports.extend(
+            path for path in work.glob("**/*.html") if ".local" not in path.parts
+        )
+    # Legacy layouts, readable as historical context.
     klimkit = root / ".klimkit"
-    if not klimkit.exists():
-        return []
-    reports = list((klimkit / "reports").glob("**/*.html"))
-    for operator_dir in klimkit.iterdir():
-        if not operator_dir.is_dir() or operator_dir.name in {"local", "state", "backups", "logs", "tasks", "reports"}:
-            continue
-        reports.extend((operator_dir / "reports").glob("**/*.html"))
+    if klimkit.exists():
+        reports.extend((klimkit / "reports").glob("**/*.html"))
+        for operator_dir in klimkit.iterdir():
+            if not operator_dir.is_dir() or operator_dir.name in {"local", "state", "backups", "logs", "tasks", "reports"}:
+                continue
+            reports.extend((operator_dir / "reports").glob("**/*.html"))
     return sorted({path.resolve() for path in reports if path.is_file()})
 
 
@@ -83,7 +89,7 @@ li {{ margin: 0.5rem 0; }}
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Serve .klimkit report HTML files.")
+    parser = argparse.ArgumentParser(description="Serve Klimkit report HTML files from docs/work (and legacy .klimkit) trees.")
     parser.add_argument("roots", nargs="*", default=["."], help="Repository roots to scan")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)

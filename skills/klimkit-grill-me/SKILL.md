@@ -11,9 +11,9 @@ Keep the session direct and human. This is a working conversation, not a form: a
 
 ## Workflow
 
-1. Resolve the active operator folder. If the repo has no clear `.klimkit/<operator>/` context, use `klimkit-setup` first.
-2. Create or reuse a grilling-session task folder under `.klimkit/<operator>/tasks/`, for example `.klimkit/<operator>/tasks/15-grilling-session/`.
-3. Create or reuse a number-prefixed agent-authored Markdown note in that folder, for example `01-a-grilling-session.md`.
+1. Resolve the active work folder. If the repo has no `docs/work/` layout, use `klimkit-setup` first.
+2. Create or reuse a grilling phase folder inside the current work folder under `docs/work/`, for example `docs/work/015-140126-checkout-redesign/002-150126-grilling/`.
+3. Create or reuse a number-prefixed agent-authored Markdown note in that folder, for example `001-grilling-session.md`.
 4. Start the note with a short title, the source request, and the current decision target.
 5. Prepare under the hood before asking:
    - Inspect the relevant codebase, docs, task notes, and existing decisions.

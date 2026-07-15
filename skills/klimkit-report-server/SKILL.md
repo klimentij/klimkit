@@ -1,18 +1,18 @@
 ---
 name: klimkit-report-server
-description: Check, explain, or set up Klimkit static proof-report serving for operator-scoped `.klimkit` reports and Tailscale URLs. Use when a task needs report-server readiness, `/reports/` links, Tailscale Serve verification, or troubleshooting report visibility.
+description: Check, explain, or set up Klimkit static proof-report serving for `docs/work` HTML reports and Tailscale URLs. Use as the fallback when native hosted publishing (Claude Code Artifacts, Codex Sites) is unavailable and a task needs report-server readiness, `/reports/` links, Tailscale Serve verification, or troubleshooting report visibility.
 ---
 
 # Klimkit Report Server
 
-Use this skill to make proof reports reachable and inspectable. The skill owns a small reference server script so report hosting can live with the skills package instead of depending on deprecated Klimkit runtime code.
+Use this skill to make proof reports reachable and inspectable. This is the fallback serving path: the default for human-facing HTML is the harness's native hosted surface — the Claude Code Artifact tool or Codex Sites, both authentication-protected and private by default. Reach for this skill when no native hosted surface is available in the session, when the report must be served from the repo tree, or when troubleshooting existing report serving. The skill owns a small reference server script so report hosting can live with the skills package instead of depending on deprecated Klimkit runtime code.
 
 ## Workflow
 
-1. Ensure operator-scoped Klimkit context exists. If `.klimkit/<operator>/` is missing or ambiguous, use `klimkit-setup` first.
-2. Identify the repository root and expected report directory:
-   - Default: `.klimkit/<operator>/reports/`
-   - Legacy readable fallback: `.klimkit/reports/`
+1. Ensure Klimkit's docs-first context exists. If the repo lacks the `docs/work/` layout, use `klimkit-setup` first.
+2. Identify the repository root and expected report locations:
+   - Default: self-contained numbered HTML artifacts anywhere under `docs/work/` (excluding gitignored `.local/` folders)
+   - Legacy readable fallback: `.klimkit/reports/` and `.klimkit/<operator>/reports/`
 3. Check local report files before checking network serving.
 4. If no report server is running, use `scripts/serve_reports.py` as the reference implementation or copy it into the target repo when the user asks for a persistent local setup.
 5. If a local report server is configured, check the local `/reports/` URL.
@@ -27,8 +27,8 @@ Use this skill to make proof reports reachable and inspectable. The skill owns a
 
 ## Report Expectations
 
-- HTML reports should be tracked when they are part of task proof.
-- Large screenshots/videos should usually stay ignored as local media referenced by the report.
+- HTML reports should be self-contained single files, tracked when they are part of work proof.
+- Large screenshots/videos should usually stay in a gitignored `.local/` folder as local media referenced by the report.
 - Report media should render full-width for inspection.
 - Prefer MP4 presentation embeds when Chrome/PWA scrubbing matters.
 

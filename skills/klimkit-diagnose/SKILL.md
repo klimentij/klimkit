@@ -9,7 +9,7 @@ Diagnose before fixing. The output should make the failure, root cause, fix, and
 
 ## Workflow
 
-1. Ensure operator-scoped Klimkit context exists. If `.klimkit/<operator>/` is missing or ambiguous, use `klimkit-setup` first.
+1. Ensure Klimkit's docs-first context exists. If the repo lacks the `docs/work/` layout, use `klimkit-setup` first.
 2. Define the symptom in one sentence and identify the smallest observable failure signal.
 3. Read relevant instructions, prior task notes, logs, and nearby tests before changing code.
 4. Reproduce the failure with the cheapest deterministic command, UI path, log bundle, or fixture.
@@ -19,7 +19,7 @@ Diagnose before fixing. The output should make the failure, root cause, fix, and
 8. Write or update a regression test when the repo has an appropriate test surface.
 9. Make the smallest robust fix.
 10. Rerun the failing signal, the new regression coverage, and any blast-radius checks.
-11. Record proof under `.klimkit/<operator>/tasks/<feature>/`: reproduction, root cause, changed files, checks run, and remaining risk.
+11. Record proof as a numbered note in the current `docs/work/` phase folder: reproduction, root cause, changed files, checks run, and remaining risk.
 
 ## Evidence Rules
 
