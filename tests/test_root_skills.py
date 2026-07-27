@@ -23,6 +23,7 @@ EXPECTED_SKILLS = {
     "klimkit-create-worktree",
     "klimkit-codex-control",
     "klimkit-harness-cleanup",
+    "klimkit-remote-control",
     "klimkit-agent-browser",
     "klimkit-web-design-guidelines",
     "klimkit-ui-ux-pro-max",
@@ -170,6 +171,35 @@ class RootSkillTests(unittest.TestCase):
                 self.assertIn(phrase, skill)
         self.assertIn("Stable action IDs", report_contract)
         self.assertIn("Never reuse an ID", report_contract)
+
+    def test_remote_control_covers_preflight_supervision_and_capacity(self) -> None:
+        skill_dir = SKILLS / "klimkit-remote-control"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        units = (skill_dir / "references" / "systemd-units.md").read_text(encoding="utf-8")
+        oom = (skill_dir / "references" / "oom-and-capacity.md").read_text(encoding="utf-8")
+
+        for script_name in ("preflight.sh", "install_remote_control.sh", "healthcheck.sh"):
+            with self.subTest(script_name=script_name):
+                script = skill_dir / "scripts" / script_name
+                self.assertTrue(script.exists())
+                self.assertTrue(script.stat().st_mode & 0o111)
+
+        for phrase in (
+            "Phase 1 — Preflight, before installing anything",
+            "System unit, not `systemctl --user` + linger",
+            "Supervision is not durability",
+            "headless probe",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, skill)
+
+        for phrase in ("StartLimitIntervalSec=0", "OOMPolicy=continue", "ExecStart="):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, units)
+
+        for phrase in ("OOMScoreAdjust=100", "oom_score_adj=800", "ceiling, not a reservation"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, oom)
 
     def test_implement_routes_old_subagent_roles_to_skills(self) -> None:
         implement = (SKILLS / "klimkit-implement" / "SKILL.md").read_text(encoding="utf-8")
