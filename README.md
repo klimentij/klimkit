@@ -82,6 +82,7 @@ The root `skills/` package is the product:
 - `klimkit-create-worktree`: deterministic isolated Git worktrees for parallel agent work, including dev-from-main sync flows.
 - `klimkit-codex-control`: agent-neutral control of OpenAI Codex sessions through the CLI or live desktop app-server.
 - `klimkit-harness-cleanup`: two-phase inventory, recommendation, explicit approval, quarantine, cleanup, and verification for Codex and Claude Code across local and remote machines.
+- `klimkit-remote-control`: supervised Claude Code Remote Control on a VM, so a project folder stays drivable from phone or browser across disconnects, reboots, and memory pressure.
 - `klimkit-agent-browser`: imported via Vercel Skills CLI from `vercel-labs/agent-browser`.
 - `klimkit-web-design-guidelines`: imported via Vercel Skills CLI from `vercel-labs/agent-skills`.
 - `klimkit-ui-ux-pro-max`: imported via Vercel Skills CLI from `nextlevelbuilder/ui-ux-pro-max-skill`.

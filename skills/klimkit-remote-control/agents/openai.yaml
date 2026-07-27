@@ -1,0 +1,4 @@
+interface:
+  display_name: "Remote Control on a VM"
+  short_description: "Keep a VM folder drivable from phone"
+  default_prompt: "Use $klimkit-remote-control to set up Claude Code Remote Control for a folder on this machine, supervised so it survives disconnects, reboots, and memory pressure."

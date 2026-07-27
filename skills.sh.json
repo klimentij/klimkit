@@ -24,7 +24,8 @@
         "klimkit-improve-codebase-architecture",
         "klimkit-create-worktree",
         "klimkit-codex-control",
-        "klimkit-harness-cleanup"
+        "klimkit-harness-cleanup",
+        "klimkit-remote-control"
       ]
     },
     {
