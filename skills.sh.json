@@ -24,6 +24,7 @@
         "klimkit-improve-codebase-architecture",
         "klimkit-create-worktree",
         "klimkit-codex-control",
+        "klimkit-claude-subagent",
         "klimkit-harness-cleanup",
         "klimkit-remote-control"
       ]

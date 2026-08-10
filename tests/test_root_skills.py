@@ -22,6 +22,7 @@ EXPECTED_SKILLS = {
     "klimkit-walkthrough",
     "klimkit-create-worktree",
     "klimkit-codex-control",
+    "klimkit-claude-subagent",
     "klimkit-harness-cleanup",
     "klimkit-remote-control",
     "klimkit-agent-browser",

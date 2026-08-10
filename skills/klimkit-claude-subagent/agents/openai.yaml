@@ -1,0 +1,4 @@
+interface:
+  display_name: "Klimkit Claude Subagent"
+  short_description: "Delegate tasks to Claude through Codex"
+  default_prompt: "Use $klimkit-claude-subagent to spawn Opus 5 to review this implementation plan."
