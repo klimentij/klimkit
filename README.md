@@ -1,3 +1,16 @@
+<a href="https://brightgears.ai"><img src="assets/brand/brightgears-banner.png" alt="Klimkit is no longer maintained. Its best ideas live on in BrightGears, a team of AI workers you hire into your Slack. brightgears.ai" width="100%"></a>
+
+> [!IMPORTANT]
+> **Klimkit is no longer maintained.** This repository stays online as an archive. Its best ideas, and a new way of building software, continue in **[BrightGears](https://brightgears.ai)**, a full commercial product: a team of AI workers you hire into your Slack.
+>
+> - **One clean inbox.** Only what truly needs a person reaches you, as one-tap cards in a single list.
+> - **Decisions on record.** Every approval and choice is kept: what was asked, who chose what, and when.
+> - **Work carried to done.** Hand over a task in a Slack thread; the gears take it through to merged, checked and released.
+> - **Shared by the whole team.** Every ask is visible to everyone, the gears know your wiki, calls and habits, and work keeps going overnight.
+> - **Years of best practices built in.** No agentic-engineering expertise needed, set up on your server and watched over by a person.
+>
+> **[Go to brightgears.ai →](https://brightgears.ai)**
+
 # Klimkit
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
